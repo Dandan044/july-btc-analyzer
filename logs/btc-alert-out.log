@@ -1,0 +1,1299 @@
+2026-03-09T11:13:15: [Alert Engine] [Engine] 引擎启动
+2026-03-09T11:13:15: [Alert Engine] Starting...
+2026-03-09T11:13:15: [Alert Engine] Rules directory: /root/.openclaw/workspace-july/skills/btc-alert/rules
+2026-03-09T11:13:15: [Alert Engine] Archive directory: /root/.openclaw/workspace-july/skills/btc-alert/rules-archive
+2026-03-09T11:13:15: [Alert Engine] Log file: /root/.openclaw/workspace-july/logs/alert-engine.log
+2026-03-09T11:13:15: [Alert Engine] Loaded rule: 阻力突破警报-67000 (interval: 300000ms)
+2026-03-09T11:13:15: [Alert Engine] Loaded rule: 关键支撑跌破警报-66000 (interval: 300000ms)
+2026-03-09T11:13:15: [Alert Engine] [阻力突破警报-67000] TIMER_STARTED
+2026-03-09T11:13:15: [Alert Engine] Starting timer for rule "阻力突破警报-67000" (interval: 300000ms)
+2026-03-09T11:13:15: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:13:15: [Alert Engine] [关键支撑跌破警报-66000] TIMER_STARTED
+2026-03-09T11:13:15: [Alert Engine] Starting timer for rule "关键支撑跌破警报-66000" (interval: 300000ms)
+2026-03-09T11:13:15: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:13:15: [Alert Engine] [Engine] 规则加载完成
+2026-03-09T11:13:15: [Alert Engine] Started 2 rule(s)
+2026-03-09T11:13:15: [Alert Engine] Started file scanner (interval: 60s)
+2026-03-09T11:13:21: [警报检查] 当前价格: 67392.55, 目标阻力: $67000
+2026-03-09T11:13:21: [Alert Engine] [阻力突破警报-67000] TRIGGERED
+2026-03-09T11:13:23: [警报检查] 当前价格: 67371.26, 目标支撑: $66000
+2026-03-09T11:13:23: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:13:26: [Alert Engine] [阻力突破警报-67000] DATA_COLLECTED
+2026-03-09T11:13:26: [警报触发] 已发送即时分析任务
+2026-03-09T11:13:26: [Alert Engine] [阻力突破警报-67000] TRIGGER_COMPLETED
+2026-03-09T11:18:51: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:18:51: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:18:51: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:18:51: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:24:14: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:24:14: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:24:14: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:24:14: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:29:40: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:29:40: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:29:40: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:29:40: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:35:07: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:35:07: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:35:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:35:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:40:34: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:40:34: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:40:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:40:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:46:01: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:46:01: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:46:01: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:46:01: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:51:30: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:51:30: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:51:30: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:51:30: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T11:56:57: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T11:56:57: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T11:56:57: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T11:56:57: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:02:23: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:02:23: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:02:23: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:02:23: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:07:49: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:07:49: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:07:49: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:07:49: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:13:19: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:13:19: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:13:19: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:13:19: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:18:47: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:18:47: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:18:53: [警报检查] 当前价格: 67191.84, 目标阻力: $67000
+2026-03-09T12:18:53: [Alert Engine] [阻力突破警报-67000] TRIGGERED
+2026-03-09T12:18:55: [警报检查] 当前价格: 67198.82, 目标支撑: $66000
+2026-03-09T12:18:55: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:19:03: [Alert Engine] [阻力突破警报-67000] DATA_COLLECTED
+2026-03-09T12:19:03: [警报触发] 已发送即时分析任务
+2026-03-09T12:19:03: [Alert Engine] [阻力突破警报-67000] TRIGGER_COMPLETED
+2026-03-09T12:24:13: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:24:13: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:24:13: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:24:13: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:29:39: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:29:39: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:29:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:29:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:35:07: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:35:07: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:35:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:35:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:40:34: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:40:34: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:40:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:40:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:46:00: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:46:00: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:46:00: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:46:00: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:51:28: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:51:28: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:51:28: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:51:28: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T12:56:54: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T12:56:54: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T12:56:54: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T12:56:54: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:02:22: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:02:22: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:02:22: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:02:22: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:07:50: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:07:50: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:07:50: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:07:50: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:13:16: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:13:16: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:13:16: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:13:16: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:18:41: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:18:41: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:18:41: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:18:41: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:24:00: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:24:00: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:24:03: [警报检查] 当前价格: 67365.05, 目标阻力: $67000
+2026-03-09T13:24:03: [Alert Engine] [阻力突破警报-67000] TRIGGERED
+2026-03-09T13:24:06: [警报检查] 当前价格: 67358.64, 目标支撑: $66000
+2026-03-09T13:24:06: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:24:06: [Alert Engine] [阻力突破警报-67000] DATA_COLLECTED
+2026-03-09T13:24:06: [警报触发] 已发送即时分析任务
+2026-03-09T13:24:06: [Alert Engine] [阻力突破警报-67000] TRIGGER_COMPLETED
+2026-03-09T13:29:27: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:29:27: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:29:27: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:29:27: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:34:55: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:34:55: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:34:55: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:34:55: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:40:21: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:40:21: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:40:21: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:40:21: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:45:46: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:45:46: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:45:46: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:45:46: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:51:12: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:51:12: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:51:12: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:51:12: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T13:56:39: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T13:56:39: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T13:56:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T13:56:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:02:08: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:02:08: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:02:08: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:02:08: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:07:35: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:07:35: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:07:35: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:07:35: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:13:01: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:13:01: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:13:01: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:13:01: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:18:27: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:18:27: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:18:27: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:18:27: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:23:57: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:23:57: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:23:57: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:23:57: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:29:21: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:29:21: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:29:23: [警报检查] 当前价格: 67492.74, 目标支撑: $66000
+2026-03-09T14:29:23: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:29:32: [警报检查] 当前价格: 67489.48, 目标阻力: $67000
+2026-03-09T14:29:32: [Alert Engine] [阻力突破警报-67000] TRIGGERED
+2026-03-09T14:29:51: [Alert Engine] [阻力突破警报-67000] DATA_COLLECTED
+2026-03-09T14:29:51: [警报触发] 已发送即时分析任务
+2026-03-09T14:29:51: [Alert Engine] [阻力突破警报-67000] TRIGGER_COMPLETED
+2026-03-09T14:34:43: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:34:43: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:34:43: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:34:43: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:40:10: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:40:10: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:40:10: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:40:10: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:45:36: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:45:36: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:45:36: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:45:36: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:50:56: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:50:56: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:50:56: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:50:56: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T14:56:25: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T14:56:25: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T14:56:25: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T14:56:25: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:01:52: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:01:52: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:01:52: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:01:52: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:07:20: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:07:20: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:07:20: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:07:20: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:12:46: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:12:46: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:12:46: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:12:46: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:18:11: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:18:11: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:18:11: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:18:11: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:23:40: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:23:40: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:23:40: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:23:40: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:29:07: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:29:07: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:29:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:29:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:34:36: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:34:36: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:34:39: [警报检查] 当前价格: 67329.95, 目标阻力: $67000
+2026-03-09T15:34:39: [Alert Engine] [阻力突破警报-67000] TRIGGERED
+2026-03-09T15:34:41: [警报检查] 当前价格: 67330.54, 目标支撑: $66000
+2026-03-09T15:34:41: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:34:48: [Alert Engine] [阻力突破警报-67000] DATA_COLLECTED
+2026-03-09T15:34:48: [警报触发] 已发送即时分析任务
+2026-03-09T15:34:48: [Alert Engine] [阻力突破警报-67000] TRIGGER_COMPLETED
+2026-03-09T15:40:02: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:40:02: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:40:02: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:40:02: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:45:26: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:45:26: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:45:26: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:45:26: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:50:56: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:50:56: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:50:56: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:50:56: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T15:56:23: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T15:56:23: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T15:56:23: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T15:56:23: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:01:48: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:01:48: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:01:48: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:01:48: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:07:07: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:07:07: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:07:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:07:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:12:34: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:12:34: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:12:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:12:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:18:03: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:18:03: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:18:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:18:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:23:29: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:23:29: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:23:30: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:23:30: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:28:49: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:28:49: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:28:49: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:28:49: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:34:15: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:34:15: [Alert Engine] [阻力突破警报-67000] CHECK_PASSED
+2026-03-09T16:34:15: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:34:15: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:39:38: [Alert Engine] [阻力突破警报-67000] CHECK_START
+2026-03-09T16:39:38: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:40:11: [警报检查] 当前价格: 67691.77, 目标阻力: $67000
+2026-03-09T16:40:11: [Alert Engine] [阻力突破警报-67000] TRIGGERED
+2026-03-09T16:40:13: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:40:51: [Alert Engine] [阻力突破警报-67000] DATA_COLLECTED
+2026-03-09T16:40:51: [警报触发] 已发送即时分析任务
+2026-03-09T16:40:51: [Alert Engine] [阻力突破警报-67000] TRIGGER_COMPLETED
+2026-03-09T16:41:47: [Alert Engine] [阻力突破警报-67000] 检测到规则文件已不存在
+2026-03-09T16:41:47: [Alert Engine] [阻力突破警报-67000] RULE_UNLOADED
+2026-03-09T16:41:47: [Alert Engine] Unloaded rule "阻力突破警报-67000" (file_removed)
+2026-03-09T16:42:39: [Alert Engine] [Engine] 引擎关闭 (SIGINT)
+2026-03-09T16:42:39: 
+2026-03-09T16:42:39: [Alert Engine] Shutting down...
+2026-03-09T16:42:39: [Alert Engine] Stopped timer for 2026-03-09-support-66000.js
+2026-03-09T16:42:39: [Alert Engine] [Engine] 引擎启动
+2026-03-09T16:42:39: [Alert Engine] Starting...
+2026-03-09T16:42:39: [Alert Engine] Rules directory: /root/.openclaw/workspace-july/skills/btc-alert/rules
+2026-03-09T16:42:39: [Alert Engine] Archive directory: /root/.openclaw/workspace-july/skills/btc-alert/rules-archive
+2026-03-09T16:42:39: [Alert Engine] Log file: /root/.openclaw/workspace-july/logs/alert-engine.log
+2026-03-09T16:42:39: [Alert Engine] Loaded rule: 阻力突破警报-68500 (interval: 300000ms)
+2026-03-09T16:42:39: [Alert Engine] Loaded rule: 关键支撑跌破警报-66000 (interval: 300000ms)
+2026-03-09T16:42:39: [Alert Engine] Loaded rule: 止盈目标警报-68000 (interval: 300000ms)
+2026-03-09T16:42:39: [Alert Engine] [阻力突破警报-68500] TIMER_STARTED
+2026-03-09T16:42:39: [Alert Engine] Starting timer for rule "阻力突破警报-68500" (interval: 300000ms)
+2026-03-09T16:42:39: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T16:42:39: [Alert Engine] [关键支撑跌破警报-66000] TIMER_STARTED
+2026-03-09T16:42:39: [Alert Engine] Starting timer for rule "关键支撑跌破警报-66000" (interval: 300000ms)
+2026-03-09T16:42:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:42:39: [Alert Engine] [止盈目标警报-68000] TIMER_STARTED
+2026-03-09T16:42:39: [Alert Engine] Starting timer for rule "止盈目标警报-68000" (interval: 300000ms)
+2026-03-09T16:42:39: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T16:42:39: [Alert Engine] [Engine] 规则加载完成
+2026-03-09T16:42:39: [Alert Engine] Started 3 rule(s)
+2026-03-09T16:42:39: [Alert Engine] Started file scanner (interval: 60s)
+2026-03-09T16:42:48: [警报检查] 当前价格: 67740.2, 目标阻力: $68500
+2026-03-09T16:42:48: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T16:42:50: [警报检查] 当前价格: 67741.12, 止盈目标: $68000
+2026-03-09T16:42:50: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T16:42:57: [警报检查] 当前价格: 67709.32, 目标支撑: $66000
+2026-03-09T16:42:57: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:48:07: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T16:48:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:48:07: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T16:48:13: [警报检查] 当前价格: 67797.54, 止盈目标: $68000
+2026-03-09T16:48:13: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T16:48:14: [警报检查] 当前价格: 67812.92, 目标阻力: $68500
+2026-03-09T16:48:14: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T16:48:15: [警报检查] 当前价格: 67797.85, 目标支撑: $66000
+2026-03-09T16:48:15: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:53:34: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T16:53:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:53:34: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T16:53:39: [警报检查] 当前价格: 67884.25, 目标支撑: $66000
+2026-03-09T16:53:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:53:44: [警报检查] 当前价格: 67902.41, 止盈目标: $68000
+2026-03-09T16:53:44: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T16:53:45: [警报检查] 当前价格: 67874.95, 目标阻力: $68500
+2026-03-09T16:53:45: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T16:58:53: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T16:58:53: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T16:58:53: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T16:59:29: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T16:59:31: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T16:59:31: [警报检查] 当前价格: 67812.83, 目标阻力: $68500
+2026-03-09T16:59:31: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:04:15: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:04:15: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:04:15: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:04:47: [警报检查] 当前价格: 67766.98, 止盈目标: $68000
+2026-03-09T17:04:47: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:04:54: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:05:00: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:09:39: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:09:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:09:39: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:09:48: [警报检查] 当前价格: 67658.55, 目标阻力: $68500
+2026-03-09T17:09:48: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:10:10: [警报检查] 当前价格: 67644.54, 止盈目标: $68000
+2026-03-09T17:10:10: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:10:14: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:15:02: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:15:02: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:15:02: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:15:15: [警报检查] 当前价格: 67791.84, 止盈目标: $68000
+2026-03-09T17:15:15: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:15:32: [警报检查] 当前价格: 67810.78, 目标阻力: $68500
+2026-03-09T17:15:32: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:15:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:20:19: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:20:19: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:20:19: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:20:41: [警报检查] 当前价格: 67831.16, 目标阻力: $68500
+2026-03-09T17:20:41: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:20:49: [警报检查] 当前价格: 67835.5, 目标支撑: $66000
+2026-03-09T17:20:49: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:20:51: [警报检查] 当前价格: 67828.13, 止盈目标: $68000
+2026-03-09T17:20:51: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:25:32: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:25:32: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:25:32: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:25:34: [警报检查] 当前价格: 67943.65, 目标阻力: $68500
+2026-03-09T17:25:34: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:25:55: [警报检查] 当前价格: 67943.55, 目标支撑: $66000
+2026-03-09T17:25:55: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:26:13: [警报检查] 当前价格: 67944.27, 止盈目标: $68000
+2026-03-09T17:26:13: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:30:55: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:30:55: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:30:55: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:31:09: [警报检查] 当前价格: 67905.81, 目标支撑: $66000
+2026-03-09T17:31:09: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:31:17: [警报检查] 当前价格: 67909.32, 目标阻力: $68500
+2026-03-09T17:31:17: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:31:32: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:36:24: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:36:24: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:36:24: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:36:26: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:36:27: [警报检查] 当前价格: 68311.08, 目标阻力: $68500
+2026-03-09T17:36:27: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:36:33: [警报检查] 当前价格: 68274.35, 目标支撑: $66000
+2026-03-09T17:36:33: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:41:51: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:41:51: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:41:51: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:41:53: [警报检查] 当前价格: 68310.92, 止盈目标: $68000
+2026-03-09T17:41:53: [Alert Engine] [止盈目标警报-68000] TRIGGERED
+2026-03-09T17:41:55: [警报检查] 当前价格: 68314.12, 目标阻力: $68500
+2026-03-09T17:41:55: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:42:03: [警报检查] 当前价格: 68326.1, 目标支撑: $66000
+2026-03-09T17:42:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:42:05: [Alert Engine] [止盈目标警报-68000] DATA_COLLECTED
+2026-03-09T17:42:05: [警报触发] 已发送即时分析任务
+2026-03-09T17:42:05: [Alert Engine] [止盈目标警报-68000] TRIGGER_COMPLETED
+2026-03-09T17:47:17: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:47:17: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:47:17: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:47:17: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:47:17: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:47:17: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:52:47: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:52:47: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:52:47: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:52:47: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:52:47: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:52:47: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T17:58:13: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T17:58:13: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T17:58:13: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T17:58:13: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T17:58:13: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T17:58:13: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:03:39: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:03:39: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:03:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:03:39: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:03:39: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:03:39: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:09:06: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:09:06: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:09:06: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:09:06: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:09:06: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:09:06: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:14:35: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:14:35: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:14:35: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:14:35: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:14:35: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:14:50: [警报检查] 当前价格: 67902.5, 止盈目标: $68000
+2026-03-09T18:14:50: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:20:02: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:20:02: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:20:02: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:20:02: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:20:02: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:20:06: [警报检查] 当前价格: 67863.74, 止盈目标: $68000
+2026-03-09T18:20:06: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:25:30: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:25:30: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:25:30: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:25:30: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:25:30: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:25:31: [警报检查] 当前价格: 67873.26, 止盈目标: $68000
+2026-03-09T18:25:31: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:30:56: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:30:56: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:30:56: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:30:56: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:30:56: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:31:02: [警报检查] 当前价格: 67778.71, 止盈目标: $68000
+2026-03-09T18:31:02: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:36:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:36:13: [警报检查] 当前价格: 67810.31, 止盈目标: $68000
+2026-03-09T18:36:13: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:41:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:41:09: [警报检查] 当前价格: 67699.49, 止盈目标: $68000
+2026-03-09T18:41:09: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:46:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:46:05: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:46:05: [警报检查] 当前价格: 67585.4, 目标支撑: $66000
+2026-03-09T18:46:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:46:08: [警报检查] 当前价格: 67583.1, 止盈目标: $68000
+2026-03-09T18:46:08: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:51:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:51:05: [警报检查] 当前价格: 67632.59, 目标支撑: $66000
+2026-03-09T18:51:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:51:06: [警报检查] 当前价格: 67635.72, 止盈目标: $68000
+2026-03-09T18:51:06: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T18:51:07: [警报检查] 当前价格: 67631.62, 目标阻力: $68500
+2026-03-09T18:51:07: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T18:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T18:56:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T18:56:05: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T18:56:05: [警报检查] 当前价格: 67599.06, 目标支撑: $66000
+2026-03-09T18:56:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T18:56:06: [警报检查] 当前价格: 67608.37, 止盈目标: $68000
+2026-03-09T18:56:06: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:01:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:01:08: [警报检查] 当前价格: 67591.16, 目标阻力: $68500
+2026-03-09T19:01:08: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:01:08: [警报检查] 当前价格: 67594.07, 目标支撑: $66000
+2026-03-09T19:01:08: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:01:11: [警报检查] 当前价格: 67592.26, 止盈目标: $68000
+2026-03-09T19:01:11: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:06:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:06:05: [警报检查] 当前价格: 67687.11, 目标支撑: $66000
+2026-03-09T19:06:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:06:12: [警报检查] 当前价格: 67671.67, 目标阻力: $68500
+2026-03-09T19:06:12: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:06:12: [警报检查] 当前价格: 67681.95, 止盈目标: $68000
+2026-03-09T19:06:12: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:11:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:11:06: [警报检查] 当前价格: 67683.46, 目标支撑: $66000
+2026-03-09T19:11:06: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:11:06: [警报检查] 当前价格: 67684.4, 目标阻力: $68500
+2026-03-09T19:11:06: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:11:10: [警报检查] 当前价格: 67679.75, 止盈目标: $68000
+2026-03-09T19:11:10: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:16:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:16:06: [警报检查] 当前价格: 67697.01, 止盈目标: $68000
+2026-03-09T19:16:06: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:16:10: [警报检查] 当前价格: 67686.92, 目标阻力: $68500
+2026-03-09T19:16:10: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:16:12: [警报检查] 当前价格: 67702.08, 目标支撑: $66000
+2026-03-09T19:16:12: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:21:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:21:04: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:21:06: [警报检查] 当前价格: 67359.21, 目标阻力: $68500
+2026-03-09T19:21:06: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:21:43: [警报检查] 当前价格: 67357.62, 目标支撑: $66000
+2026-03-09T19:21:43: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:26:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:26:13: [警报检查] 当前价格: 67506.77, 目标阻力: $68500
+2026-03-09T19:26:13: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:26:14: [警报检查] 当前价格: 67506.77, 止盈目标: $68000
+2026-03-09T19:26:14: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:26:50: [警报检查] 当前价格: 67503.94, 目标支撑: $66000
+2026-03-09T19:26:50: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:31:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:31:10: [警报检查] 当前价格: 67486.93, 目标支撑: $66000
+2026-03-09T19:31:10: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:31:39: [警报检查] 当前价格: 67487.06, 止盈目标: $68000
+2026-03-09T19:31:39: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:31:49: [警报检查] 当前价格: 67488.25, 目标阻力: $68500
+2026-03-09T19:31:49: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:36:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:36:14: [警报检查] 当前价格: 67594.33, 止盈目标: $68000
+2026-03-09T19:36:14: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:36:17: [警报检查] 当前价格: 67610.38, 目标支撑: $66000
+2026-03-09T19:36:17: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:36:34: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:41:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:41:09: [警报检查] 当前价格: 67617.91, 目标阻力: $68500
+2026-03-09T19:41:09: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:41:11: [警报检查] 当前价格: 67623.63, 目标支撑: $66000
+2026-03-09T19:41:11: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:41:25: [警报检查] 当前价格: 67624.18, 止盈目标: $68000
+2026-03-09T19:41:25: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:46:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:46:13: [警报检查] 当前价格: 67617.16, 止盈目标: $68000
+2026-03-09T19:46:13: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:46:20: [警报检查] 当前价格: 67617.16, 目标阻力: $68500
+2026-03-09T19:46:20: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:46:45: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:51:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:51:05: [警报检查] 当前价格: 67589.65, 目标阻力: $68500
+2026-03-09T19:51:05: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:51:08: [警报检查] 当前价格: 67585.56, 止盈目标: $68000
+2026-03-09T19:51:08: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T19:51:18: [警报检查] 当前价格: 67591.85, 目标支撑: $66000
+2026-03-09T19:51:18: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T19:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T19:56:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T19:56:06: [警报检查] 当前价格: 67818.1, 目标支撑: $66000
+2026-03-09T19:56:06: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T19:56:10: [警报检查] 当前价格: 67809.7, 目标阻力: $68500
+2026-03-09T19:56:10: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T19:56:18: [警报检查] 当前价格: 67814.29, 止盈目标: $68000
+2026-03-09T19:56:18: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:01:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:01:08: [警报检查] 当前价格: 67767.75, 目标阻力: $68500
+2026-03-09T20:01:08: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:01:11: [警报检查] 当前价格: 67765.99, 止盈目标: $68000
+2026-03-09T20:01:11: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:01:57: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:06:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:06:04: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:06:08: [警报检查] 当前价格: 67859.75, 止盈目标: $68000
+2026-03-09T20:06:08: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:06:11: [警报检查] 当前价格: 67858.66, 目标阻力: $68500
+2026-03-09T20:06:11: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:11:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:11:15: [警报检查] 当前价格: 67807.48, 目标支撑: $66000
+2026-03-09T20:11:15: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:11:24: [警报检查] 当前价格: 67807.15, 止盈目标: $68000
+2026-03-09T20:11:24: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:12:00: [警报检查] 当前价格: 67807.15, 目标阻力: $68500
+2026-03-09T20:12:00: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:16:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:16:09: [警报检查] 当前价格: 67934.42, 目标阻力: $68500
+2026-03-09T20:16:09: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:16:26: [警报检查] 当前价格: 67929.24, 止盈目标: $68000
+2026-03-09T20:16:26: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:16:32: [警报检查] 当前价格: 67920.55, 目标支撑: $66000
+2026-03-09T20:16:32: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:21:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:21:04: [警报检查] 当前价格: 67998.43, 目标阻力: $68500
+2026-03-09T20:21:04: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:21:04: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:21:50: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:26:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:26:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:26:09: [警报检查] 当前价格: 68017.78, 止盈目标: $68000
+2026-03-09T20:26:09: [Alert Engine] [止盈目标警报-68000] TRIGGERED
+2026-03-09T20:26:10: [警报检查] 当前价格: 68016.03, 目标阻力: $68500
+2026-03-09T20:26:10: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:26:18: [Alert Engine] [止盈目标警报-68000] DATA_COLLECTED
+2026-03-09T20:26:18: [警报触发] 已发送即时分析任务
+2026-03-09T20:26:18: [Alert Engine] [止盈目标警报-68000] TRIGGER_COMPLETED
+2026-03-09T20:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:31:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:31:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:36:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:36:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:41:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:41:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:46:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:46:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:51:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:51:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T20:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T20:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T20:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T20:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T20:56:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T20:56:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T21:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:01:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T21:01:11: [警报检查] 当前价格: 68157.03, 止盈目标: $68000
+2026-03-09T21:01:11: [Alert Engine] [止盈目标警报-68000] TRIGGERED
+2026-03-09T21:01:24: [Alert Engine] [止盈目标警报-68000] DATA_COLLECTED
+2026-03-09T21:01:24: [警报触发] 已发送即时分析任务
+2026-03-09T21:01:24: [Alert Engine] [止盈目标警报-68000] TRIGGER_COMPLETED
+2026-03-09T21:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:06:03: [Alert Engine] [止盈目标警报-68000] CHECK_START
+2026-03-09T21:06:03: [Alert Engine] [止盈目标警报-68000] CHECK_PASSED
+2026-03-09T21:06:03: [Alert Engine] [止盈目标警报-68000] 检测到规则文件已不存在
+2026-03-09T21:06:03: [Alert Engine] [止盈目标警报-68000] RULE_UNLOADED
+2026-03-09T21:06:03: [Alert Engine] Unloaded rule "止盈目标警报-68000" (file_removed)
+2026-03-09T21:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T21:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T21:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T21:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T21:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:06:31: [警报检查] 当前价格: 68922.72, 目标阻力: $68500
+2026-03-09T22:06:31: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-09T22:06:33: [警报检查] 当前价格: 68808.02, 目标支撑: $66000
+2026-03-09T22:06:33: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:06:51: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-09T22:06:51: [警报触发] 已发送即时分析任务
+2026-03-09T22:06:51: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-09T22:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T22:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T22:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T22:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T22:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:12:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:12:15: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:16:08: [警报检查] 当前价格: 69236.54, 目标支撑: $66000
+2026-03-09T23:16:08: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:16:12: [警报检查] 当前价格: 69228.91, 目标阻力: $68500
+2026-03-09T23:16:12: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-09T23:16:29: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-09T23:16:29: [警报触发] 已发送即时分析任务
+2026-03-09T23:16:29: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-09T23:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-09T23:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-09T23:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-09T23:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-09T23:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:21:08: [警报检查] 当前价格: 68782.28, 目标阻力: $68500
+2026-03-10T00:21:08: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T00:21:15: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T00:21:15: [警报触发] 已发送即时分析任务
+2026-03-10T00:21:15: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T00:21:16: [警报检查] 当前价格: 68767.07, 目标支撑: $66000
+2026-03-10T00:21:16: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T00:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T00:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T00:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T00:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:26:11: [警报检查] 当前价格: 68779.01, 目标支撑: $66000
+2026-03-10T01:26:11: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:26:35: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:31:05: [警报检查] 当前价格: 68672.15, 目标阻力: $68500
+2026-03-10T01:31:05: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T01:31:10: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T01:31:10: [警报触发] 已发送即时分析任务
+2026-03-10T01:31:10: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T01:31:11: [警报检查] 当前价格: 68669.5, 目标支撑: $66000
+2026-03-10T01:31:11: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T01:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T01:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T01:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T01:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:36:08: [警报检查] 当前价格: 68603.29, 目标支撑: $66000
+2026-03-10T02:36:08: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:36:09: [警报检查] 当前价格: 68589.15, 目标阻力: $68500
+2026-03-10T02:36:09: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T02:36:19: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T02:36:19: [警报触发] 已发送即时分析任务
+2026-03-10T02:36:19: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T02:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T02:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T02:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T02:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T02:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:41:06: [警报检查] 当前价格: 68938.33, 目标阻力: $68500
+2026-03-10T03:41:06: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T03:41:15: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T03:41:15: [警报触发] 已发送即时分析任务
+2026-03-10T03:41:15: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T03:41:34: [警报检查] 当前价格: 68947.01, 目标支撑: $66000
+2026-03-10T03:41:34: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T03:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T03:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T03:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T03:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:46:07: [警报检查] 当前价格: 68924.73, 目标阻力: $68500
+2026-03-10T04:46:07: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T04:46:08: [警报检查] 当前价格: 68921.08, 目标支撑: $66000
+2026-03-10T04:46:08: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:46:14: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T04:46:14: [警报触发] 已发送即时分析任务
+2026-03-10T04:46:14: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T04:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T04:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T04:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T04:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T04:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:51:05: [警报检查] 当前价格: 68980.83, 目标支撑: $66000
+2026-03-10T05:51:05: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T05:51:05: [警报检查] 当前价格: 68956.86, 目标阻力: $68500
+2026-03-10T05:51:05: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T05:51:09: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T05:51:09: [警报触发] 已发送即时分析任务
+2026-03-10T05:51:09: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T05:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T05:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T05:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T05:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T06:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T06:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T06:56:07: [警报检查] 当前价格: 68692.67, 目标阻力: $68500
+2026-03-10T06:56:07: [Alert Engine] [阻力突破警报-68500] TRIGGERED
+2026-03-10T06:56:07: [警报检查] 当前价格: 68675.34, 目标支撑: $66000
+2026-03-10T06:56:07: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T06:56:13: [Alert Engine] [阻力突破警报-68500] DATA_COLLECTED
+2026-03-10T06:56:13: [警报触发] 已发送即时分析任务
+2026-03-10T06:56:13: [Alert Engine] [阻力突破警报-68500] TRIGGER_COMPLETED
+2026-03-10T07:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:01:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:01:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:06:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:06:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:11:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:11:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:16:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:16:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:21:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:21:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:26:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:26:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:31:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:31:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:36:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:36:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:41:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:41:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:46:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:46:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:51:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:51:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T07:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_START
+2026-03-10T07:56:03: [Alert Engine] [阻力突破警报-68500] CHECK_PASSED
+2026-03-10T07:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_START
+2026-03-10T07:56:03: [Alert Engine] [关键支撑跌破警报-66000] CHECK_PASSED
+2026-03-10T08:01:03: [Alert Engine] [阻力突破警报-68500] RULE_STOPPED
+2026-03-10T08:01:03: [Alert Engine] [阻力突破警报-68500] RULE_ARCHIVED
+2026-03-10T08:01:03: [Alert Engine] Archived rule "阻力突破警报-68500" to /root/.openclaw/workspace-july/skills/btc-alert/rules-archive/2026-03-10T00-01-03_2026-03-09-resistance-68500.js
+2026-03-10T08:01:03: [Alert Engine] [阻力突破警报-68500] RULE_UNLOADED
+2026-03-10T08:01:03: [Alert Engine] Unloaded rule "阻力突破警报-68500" (lifetime_ended)
+2026-03-10T08:01:03: [Alert Engine] [关键支撑跌破警报-66000] RULE_STOPPED
+2026-03-10T08:01:03: [Alert Engine] [关键支撑跌破警报-66000] RULE_ARCHIVED
+2026-03-10T08:01:03: [Alert Engine] Archived rule "关键支撑跌破警报-66000" to /root/.openclaw/workspace-july/skills/btc-alert/rules-archive/2026-03-10T00-01-03_2026-03-09-support-66000.js
+2026-03-10T08:01:03: [Alert Engine] [关键支撑跌破警报-66000] RULE_UNLOADED
+2026-03-10T08:01:03: [Alert Engine] Unloaded rule "关键支撑跌破警报-66000" (lifetime_ended)
