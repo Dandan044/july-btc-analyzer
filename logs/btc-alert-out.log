@@ -1297,3 +1297,35 @@
 2026-03-10T08:01:03: [Alert Engine] Archived rule "关键支撑跌破警报-66000" to /root/.openclaw/workspace-july/skills/btc-alert/rules-archive/2026-03-10T00-01-03_2026-03-09-support-66000.js
 2026-03-10T08:01:03: [Alert Engine] [关键支撑跌破警报-66000] RULE_UNLOADED
 2026-03-10T08:01:03: [Alert Engine] Unloaded rule "关键支撑跌破警报-66000" (lifetime_ended)
+2026-03-11T15:43:48: [Alert Engine] [Engine] 引擎关闭 (SIGINT)
+2026-03-11T15:43:48: 
+2026-03-11T15:43:48: [Alert Engine] Shutting down...
+2026-03-12T10:13:25: [Alert Engine] [Engine] 引擎启动
+2026-03-12T10:13:25: [Alert Engine] Starting...
+2026-03-12T10:13:25: [Alert Engine] Rules directory: /root/.openclaw/workspace-july/skills/btc-alert/rules
+2026-03-12T10:13:25: [Alert Engine] Archive directory: /root/.openclaw/workspace-july/skills/btc-alert/rules-archive
+2026-03-12T10:13:25: [Alert Engine] Log file: /root/.openclaw/workspace-july/logs/alert-engine.log
+2026-03-12T10:13:25: [Alert Engine] Loaded rule: 压力位突破警报-72000 (interval: 300000ms)
+2026-03-12T10:13:25: [Alert Engine] Loaded rule: 支撑位跌破警报-70000 (interval: 300000ms)
+2026-03-12T10:13:25: [Alert Engine] Loaded rule: 支撑位跌破警报-68671-7日SMA (interval: 300000ms)
+2026-03-12T10:13:25: [Alert Engine] [压力位突破警报-72000] TIMER_STARTED
+2026-03-12T10:13:25: [Alert Engine] Starting timer for rule "压力位突破警报-72000" (interval: 300000ms)
+2026-03-12T10:13:25: [Alert Engine] [压力位突破警报-72000] CHECK_START
+2026-03-12T10:13:25: [Alert Engine] [支撑位跌破警报-70000] TIMER_STARTED
+2026-03-12T10:13:25: [Alert Engine] Starting timer for rule "支撑位跌破警报-70000" (interval: 300000ms)
+2026-03-12T10:13:25: [Alert Engine] [支撑位跌破警报-70000] CHECK_START
+2026-03-12T10:13:25: [Alert Engine] [支撑位跌破警报-68671-7日SMA] TIMER_STARTED
+2026-03-12T10:13:25: [Alert Engine] Starting timer for rule "支撑位跌破警报-68671-7日SMA" (interval: 300000ms)
+2026-03-12T10:13:25: [Alert Engine] [支撑位跌破警报-68671-7日SMA] CHECK_START
+2026-03-12T10:13:25: [Alert Engine] [Engine] 规则加载完成
+2026-03-12T10:13:25: [Alert Engine] Started 3 rule(s)
+2026-03-12T10:13:25: [Alert Engine] Started file scanner (interval: 60s)
+2026-03-12T10:13:29: [警报检查] 当前价格: 69773.07, 目标: 70000
+2026-03-12T10:13:29: [Alert Engine] [支撑位跌破警报-70000] TRIGGERED
+2026-03-12T10:13:30: [警报检查] 当前价格: 69774.6, 目标: 72000
+2026-03-12T10:13:30: [Alert Engine] [压力位突破警报-72000] CHECK_PASSED
+2026-03-12T10:13:38: [警报检查] 当前价格: 69773.14, 目标: 68671
+2026-03-12T10:13:38: [Alert Engine] [支撑位跌破警报-68671-7日SMA] CHECK_PASSED
+2026-03-12T10:13:44: [Alert Engine] [支撑位跌破警报-70000] DATA_COLLECTED
+2026-03-12T10:13:44: [警报触发] 已发送即时分析任务
+2026-03-12T10:13:44: [Alert Engine] [支撑位跌破警报-70000] TRIGGER_COMPLETED

@@ -4766,3 +4766,30 @@
   {"archivePath":"/root/.openclaw/workspace-july/skills/btc-alert/rules-archive/2026-03-10T00-01-03_2026-03-09-support-66000.js","reason":"expired"}
 [2026-03-10 08:01:03] [INFO] [关键支撑跌破警报-66000] RULE_UNLOADED
   {"reason":"lifetime_ended"}
+[2026-03-11 15:43:48] [INFO] [Engine] 引擎关闭 (SIGINT)
+[2026-03-12 10:13:25] [INFO] [Engine] 引擎启动
+  {"rulesDir":"/root/.openclaw/workspace-july/skills/btc-alert/rules","archiveDir":"/root/.openclaw/workspace-july/skills/btc-alert/rules-archive","logFile":"/root/.openclaw/workspace-july/logs/alert-engine.log"}
+[2026-03-12 10:13:25] [INFO] [压力位突破警报-72000] TIMER_STARTED
+  {"interval":"300s","file":"2026-03-10-resistance-72000.js"}
+[2026-03-12 10:13:25] [INFO] [压力位突破警报-72000] CHECK_START
+  {}
+[2026-03-12 10:13:25] [INFO] [支撑位跌破警报-70000] TIMER_STARTED
+  {"interval":"300s","file":"2026-03-10-support-70000.js"}
+[2026-03-12 10:13:25] [INFO] [支撑位跌破警报-70000] CHECK_START
+  {}
+[2026-03-12 10:13:25] [INFO] [支撑位跌破警报-68671-7日SMA] TIMER_STARTED
+  {"interval":"300s","file":"2026-03-11-support-68671.js"}
+[2026-03-12 10:13:25] [INFO] [支撑位跌破警报-68671-7日SMA] CHECK_START
+  {}
+[2026-03-12 10:13:25] [INFO] [Engine] 规则加载完成
+  {"count":3}
+[2026-03-12 10:13:29] [INFO] [支撑位跌破警报-70000] TRIGGERED
+  {}
+[2026-03-12 10:13:30] [INFO] [压力位突破警报-72000] CHECK_PASSED
+  {}
+[2026-03-12 10:13:38] [INFO] [支撑位跌破警报-68671-7日SMA] CHECK_PASSED
+  {}
+[2026-03-12 10:13:44] [INFO] [支撑位跌破警报-70000] DATA_COLLECTED
+  {"dataKeys":["alertTime","currentPrice","priceChange","volume24h","fearGreedIndex","klines15m","triggerPrice","alertType"]}
+[2026-03-12 10:13:44] [INFO] [支撑位跌破警报-70000] TRIGGER_COMPLETED
+  {}
