@@ -1,23 +1,30 @@
 {
-  "timestamp": "2026-03-13T13:00:34.628Z",
-  "price": null,
+  "timestamp": "2026-03-13T15:32:16.088Z",
+  "price": {
+    "current": 72493.02,
+    "change1h": 0.12,
+    "change24h": 3.04,
+    "change7d": 5.83,
+    "volume24h": 146261595.95,
+    "marketCap": null
+  },
   "priceHistory": {
-    "current": 72783.13,
+    "current": 72509.23,
     "days": 32,
     "history": [
       {
         "date": "2026-03-13",
-        "price": 72783.13,
-        "high": 72893.73,
+        "price": 72509.23,
+        "high": 73942.2,
         "low": 70402.18,
-        "sma7": 69307.35,
-        "sma14": 69054.3,
-        "sma20": 68223.36,
-        "sma30": 68127.43,
-        "ema7": 70197.45,
-        "ema12": 69493.15,
-        "ema20": 68988.43,
-        "ema26": 68554.03
+        "sma7": 69268.22,
+        "sma14": 69034.74,
+        "sma20": 68209.66,
+        "sma30": 68118.3,
+        "ema7": 70128.98,
+        "ema12": 69451.01,
+        "ema20": 68962.34,
+        "ema26": 68533.74
       },
       {
         "date": "2026-03-12",
@@ -327,153 +334,185 @@
       }
     ],
     "statistics": {
-      "max30d": 72783.13,
+      "max30d": 72685.14,
       "min30d": 64069.84,
-      "avg30d": 68114.68,
-      "rangePosition": 100
+      "avg30d": 68106.12,
+      "rangePosition": 98
     },
     "indicators": {
-      "rsi14": 64.6,
-      "volatility30d": 2026.8,
-      "momentum7d": 6.86,
-      "momentum14d": 10.49
+      "rsi14": 64.1,
+      "volatility30d": 2006.32,
+      "momentum7d": 6.46,
+      "momentum14d": 10.08
     }
   },
   "volume": {
-    "current": 2456018087.8199997,
+    "current": 2636668267.79,
     "currentSource": "24h_aggregated",
     "avg30d": 2416116425.454516,
     "max30d": 4177397786.89,
     "min30d": 786667936.82,
-    "volumeRatio": 1.02,
+    "volumeRatio": 1.09,
     "history": [
       {
         "date": "2026-03-13",
-        "volume": 1104228719.54
+        "volume": 2636668267.79,
+        "isAggregated": true
       },
       {
         "date": "2026-03-12",
-        "volume": 2322381597.45
+        "volume": 2322381597.45,
+        "isAggregated": false
       },
       {
         "date": "2026-03-11",
-        "volume": 2418277293.19
+        "volume": 2418277293.19,
+        "isAggregated": false
       },
       {
         "date": "2026-03-10",
-        "volume": 2928859556.81
+        "volume": 2928859556.81,
+        "isAggregated": false
       },
       {
         "date": "2026-03-09",
-        "volume": 2709476164.15
+        "volume": 2709476164.15,
+        "isAggregated": false
       },
       {
         "date": "2026-03-08",
-        "volume": 1393620547.64
+        "volume": 1393620547.64,
+        "isAggregated": false
       },
       {
         "date": "2026-03-07",
-        "volume": 809381009.5
+        "volume": 809381009.5,
+        "isAggregated": false
       },
       {
         "date": "2026-03-06",
-        "volume": 2634646708.86
+        "volume": 2634646708.86,
+        "isAggregated": false
       },
       {
         "date": "2026-03-05",
-        "volume": 2818687736.82
+        "volume": 2818687736.82,
+        "isAggregated": false
       },
       {
         "date": "2026-03-04",
-        "volume": 4177397786.89
+        "volume": 4177397786.89,
+        "isAggregated": false
       },
       {
         "date": "2026-03-03",
-        "volume": 3209229703.13
+        "volume": 3209229703.13,
+        "isAggregated": false
       },
       {
         "date": "2026-03-02",
-        "volume": 3577629869.35
+        "volume": 3577629869.35,
+        "isAggregated": false
       },
       {
         "date": "2026-03-01",
-        "volume": 2126537310.68
+        "volume": 2126537310.68,
+        "isAggregated": false
       },
       {
         "date": "2026-02-28",
-        "volume": 2566186201.06
+        "volume": 2566186201.06,
+        "isAggregated": false
       },
       {
         "date": "2026-02-27",
-        "volume": 2743694516.97
+        "volume": 2743694516.97,
+        "isAggregated": false
       },
       {
         "date": "2026-02-26",
-        "volume": 3038274772.26
+        "volume": 3038274772.26,
+        "isAggregated": false
       },
       {
         "date": "2026-02-25",
-        "volume": 3753044530.52
+        "volume": 3753044530.52,
+        "isAggregated": false
       },
       {
         "date": "2026-02-24",
-        "volume": 2906212702.97
+        "volume": 2906212702.97,
+        "isAggregated": false
       },
       {
         "date": "2026-02-23",
-        "volume": 2766008869.19
+        "volume": 2766008869.19,
+        "isAggregated": false
       },
       {
         "date": "2026-02-22",
-        "volume": 786667936.82
+        "volume": 786667936.82,
+        "isAggregated": false
       },
       {
         "date": "2026-02-21",
-        "volume": 796953223.51
+        "volume": 796953223.51,
+        "isAggregated": false
       },
       {
         "date": "2026-02-20",
-        "volume": 2565992687.01
+        "volume": 2565992687.01,
+        "isAggregated": false
       },
       {
         "date": "2026-02-19",
-        "volume": 1956480958.57
+        "volume": 1956480958.57,
+        "isAggregated": false
       },
       {
         "date": "2026-02-18",
-        "volume": 2164847401.62
+        "volume": 2164847401.62,
+        "isAggregated": false
       },
       {
         "date": "2026-02-17",
-        "volume": 2156085885.94
+        "volume": 2156085885.94,
+        "isAggregated": false
       },
       {
         "date": "2026-02-16",
-        "volume": 1692393594.43
+        "volume": 1692393594.43,
+        "isAggregated": false
       },
       {
         "date": "2026-02-15",
-        "volume": 1533047880.15
+        "volume": 1533047880.15,
+        "isAggregated": false
       },
       {
         "date": "2026-02-14",
-        "volume": 1293190971.53
+        "volume": 1293190971.53,
+        "isAggregated": false
       },
       {
         "date": "2026-02-13",
-        "volume": 2551829375.2
+        "volume": 2551829375.2,
+        "isAggregated": false
       },
       {
         "date": "2026-02-12",
-        "volume": 2860084574
+        "volume": 2860084574,
+        "isAggregated": false
       },
       {
         "date": "2026-02-11",
-        "volume": 3185414005.15
+        "volume": 3185414005.15,
+        "isAggregated": false
       },
       {
         "date": "2026-02-10",
-        "volume": 2457073817.72
+        "volume": 2457073817.72,
+        "isAggregated": false
       }
     ]
   },

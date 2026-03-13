@@ -370,9 +370,12 @@ async function getEnhancedAnalysis() {
         
         const volumeHistory = [];
         for (let i = 0; i < volumeValues.length; i++) {
+          // 当日（索引0）使用聚合的24小时交易量，避免不完整数据
+          const volume = (i === 0) ? currentVolume : volumeValues[i];
           volumeHistory.push({
             date: new Date(timestamps[i] * 1000).toISOString().split('T')[0],
-            volume: volumeValues[i]
+            volume: volume,
+            isAggregated: (i === 0)  // 标记当日数据为聚合数据
           });
         }
         
