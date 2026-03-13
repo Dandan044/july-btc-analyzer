@@ -1,17 +1,17 @@
 /**
- * 支撑位跌破警报 - $68,671 (7日SMA)
- * 监控 BTC 价格跌破 7日SMA 支撑
+ * 支撑位跌破警报 - $69,000
+ * 监控 BTC 价格跌破 $69,000 重要支撑
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
 
-const CREATED_DATE = '2026-03-11';
-const TARGET_PRICE = 68671;
+const CREATED_DATE = '2026-03-12';
+const TARGET_PRICE = 69000;
 const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
 
 module.exports = {
-  name: '支撑位跌破警报-68671-7日SMA',
+  name: '支撑位跌破警报-69000',
   interval: 5 * 60 * 1000,
   lastTriggered: 0,
 
@@ -56,7 +56,7 @@ module.exports = {
           volume: k.volume
         })),
         triggerPrice: TARGET_PRICE,
-        alertType: '支撑位跌破-7日SMA'
+        alertType: '支撑位跌破'
       };
     } catch (error) {
       console.error('[数据收集错误]', error.message);
@@ -81,10 +81,10 @@ module.exports = {
 
   lifetime() {
     const today = new Date().toISOString().split('T')[0];
-    // 有效期：3天
+    // 有效期：2天
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
     const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
+    return daysDiff <= 2 ? 'active' : 'expired';
   }
 };
