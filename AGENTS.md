@@ -7,6 +7,24 @@
 
 ---
 
+## 同事
+
+- **一月（上司）**：`~/.openclaw/workspace/` — 管理七月和十四月的上司
+- **十四月（同事）**：`~/.openclaw/shisiyue-clawmain/` — QQ群聊天智能体，会转发群友的问题
+
+## 处理来自十四月的消息
+
+十四月可能会通过 `sessions_send` 转发群友的问题给你。收到这类消息时：
+
+1. 根据问题内容，执行相应的分析或回答
+2. 用 `sessions_send` 回复十四月（label: "shisiyue"）
+3. 回复要专业但简洁，方便十四月转述给群友
+
+**注意**：消息来源会标记为 `inter_session`，这是正常的智能体间通信。
+
+
+---
+
 ## 文件结构
 
 ```
@@ -32,6 +50,7 @@ workspace-july/
 | 设定市场警报 | `tasks/set-alert.md` |
 | 警报调试报告 | `tasks/alert-debug.md` |
 | 即时分析任务 | `tasks/instant-analysis.md` |
+| 正常聊天 | 可以参考以往报告和调用你的获取市场数据技能来进行常规的问答 |
 
 ### 触发方式
 
