@@ -58,13 +58,26 @@ const { getKlines, getTicker, get24hVolume } = api;
 使用 `openclaw agent` 命令触发七月执行任务：
 
 ```js
-const { execSync } = require('child_process');
+const { spawn } = require('child_process');
 
-// 触发七月执行任务
-execSync(`openclaw agent --agent july --message "任务描述"`, {
-  encoding: 'utf-8'
-});
+// 触发七月执行任务（每次创建独立会话，避免上下文干扰）
+const sessionId = `july-instant-${Date.now()}`;
+spawn('openclaw', [
+  'agent',
+  '--agent', 'july',
+  '--session-id', sessionId,
+  '--message', '任务描述'
+], { detached: true, stdio: 'ignore' });
 ```
+
+**⚠️ 重要**：必须使用 `--session-id` 参数，每次生成唯一的会话 ID！
+
+这样做的原因：
+- 每次即时分析报告使用独立会话
+- 避免上下文累积干扰分析判断
+- 确保每次分析基于最新的周期状态文件
+
+推荐格式：`july-instant-${Date.now()}` 或 `july-alert-${触发时间戳}`
 
 ## 规则文件位置
 
@@ -116,17 +129,24 @@ module.exports = {
   },
   
   async trigger(data) {
-    // 触发七月智能体执行即时分析
-    const { execSync } = require('child_process');
+    // 触发七月智能体执行即时分析（使用独立会话）
+    const { spawn } = require('child_process');
     
     const message = `警报触发：${data.message}\n\n` +
       `触发时间：${data.triggerTime}\n` +
       `K线数据：${JSON.stringify(data.klines, null, 2)}\n` +
       `24h交易量：${data.volume24h}`;
     
-    execSync(`openclaw agent --agent july --message "${message}"`, {
-      encoding: 'utf-8'
-    });
+    // 每次使用唯一 session-id，避免上下文干扰
+    const sessionId = `july-instant-${Date.now()}`;
+    spawn('openclaw', [
+      'agent',
+      '--agent', 'july',
+      '--session-id', sessionId,
+      '--message', message
+    ], { detached: true, stdio: 'ignore' });
+    
+    console.log(`[警报触发] 已发送即时分析任务 (session: ${sessionId})`);
     
     // 更新冷却时间
     this.lastTriggered = Date.now();
