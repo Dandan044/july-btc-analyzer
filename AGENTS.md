@@ -28,15 +28,109 @@
 ## 文件结构
 
 ```
-workspace-july/
-├── data/           # 原始 JSON 数据（当天覆盖）
-├── logs/           # 执行日志（追加）
-├── reports/        # 完整报告（独立文件）
-│   └── btc-report-YYYY-MM-DD-HHMM.md
-└── tasks/          # 任务规则文件
+july-btc-analyzer/
+├── active/                      # 活跃交易周期（最多1个）
+│   └── cycle-YYYYMMDD-XXX/      # 当前周期文件夹
+│       ├── trade-suggestions.json  # 交易建议文件
+│       └── reports/             # 本周期报告
+│           ├── btc-report-YYYY-MM-DD-HHMM.md
+│           └── instant-report-YYYY-MM-DD-HHMM.md
+│
+├── archived/                    # 已归档周期
+│   └── cycle-YYYYMMDD-XXX/      # 历史周期（结构同 active）
+│
+├── data/                        # 原始 JSON 数据（当天覆盖）
+├── logs/                        # 执行日志（追加）
+└── tasks/                       # 任务规则文件
 ```
 
-**reports/ 文件夹**：存放每次比特币技术分析日报，命名格式 `btc-report-YYYY-MM-DD-HHMM.md`
+---
+
+## 交易周期系统
+
+### 核心概念
+
+**交易周期（Cycle）** 是七月管理交易建议的核心单位。一个周期从上一篇报告结束开始，到所有交易建议关闭为止。
+
+### 周期生命周期
+
+```
+[上一周期结束]
+      │
+      ▼
+下一篇报告生成 → 开启新周期（创建空建议文件）
+      │
+      ▼
+周期进行中 → 报告保存到 active/cycle-xxx/reports/
+          → 可能给出交易建议 → 写入 trade-suggestions.json
+          → 检查价格触发止盈/止损 → 更新建议状态
+      │
+      ▼
+所有建议关闭 → 归档（移动 active/ → archived/）
+      │
+      ▼
+[下一周期在下一篇报告时开启]
+```
+
+### 交易建议文件结构 (`trade-suggestions.json`)
+
+```json
+{
+  "cycle_id": "cycle-20260319-001",
+  "status": "active",
+  "started_at": "2026-03-19T09:00:00+08:00",
+  "closed_at": null,
+  "closed_reason": null,
+  
+  "suggestions": [
+    {
+      "id": "sug-001",
+      "created_at": "2026-03-19T09:00:00+08:00",
+      "triggered_by": "report-2026-03-19-morning",
+      "direction": "long",
+      "entry_zone": [69500, 70000],
+      "stop_loss": 68000,
+      "take_profit": [72000, 74000],
+      "position_size": "建议仓位 20%",
+      "status": "open",
+      "closed_at": null,
+      "close_reason": null,
+      "notes": "突破阻力位后的回踩确认"
+    }
+  ],
+  
+  "summary": {
+    "total": 1,
+    "open": 1,
+    "closed": 0
+  }
+}
+```
+
+### 周期管理规则
+
+| 场景 | 操作 |
+|------|------|
+| `active/` 为空 | 下一篇报告开启新周期 |
+| `active/` 有周期，建议文件为空 | 观望期，报告正常保存 |
+| `active/` 有周期，有建议 | 持仓期，监控止盈止损 |
+| 所有建议关闭 | 归档周期（移动到 `archived/`） |
+
+### 读取当前周期状态
+
+在每次报告生成前，检查周期状态：
+
+```bash
+# 检查是否有活跃周期
+ls -d active/cycle-* 2>/dev/null
+
+# 如果有，读取交易建议文件
+cat active/cycle-*/trade-suggestions.json
+```
+
+### 不读取历史周期
+
+**重要**：七月在进行报告分析时，**不参考 `archived/` 下的历史周期数据**。每个周期独立运行，不受上一轮交易影响。
 
 ---
 

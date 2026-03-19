@@ -2,55 +2,202 @@
 
 ## 执行步骤
 
-### 1. 获取历史日报
-**必须先读取历史报告，才能进行本次分析！**
+### 0. 检查周期状态
 
-从 `reports/` 文件夹获取：
-- 最近 **3 天** 的日报文件
-- 最近 **2天** 的即时分析报告
-- 总共最多 **10 篇**报告
+**每次报告前必须先检查交易周期状态！**
 
 ```bash
-# 获取文件列表（按时间倒序）
-ls -t reports/btc-report-*.md
-
-# 读取每个文件，提取报告内容
+# 检查是否有活跃周期
+ls -d active/cycle-* 2>/dev/null
 ```
+
+**情况A：`active/` 为空**
+- 这是新一轮周期的开始
+- 在报告保存前创建新周期文件夹
+- 命名规则：`cycle-YYYYMMDD-001`（同一天第二个周期用 002，以此类推）
+- 创建空的交易建议文件 `trade-suggestions.json`
+
+**情况B：`active/` 有周期文件夹**
+- 读取 `active/cycle-*/trade-suggestions.json`
+- 了解当前是否有持仓、止盈止损价位
+- 报告保存到该周期的 `reports/` 文件夹
+
+---
+
+### 1. 获取历史日报
+
+**必须先读取历史报告，才能进行本次分析！**
+
+**从当前周期的 reports/ 文件夹获取：**
+- 如果 `active/` 有周期：从 `active/cycle-*/reports/` 读取
+- 如果 `active/` 为空：无需读取（新周期开始）
+
+获取规则：
+- 最近 **3 天** 的日报文件
+- 最近 **2 天** 的即时分析报告
+- 总共最多 **10 篇** 报告
 
 **历史报告用途：**
 - 对比价格走势是否符合前次预期
 - 验证之前的支撑/压力位是否有效
-- 评估交易建议的执行结果（若上一轮日报未给出交易建议或选择观望，则无需执行这一步。）
+- 评估当前周期内交易建议的执行结果
 - 发现连续的趋势或反转信号
 
+---
+
 ### 2. 获取数据
+
 ```bash
 node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 ```
 
 **注意：** 使用 `--save` 参数会自动保存数据到 `data/YYYY-MM-DD.json`，无需手动保存。
 
+---
+
 ### 3. 分析数据并生成报告
-**结合历史报告进行本次分析**，按照下方报告结构撰写
 
-### 4. 保存报告并发送到飞书
+**结合历史报告和当前周期状态进行本次分析**，按照下方报告结构撰写。
 
-**4.1 保存报告到 reports/ 文件夹**
+**如果有持仓中的交易建议：**
+- 检查当前价格是否触发止盈/止损
+- 在报告中说明当前持仓状态
+- 如触发，更新交易建议状态
+
+---
+
+### 4. 周期管理与报告保存
+
+#### 4.1 创建新周期（如果 `active/` 为空）
+
+```bash
+# 获取当前日期
+DATE=$(date +%Y%m%d)
+
+# 检查今天是否已有周期（防止重复）
+EXISTING=$(ls -d active/cycle-${DATE}-* 2>/dev/null | wc -l)
+
+# 创建新周期文件夹
+CYCLE_NUM=$(printf "%03d" $((EXISTING + 1)))
+mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
+```
+
+#### 4.2 创建空交易建议文件
+
+```json
+{
+  "cycle_id": "cycle-YYYYMMDD-XXX",
+  "status": "active",
+  "started_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+  "closed_at": null,
+  "closed_reason": null,
+  "suggestions": [],
+  "summary": {
+    "total": 0,
+    "open": 0,
+    "closed": 0
+  }
+}
+```
+
+保存到：`active/cycle-*/trade-suggestions.json`
+
+#### 4.3 保存报告文件
 
 报告文件命名规则：
 - 格式：`btc-report-YYYY-MM-DD-HHMM.md`
 - 示例：`btc-report-2026-03-03-0900.md`
 - 时间精确到分钟，使用 24 小时制
+- 保存路径：`active/cycle-*/reports/btc-report-YYYY-MM-DD-HHMM.md`
 
 **必须先保存报告文件，再发送到飞书！**
 
-**4.2 发送报告文件到飞书**
+---
+
+### 5. 交易建议管理
+
+#### 5.1 如果报告给出了交易建议
+
+将交易建议追加到 `trade-suggestions.json` 的 `suggestions` 数组中：
+
+```json
+{
+  "id": "sug-001",
+  "created_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+  "triggered_by": "report-YYYY-MM-DD-HHMM",
+  "direction": "long|short",
+  "entry_zone": [下限, 上限],
+  "stop_loss": 止损价,
+  "take_profit": [止盈1, 止盈2],
+  "position_size": "建议仓位描述",
+  "status": "open",
+  "closed_at": null,
+  "close_reason": null,
+  "notes": "建议依据说明"
+}
+```
+
+同时更新 `summary`：
+- `total` += 1
+- `open` += 1
+
+#### 5.2 如果价格触发止盈/止损
+
+找到对应的建议，更新状态：
+
+```json
+{
+  "status": "closed",
+  "closed_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+  "close_reason": "take_profit|stop_loss"
+}
+```
+
+同时更新 `summary`：
+- `open` -= 1
+- `closed` += 1
+
+#### 5.3 检查是否需要归档
+
+```bash
+# 读取 trade-suggestions.json
+# 检查 summary.open 是否为 0 且 summary.total > 0
+```
+
+**如果 `summary.open === 0` 且 `summary.total > 0`：**
+- 周期结束，执行归档
+
+---
+
+### 6. 归档周期
+
+**触发条件：** `summary.open === 0` 且 `summary.total > 0`
+
+**归档步骤：**
+
+```bash
+# 1. 更新 trade-suggestions.json
+# 设置 status: "closed"
+# 设置 closed_at: 当前时间
+# 设置 closed_reason: "all_positions_closed"
+
+# 2. 移动文件夹
+mv active/cycle-* archived/
+```
+
+**注意：** 归档后，下一篇报告会开启新周期。
+
+---
+
+### 7. 发送报告到飞书
 
 使用 feishu_doc 工具发送报告内容到飞书：
 1. 读取刚保存的报告文件
-2. 使用 feishu_doc 发送到 Dandan 的私聊，**注意是将你刚刚得出的报告文件发送到飞书**
+2. 使用 feishu_doc 发送到 Dandan 的私聊
 
-### 5. 记录日志（必须执行）
+---
+
+### 8. 记录日志（必须执行）
 
 **⚠️ 无论成功或失败，都必须记录日志！**
 
@@ -60,23 +207,19 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 |---------|------|------|
 | 原始数据 | `data/YYYY-MM-DD.json` | **自动保存**（脚本 --save 参数） |
 | 执行日志 | `logs/btc-reports.log` | **追加**，失败也要记录 |
-| 完整报告 | `reports/btc-report-YYYY-MM-DD-HHMM.md` | **独立文件**，每次执行一个新文件 |
+| 完整报告 | `active/cycle-*/reports/btc-report-YYYY-MM-DD-HHMM.md` | **独立文件** |
+| 交易建议 | `active/cycle-*/trade-suggestions.json` | **周期文件** |
 
 #### logs/btc-reports.log 格式（追加模式）
 
 **成功时：**
 ```
-[YYYY-MM-DD HH:mm:ss] 报告已发送 | 价格: $xx,xxx.xx | FGI: xx | 消息ID: om_xxx | 报告文件: btc-report-YYYY-MM-DD-HHMM.md
+[YYYY-MM-DD HH:mm:ss] 报告已发送 | 价格: $xx,xxx.xx | FGI: xx | 消息ID: om_xxx | 周期: cycle-xxx | 报告文件: btc-report-YYYY-MM-DD-HHMM.md
 ```
 
 **失败时：**
 ```
 [YYYY-MM-DD HH:mm:ss] 任务失败 | 价格: $xx,xxx.xx | FGI: xx | 错误: 具体错误信息
-```
-
-**超时时：**
-```
-[YYYY-MM-DD HH:mm:ss] 任务超时 | 价格: $xx,xxx.xx | FGI: xx | 错误: 执行超时（已运行xxx秒）
 ```
 
 ---
@@ -89,11 +232,15 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 **此部分必须先完成，用于指导后续分析！**
 
-回顾最近的历史报告（最多3天，最多10篇）：
-- 上次报告的预期走势是否应验？上次标注的支撑/压力位是否有效？上次的交易建议执行结果如何？还能得出什么结果...
-- 列出参考的报告
+回顾当前周期内的历史报告：
+- 上次报告的预期走势是否应验？
+- 上次标注的支撑/压力位是否有效？
+- 当前周期内的交易建议执行结果如何？
+- 还能得出什么结论...
 
-如果没有历史报告，跳过此部分。
+列出参考的报告文件名。
+
+如果没有历史报告（新周期），说明"新周期开始，无历史报告"。
 
 
 ### 二、数据呈现
@@ -120,11 +267,16 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 ### 五、交易建议
 
-这部分必须使用表格格式，给出具体的开单参数：
-- 不要纠结已完成的交易，尽快根据新的市场变化给出新的交易建议，而不是总是重复之前的交易建议怎么怎么样。实在没有依据时才进入观望。
-- 多空变换灵活，不止是单方向的做，若市场转向，尝试快速变换交易风格、交易方向。
+**如果有持仓中的建议：**
+- 先说明当前持仓状态（入场价、止损、止盈、当前盈亏）
+- 检查是否触发止盈/止损
+- 如触发，说明执行结果
 
- 
+**新建议表格：**
+- 不要纠结已完成的交易，尽快根据新的市场变化给出新的交易建议
+- 多空变换灵活，不止是单方向的做，若市场转向，尝试快速变换交易风格、交易方向
+- 如果当前周期已有未关闭的建议，谨慎给出新建议
+
 | 项目 | 内容 |
 |------|------|
 | 方向 | 做多/做空/观望 |
@@ -142,23 +294,26 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 ## 核心要求
 
-1. **必须先读历史报告**：分析前必须获取并回顾历史日报（从 `reports/` 文件夹）
-2. 数据说什么，你就说什么
-3. 分析要有逻辑，引用具体数据支撑判断
-4. 交易建议必须具体，有明确的入场、止损、止盈价格
-5. **必须完成以下步骤**：
-   - 报告文件 → `reports/btc-report-YYYY-MM-DD-HHMM.md`
+1. **必须先检查周期状态**：报告前检查 `active/` 是否有周期
+2. **必须先读历史报告**：分析前必须获取并回顾当前周期的历史报告
+3. 数据说什么，你就说什么
+4. 分析要有逻辑，引用具体数据支撑判断
+5. 交易建议必须具体，有明确的入场、止损、止盈价格
+6. **必须完成以下步骤**：
+   - 周期管理 → 创建新周期或读取现有周期
+   - 报告文件 → `active/cycle-*/reports/btc-report-YYYY-MM-DD-HHMM.md`
+   - 交易建议 → 更新 `trade-suggestions.json`
+   - 归档检查 → 如所有建议关闭，执行归档
    - 发送记录 → `logs/btc-reports.log`
    - 发送报告到飞书私聊
    - 执行警报器管理任务
 
-⚠️ 报告末尾注明：仅供参考，不构成投资建议。七月-v3.13。
+⚠️ 报告末尾注明：仅供参考，不构成投资建议。七月-v3.14。
 
-- 注意，不要在日报中说之前的“本轮交易”怎么怎么样，我们的日报设计目的是维持多轮持续的交易，若之前交易完成了，就不要再重复提及了，专注正在进行和未来布置的交易。
+---
 
-### 6. 警报器管理
+### 9. 警报器管理
 
 **日报任务完成后，立即执行警报器管理任务！**
 
 阅读 `tasks/alert-management.md`，按照其中的步骤管理警报器规则。
-

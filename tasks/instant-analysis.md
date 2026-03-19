@@ -27,6 +27,27 @@
 
 ## 执行步骤
 
+### 0. 检查周期状态
+
+**每次报告前必须先检查交易周期状态！**
+
+```bash
+# 检查是否有活跃周期
+ls -d active/cycle-* 2>/dev/null
+```
+
+**情况A：`active/` 为空**
+- 上一周期刚结束或首次运行
+- 创建新周期文件夹
+- 命名规则：`cycle-YYYYMMDD-001`
+- 创建空的交易建议文件
+
+**情况B：`active/` 有周期文件夹**
+- 读取 `active/cycle-*/trade-suggestions.json`
+- 了解当前持仓状态
+
+---
+
 ### 1. 解析警报数据
 
 从任务指令中提取：
@@ -35,29 +56,25 @@
 - **警报类型** - breakthrough / breakdown / volume_spike / ...
 - **市场数据** - K线、价格、交易量等
 
+---
+
 ### 2. 获取历史报告（24小时内）
 
 **必须先读取历史报告，才能进行本次分析！**
 
-从 `reports/` 文件夹获取：
+**从当前周期的 reports/ 文件夹获取：**
+- 路径：`active/cycle-*/reports/`
 - **时间范围**：当前时间往前推 24 小时
 - **报告类型**：所有报告（包括 `btc-report-*` 和 `instant-report-*`）
 - **数量限制**：最多 20 篇
-
-```bash
-# 获取文件列表（按时间倒序）
-ls -t reports/*.md
-
-# 筛选24小时内的报告
-# 文件名格式：btc-report-YYYY-MM-DD-HHMM.md 或 instant-report-YYYY-MM-DD-HHMM.md
-# 根据当前时间计算24小时前的截止时间
-```
 
 **历史报告用途：**
 - 回顾24小时内价格走势
 - 验证之前标注的支撑/压力位
 - 评估市场情绪变化
 - 发现连续趋势或反转信号
+
+---
 
 ### 3. 分析数据并撰写报告
 
@@ -69,26 +86,67 @@ ls -t reports/*.md
 - 与历史报告中预期的是否一致？
 - 近期可能的市场走向？
 
+---
+
 ### 4. 保存报告
 
-**4.1 保存报告到 reports/ 文件夹**
+**4.1 保存报告到当前周期的 reports/ 文件夹**
 
 文件命名规则：
 - 格式：`instant-report-YYYY-MM-DD-HHMM.md`
 - 示例：`instant-report-2026-03-05-1130.md`
 - 时间精确到分钟，使用 24 小时制
 - 使用警报触发时间（不是当前时间）
+- 保存路径：`active/cycle-*/reports/instant-report-YYYY-MM-DD-HHMM.md`
 
 **必须先保存报告文件，再发送到飞书！**
 
-### 5. 发送到飞书
+---
+
+### 5. 检查交易建议触发
+
+**如果当前周期有持仓中的建议：**
+
+读取 `trade-suggestions.json`，检查警报触发的价位是否命中任何止盈/止损：
+
+- 如触发止盈/止损，更新建议状态：
+  ```json
+  {
+    "status": "closed",
+    "closed_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+    "close_reason": "take_profit|stop_loss"
+  }
+  ```
+- 更新 `summary`（open -= 1, closed += 1）
+- 检查是否需要归档（open === 0 且 total > 0）
+
+---
+
+### 6. 归档检查
+
+**如果 `summary.open === 0` 且 `summary.total > 0`：**
+
+```bash
+# 1. 更新 trade-suggestions.json
+# status: "closed"
+# closed_at: 当前时间
+# closed_reason: "all_positions_closed"
+
+# 2. 移动文件夹
+mv active/cycle-* archived/
+```
+
+---
+
+### 7. 发送到飞书
 
 使用 feishu_doc 工具发送报告内容到飞书：
 1. 读取刚保存的报告文件
-2. 使用 feishu_doc 发送到 Dandan 的私聊，**注意是将你刚刚得出的报告文件发送到飞书**
+2. 使用 feishu_doc 发送到 Dandan 的私聊
 
+---
 
-### 6. 记录日志
+### 8. 记录日志
 
 **无论成功或失败，都必须记录日志！**
 
@@ -96,7 +154,7 @@ ls -t reports/*.md
 
 格式：
 ```
-[YYYY-MM-DD HH:mm:ss] 即时报告已发送 | 警报: xxx | 触发时间: xxx | 消息ID: om_xxx | 报告文件: instant-report-xxx.md
+[YYYY-MM-DD HH:mm:ss] 即时报告已发送 | 警报: xxx | 触发时间: xxx | 周期: cycle-xxx | 消息ID: om_xxx | 报告文件: instant-report-xxx.md
 ```
 
 失败时：
@@ -104,7 +162,9 @@ ls -t reports/*.md
 [YYYY-MM-DD HH:mm:ss] 即时分析失败 | 警报: xxx | 错误: 具体错误信息
 ```
 
-### 7. 警报器管理
+---
+
+### 9. 警报器管理
 
 **即时分析任务完成后，立即执行警报器管理任务！**
 
@@ -126,7 +186,7 @@ ls -t reports/*.md
 
 ### 二、24小时行情回顾
 
-回顾24小时内的报告内容：
+回顾24小时内当前周期的报告内容：
 - 价格走势是否符合预期
 - 支撑/压力位是否有效
 - 市场情绪变化
@@ -142,7 +202,14 @@ ls -t reports/*.md
 - **关键位置验证**：警报监控的关键位置是否有效？
 - **可能的后续走势**：基于数据判断的几种可能性
 
-### 四、操作建议
+### 四、持仓状态（如有）
+
+**如果当前周期有持仓中的建议：**
+- 说明当前持仓的入场价、止损、止盈
+- 检查本次价格变动是否触发止盈/止损
+- 如触发，说明执行结果
+
+### 五、操作建议
 
 给出即时、具体的操作建议：
 
