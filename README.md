@@ -11,6 +11,7 @@
 - 🧠 计算技术指标（SMA、EMA、RSI、动量、波动率）
 - 📤 发送分析报告到飞书
 - 🔔 **动态创建市场警报** - 根据分析发现的关键点位
+- 🔄 **交易周期管理** - 独立管理每轮交易建议
 
 ## 技术栈
 
@@ -35,6 +36,105 @@
 |------|------|
 | `btc-market-lite` | 比特币市场数据获取 |
 | `btc-alert` | 灵活的市场警报系统 |
+
+---
+
+## 交易周期系统 🔄
+
+七月使用**交易周期系统**管理交易建议，实现周期隔离和自动化管理。
+
+### 核心概念
+
+**交易周期（Cycle）** 是七月管理交易建议的核心单位。一个周期从上一篇报告结束开始，到所有交易建议关闭为止。
+
+### 目录结构
+
+```
+july-btc-analyzer/
+├── active/                      # 活跃交易周期（最多1个）
+│   └── cycle-YYYYMMDD-XXX/      # 当前周期文件夹
+│       ├── trade-suggestions.json  # 交易建议文件
+│       └── reports/             # 本周期报告
+│           ├── btc-report-YYYY-MM-DD-HHMM.md
+│           └── instant-report-YYYY-MM-DD-HHMM.md
+│
+├── archived/                    # 已归档周期
+│   └── cycle-YYYYMMDD-XXX/      # 历史周期（结构同 active）
+│
+├── data/                        # 原始 JSON 数据
+├── logs/                        # 执行日志
+├── skills/                      # 技能目录
+└── tasks/                       # 任务规则
+```
+
+### 周期生命周期
+
+```
+[上一周期结束]
+      │
+      ▼
+下一篇报告生成 → 开启新周期（创建空建议文件）
+      │
+      ▼
+周期进行中 → 报告保存到 active/cycle-xxx/reports/
+          → 可能给出交易建议 → 写入 trade-suggestions.json
+          → 检查价格触发止盈/止损 → 更新建议状态
+      │
+      ▼
+所有建议关闭 → 归档（移动 active/ → archived/）
+      │
+      ▼
+[下一周期在下一篇报告时开启]
+```
+
+### 交易建议文件结构
+
+`trade-suggestions.json`:
+
+```json
+{
+  "cycle_id": "cycle-20260319-001",
+  "status": "active",
+  "started_at": "2026-03-19T09:00:00+08:00",
+  "closed_at": null,
+  "closed_reason": null,
+  
+  "suggestions": [
+    {
+      "id": "sug-001",
+      "created_at": "2026-03-19T09:00:00+08:00",
+      "triggered_by": "report-2026-03-19-morning",
+      "direction": "long",
+      "entry_zone": [69500, 70000],
+      "stop_loss": 68000,
+      "take_profit": [72000, 74000],
+      "position_size": "建议仓位 20%",
+      "status": "open",
+      "closed_at": null,
+      "close_reason": null,
+      "notes": "突破阻力位后的回踩确认"
+    }
+  ],
+  
+  "summary": {
+    "total": 1,
+    "open": 1,
+    "closed": 0
+  }
+}
+```
+
+### 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| **周期连续性** | 一周期结束后，下一篇报告立即开启新周期 |
+| **文件驱动** | 七月只通过读写文件理解状态，不依赖记忆 |
+| **周期隔离** | 归档后七月不读取历史，不受上一轮交易影响 |
+| **简洁归档** | 仅移动文件夹，不做总结计算 |
+| **空周期支持** | 允许周期内无交易建议（纯观望期） |
+
+---
 
 ## 警报器系统 🔔
 
@@ -71,35 +171,7 @@
 - `logs/alert-engine.log` - 警报器引擎执行日志
 - `logs/alert-setup.log` - 规则设定日志
 
-### 示例：创建压力位警报
-
-```javascript
-// 七月分析后发现70000是关键压力位，现场编写：
-module.exports = {
-  name: '突破70000压力位',
-  interval: 5 * 60 * 1000,  // 每5分钟检查
-  
-  async check() {
-    const ticker = await api.getTicker('BTC');
-    return ticker.price >= 70000;
-  },
-  
-  async collect() {
-    const klines = await api.getKlines('BTC', '15m', 5);
-    return { klines, triggerTime: new Date().toISOString() };
-  },
-  
-  async trigger(data) {
-    // 调用七月执行即时分析
-    execSync(`openclaw agent --agent july --message "..."`);
-  },
-  
-  lifetime() {
-    const today = new Date().toISOString().split('T')[0];
-    return today === '2026-03-04' ? 'active' : 'expired';
-  }
-};
-```
+---
 
 ## 配置
 
@@ -138,77 +210,53 @@ module.exports = {
                            警报器监控 ───► 触发即时分析任务
 ```
 
-**说明**：
-- 日报任务和即时分析任务完成后，会自动触发警报器管理任务
-- 警报器管理任务不通过 AGENTS.md 路由，而是由其他任务直接调用
-- 所有新规则默认触发即时分析任务
+---
 
 ## 部署
 
 ### PM2 配置
 
-警报器通过 PM2 托管，实现开机自启和崩溃重启：
+警报器和报告监控器通过 PM2 托管：
 
 ```bash
-# 启动服务
-pm2 start ecosystem.config.js
-
-# 保存配置（开机自启）
-pm2 save
-
 # 查看状态
 pm2 list
+
+# 日志
 pm2 logs btc-alert
+pm2 logs july-report-monitor
 ```
 
-### 配置文件说明
+当前运行的 PM2 进程：
 
-`ecosystem.config.js` 定义了警报器的启动参数：
+| 进程名 | 说明 |
+|--------|------|
+| `btc-alert` | 警报器引擎 |
+| `july-report-monitor` | 报告监控器（通知十四月） |
 
-- **自动重启**: 崩溃后自动恢复
-- **内存限制**: 超过 500M 自动重启
-- **日志位置**: `logs/btc-alert-*.log`
-- **时区**: Asia/Shanghai
+---
 
-## 目录结构
+## 相关智能体
 
-```
-workspace-july/
-├── AGENTS.md              # 身份定义 + 任务路由
-├── IDENTITY.md            # 身份元数据
-├── SOUL.md                # 核心原则
-├── TOOLS.md               # 工具笔记
-├── MEMORY.md              # 长期记忆
-├── ecosystem.config.js    # PM2 部署配置
-├── tasks/                 # 任务规则
-│   ├── daily-report.md
-│   ├── set-alert.md
-│   ├── alert-debug.md
-│   ├── instant-analysis.md
-│   └── alert-management.md
-├── skills/            # 技能目录
-│   ├── btc-market-lite/
-│   │   └── scripts/
-│   │       ├── get_enhanced_analysis.js
-│   │       └── api.js
-│   └── btc-alert/
-│       ├── SKILL.md
-│       ├── engine.js
-│       ├── rules/          # 活跃规则
-│       └── rules-archive/  # 归档规则
-├── data/              # 分析数据存档（当天覆盖）
-├── logs/              # 日志文件
-│   ├── btc-reports.log
-│   ├── instant-reports.log
-│   ├── alert-engine.log
-│   └── alert-setup.log
-└── reports/           # 报告存档
-    ├── btc-report-YYYY-MM-DD-HHMM.md
-    ├── instant-report-YYYY-MM-DD-HHMM.md
-    └── alert-report-YYYY-MM-DD-HHMM.md
-```
+| 智能体 | 关系 | 说明 |
+|--------|------|------|
+| 一月酱 | 上司 | 管理七月和十四月 |
+| 十四月子 | 同事 | QQ机器人，转发七月报告给主人 |
+
+十四月会从 `active/cycle-*/reports/` 读取最新报告并转述。
+
+---
 
 ## 更新日志
+
+### 2026-03-19
+- **交易周期系统上线** 🔄
+  - 新增 `active/` 和 `archived/` 目录结构
+  - 交易建议独立管理，支持周期隔离
+  - 报告路径改为 `active/cycle-*/reports/`
+  - 新增 `july-report-monitor` PM2 进程监控报告并通知十四月
+  - 更新 `daily-report.md` 和 `instant-analysis.md` 任务规则
+  - 七月不再读取历史周期数据，每轮交易独立运行
 
 ### 2026-03-09
 - **报告发送方式优化** 📄
