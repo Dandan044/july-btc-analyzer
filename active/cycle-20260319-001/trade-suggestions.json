@@ -1,0 +1,13 @@
+{
+  "cycle_id": "cycle-20260319-001",
+  "status": "active",
+  "started_at": "2026-03-19T13:03:00+08:00",
+  "closed_at": null,
+  "closed_reason": null,
+  "suggestions": [],
+  "summary": {
+    "total": 0,
+    "open": 0,
+    "closed": 0
+  }
+}
