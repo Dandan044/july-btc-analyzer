@@ -14,7 +14,7 @@ const COOLDOWN_MS = 60 * 60 * 1000;
 
 module.exports = {
   name: '支撑位跌破警报-69000-EMA26区域',
-  interval: 5 * 60 * 1000,
+  interval: 3 * 60 * 1000,
   lastTriggered: 0,
 
   async check() {

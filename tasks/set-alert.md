@@ -27,7 +27,7 @@ const COOLDOWN_MS = 60 * 60 * 1000; // 冷却时间：1小时
 
 module.exports = {
   name: '规则名称',
-  interval: 5 * 60 * 1000, // 检查间隔：5分钟
+  interval: 3 * 60 * 1000, // 检查间隔：3分钟（默认设定的技能检测间隔为3分钟）
 
   // 冷却状态（必须）
   lastTriggered: 0,
@@ -200,7 +200,7 @@ const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
 
 module.exports = {
   name: '压力位突破警报-75000',
-  interval: 5 * 60 * 1000,
+  interval: 3 * 60 * 1000, // 默认设定的技能检测间隔为3分钟
   lastTriggered: 0,
 
   async check() {

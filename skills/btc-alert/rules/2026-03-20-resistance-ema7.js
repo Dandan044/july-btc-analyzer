@@ -13,7 +13,7 @@ const COOLDOWN_MS = 60 * 60 * 1000;
 
 module.exports = {
   name: '阻力位突破警报-71500-EMA7',
-  interval: 5 * 60 * 1000,
+  interval: 3 * 60 * 1000,
   lastTriggered: 0,
 
   async check() {

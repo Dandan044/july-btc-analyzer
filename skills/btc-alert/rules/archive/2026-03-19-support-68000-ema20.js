@@ -1,19 +1,19 @@
 /**
- * 支撑位跌破警报 - $68,500 (关键支撑)
- * 监控 BTC 价格跌破 $68,500
- * $68,000-$69,000是3月低点区域，跌破将测试$65,000
+ * 支撑位跌破警报 - $68,000 (EMA20区域)
+ * 监控 BTC 价格跌破 $68,000
+ * $70,000已跌破，下一支撑在$68,000 EMA20区域
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
 
 const CREATED_DATE = '2026-03-19';
-const TARGET_PRICE = 68500;
+const TARGET_PRICE = 68000;
 const COOLDOWN_MS = 60 * 60 * 1000;
 
 module.exports = {
-  name: '支撑位跌破警报-68500-关键支撑',
-  interval: 5 * 60 * 1000,
+  name: '支撑位跌破警报-68000-EMA20区域',
+  interval: 2 * 60 * 1000,
   lastTriggered: 0,
 
   async check() {
@@ -41,7 +41,7 @@ module.exports = {
         fearGreedIndex: fgi.current,
         klines15m: klines.map(k => ({ time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })),
         triggerPrice: TARGET_PRICE,
-        alertType: '支撑位跌破-关键支撑'
+        alertType: '支撑位跌破-EMA20区域'
       };
     } catch (error) {
       console.error('[数据收集错误]', error.message);

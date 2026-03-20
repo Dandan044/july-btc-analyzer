@@ -1,19 +1,19 @@
 /**
- * 支撑位跌破警报 - $68,000 (EMA20区域)
- * 监控 BTC 价格跌破 $68,000
- * $70,000已跌破，下一支撑在$68,000 EMA20区域
+ * 阻力位突破警报 - $72,000 (EMA7附近)
+ * 监控 BTC 价格突破 $72,000
+ * 突破后可能反弹至$73,000，考虑重新入场
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
 
 const CREATED_DATE = '2026-03-19';
-const TARGET_PRICE = 68000;
+const TARGET_PRICE = 72000;
 const COOLDOWN_MS = 60 * 60 * 1000;
 
 module.exports = {
-  name: '支撑位跌破警报-68000-EMA20区域',
-  interval: 5 * 60 * 1000,
+  name: '阻力位突破警报-72000-EMA7',
+  interval: 2 * 60 * 1000,
   lastTriggered: 0,
 
   async check() {
@@ -21,7 +21,7 @@ module.exports = {
     try {
       const ticker = await api.getTicker('BTC');
       console.log(`[警报检查] 当前价格: ${ticker.price}, 目标: ${TARGET_PRICE}`);
-      return ticker.price <= TARGET_PRICE;
+      return ticker.price >= TARGET_PRICE;
     } catch (error) {
       console.error('[警报检查错误]', error.message);
       return false;
@@ -33,15 +33,27 @@ module.exports = {
       const ticker = await api.getTicker('BTC');
       const klines = await api.getKlines('BTC', '15m', 10);
       const fgi = await api.getFearGreedIndex(7);
+
       return {
         alertTime: new Date().toISOString(),
         currentPrice: ticker.price,
-        priceChange: { '1h': ticker.change1h, '24h': ticker.change24h, '7d': ticker.change7d },
+        priceChange: {
+          '1h': ticker.change1h,
+          '24h': ticker.change24h,
+          '7d': ticker.change7d
+        },
         volume24h: ticker.volume24h,
         fearGreedIndex: fgi.current,
-        klines15m: klines.map(k => ({ time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })),
+        klines15m: klines.map(k => ({
+          time: k.datetime,
+          open: k.open,
+          high: k.high,
+          low: k.low,
+          close: k.close,
+          volume: k.volume
+        })),
         triggerPrice: TARGET_PRICE,
-        alertType: '支撑位跌破-EMA20区域'
+        alertType: '阻力位突破-EMA7'
       };
     } catch (error) {
       console.error('[数据收集错误]', error.message);
@@ -74,7 +86,8 @@ ${JSON.stringify(data, null, 2)}
   lifetime() {
     const today = new Date().toISOString().split('T')[0];
     const created = new Date(CREATED_DATE);
-    const daysDiff = Math.floor((new Date(today) - created) / (1000 * 60 * 60 * 24));
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
     return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
