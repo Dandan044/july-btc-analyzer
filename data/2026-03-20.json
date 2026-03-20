@@ -1,30 +1,23 @@
 {
-  "timestamp": "2026-03-20T01:04:16.081Z",
-  "price": {
-    "current": 70301.91,
-    "change1h": 0.15,
-    "change24h": -1.16,
-    "change7d": -1.9,
-    "volume24h": 6299709,
-    "marketCap": null
-  },
+  "timestamp": "2026-03-20T04:12:25.271Z",
+  "price": null,
   "priceHistory": {
-    "current": 70310.08,
+    "current": 70927.02,
     "days": 32,
     "history": [
       {
         "date": "2026-03-20",
-        "price": 70310.08,
-        "high": 70384.49,
+        "price": 70927.02,
+        "high": 70940.33,
         "low": 69841.92,
-        "sma7": 72050.18,
-        "sma14": 70547.23,
-        "sma20": 70114.24,
-        "sma30": 68997.42,
-        "ema7": 71226.7,
-        "ema12": 70934.34,
-        "ema20": 70199.63,
-        "ema26": 69542.01
+        "sma7": 72138.31,
+        "sma14": 70591.3,
+        "sma20": 70145.08,
+        "sma30": 69017.99,
+        "ema7": 71380.94,
+        "ema12": 71029.25,
+        "ema20": 70258.38,
+        "ema26": 69587.71
       },
       {
         "date": "2026-03-19",
@@ -336,27 +329,27 @@
     "statistics": {
       "max30d": 74884.52,
       "min30d": 64069.84,
-      "avg30d": 68869.83,
-      "rangePosition": 57.7
+      "avg30d": 68889.11,
+      "rangePosition": 63.4
     },
     "indicators": {
-      "rsi14": 56.7,
-      "volatility30d": 2610.34,
-      "momentum7d": -0.89,
-      "momentum14d": 3.23
+      "rsi14": 58.3,
+      "volatility30d": 2623,
+      "momentum7d": -0.02,
+      "momentum14d": 4.14
     }
   },
   "volume": {
-    "current": 2179491648.7,
+    "current": 2202523513.1899996,
     "currentSource": "24h_aggregated",
     "avg30d": 2382676449.888387,
     "max30d": 4177397786.89,
     "min30d": 695397584.7,
-    "volumeRatio": 0.91,
+    "volumeRatio": 0.92,
     "history": [
       {
         "date": "2026-03-20",
-        "volume": 2179491648.7,
+        "volume": 2202523513.1899996,
         "isAggregated": true
       },
       {
