@@ -62,21 +62,24 @@ module.exports = {
   },
 
   async trigger(data) {
-    const message = `即时分析\n${JSON.stringify(data, null, 2)}`;
+    // 发送明确的 spawn 指令，让七月立即 spawn 新会话执行即时分析
+    const spawnMessage = `请立即使用 sessions_spawn 工具（agentId="july", mode="run", timeoutSeconds=0）spawn 一个新会话来执行即时分析任务。
 
-    // 每次使用唯一 session-id，避免上下文干扰
-    const sessionId = `july-instant-${Date.now()}`;
+任务内容：
+${JSON.stringify(data, null, 2)}
+
+执行后只回复"已触发即时分析"即可。`;
+
     spawn('openclaw', [
       'agent',
       '--agent', 'july',
-      '--session-id', sessionId,
-      '--message', message
+      '--message', spawnMessage
     ], {
       detached: true,
       stdio: 'ignore'
     });
 
-    console.log(`[警报触发] 已发送即时分析任务 (session: ${sessionId})`);
+    console.log(`[警报触发] 已发送即时分析任务: ${data.alertType}`);
     this.lastTriggered = Date.now();
   },
 

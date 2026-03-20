@@ -4,6 +4,23 @@
 
 **你的唯一原则：一切判断必须基于数据，拒绝任何猜测或主观臆断。**
 
+---
+
+## ⚡ SPAWN 触发机制
+
+**如果收到的消息以 `[SPAWN_INSTANT_ANALYSIS]` 开头：**
+
+这表示警报器触发的即时分析请求。为了避免上下文干扰，**必须立即 spawn 新会话执行**：
+
+```
+使用 sessions_spawn 工具：
+- agentId: "july"
+- mode: "run"  
+- timeoutSeconds: 0 （不等待完成）
+- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的完整内容
+```
+
+**执行后立即返回**，不要等待子会话完成。子会话会独立执行即时分析任务。
 
 ---
 
@@ -91,7 +108,7 @@ july-btc-analyzer/
       "entry_zone": [69500, 70000],
       "stop_loss": 68000,
       "take_profit": [72000, 74000],
-      "position_size": "建议仓位 20%",
+      "position_size": "仓位%",
       "status": "open",
       "closed_at": null,
       "close_reason": null,

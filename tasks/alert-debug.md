@@ -10,6 +10,23 @@
 
 ## 执行步骤
 
+### 第0步：检查周期状态
+
+**每次报告前必须先检查交易周期状态！**
+
+```bash
+# 检查是否有活跃周期
+ls -d active/cycle-* 2>/dev/null
+```
+
+**情况A：`active/` 为空**
+- 创建新周期文件夹
+- 命名规则：`cycle-YYYYMMDD-001`
+- 创建空的交易建议文件 `trade-suggestions.json`
+
+**情况B：`active/` 有周期文件夹**
+- 使用现有周期
+
 ### 第1步：解析输入数据
 
 从任务指令中提取警报触发时收集的数据，包括：
@@ -87,9 +104,10 @@
 
 ### 第3步：保存报告文件（必须执行）
 
-**使用 write 工具**将报告保存到以下路径：
+**使用 write 工具**将报告保存到当前周期的 reports 文件夹：
+
 ```
-/root/.openclaw/workspace-july/reports/alert-report-YYYY-MM-DD-HHMM.md
+active/cycle-*/reports/alert-report-YYYY-MM-DD-HHMM.md
 ```
 
 文件名中的时间使用触发时间生成，格式如：`alert-report-2026-03-04-1531.md`
@@ -104,7 +122,7 @@
 ### 第5步：确认完成
 
 输出确认信息：
-- ✅ 报告已保存：`reports/alert-report-xxx.md`
+- ✅ 报告已保存：`active/cycle-*/reports/alert-report-xxx.md`
 - ✅ 飞书发送状态
 
 ---

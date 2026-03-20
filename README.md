@@ -304,7 +304,7 @@ pm2 logs july-report-monitor
   - 完整的日志系统
 - 新增 `api.js` 模块，提供可复用的市场数据 API
 - 新增任务路由：设定市场警报、警报调试报告
-- 警报报告自动保存到 `reports/` 并发送飞书
+- 警报报告自动保存到 `active/cycle-*/reports/` 并发送飞书
 - 数据源迁移到 CryptoCompare API
 - 新增 get24hVolume() 函数，聚合24小时交易量
 - 修复 volumeRatio 计算失真问题
@@ -316,7 +316,7 @@ pm2 logs july-report-monitor
 - 新增历史日报关联能力（回顾 3 天内报告）
 - 脚本新增 `--save` 参数，自动保存数据
 - **日报存储改造**：
-  - 新建 `reports/` 文件夹专门存放日报
+  - 新建 `reports/` 文件夹专门存放日报（已废弃，改用周期系统）
   - 日报命名格式改为 `btc-report-YYYY-MM-DD-HHMM.md`
 
 ### 2026-03-02

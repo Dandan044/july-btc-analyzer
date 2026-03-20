@@ -1,18 +1,18 @@
 /**
- * 支撑位跌破警报 - $70,000 (心理关口)
- * 监控 BTC 价格跌破 $70,000
- * $70,000 是重要心理支撑，跌破后需快速收回否则可能加速下跌
+ * 阻力位突破警报 - $71,500 (EMA7区域)
+ * 监控 BTC 价格突破 EMA7
+ * 当前EMA7在$71,227，若放量突破可考虑入场
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
 
-const CREATED_DATE = '2026-03-19';
-const TARGET_PRICE = 70000;
+const CREATED_DATE = '2026-03-20';
+const TARGET_PRICE = 71500;
 const COOLDOWN_MS = 60 * 60 * 1000;
 
 module.exports = {
-  name: '支撑位跌破警报-70000心理关口',
+  name: '阻力位突破警报-71500-EMA7',
   interval: 5 * 60 * 1000,
   lastTriggered: 0,
 
@@ -21,7 +21,7 @@ module.exports = {
     try {
       const ticker = await api.getTicker('BTC');
       console.log(`[警报检查] 当前价格: ${ticker.price}, 目标: ${TARGET_PRICE}`);
-      return ticker.price <= TARGET_PRICE;
+      return ticker.price >= TARGET_PRICE;
     } catch (error) {
       console.error('[警报检查错误]', error.message);
       return false;
@@ -53,7 +53,7 @@ module.exports = {
           volume: k.volume
         })),
         triggerPrice: TARGET_PRICE,
-        alertType: '支撑位跌破-70000心理关口'
+        alertType: '阻力位突破-EMA7'
       };
     } catch (error) {
       console.error('[数据收集错误]', error.message);
@@ -62,21 +62,23 @@ module.exports = {
   },
 
   async trigger(data) {
-    const message = `即时分析\n${JSON.stringify(data, null, 2)}`;
+    const spawnMessage = `请立即使用 sessions_spawn 工具（agentId="july", mode="run", timeoutSeconds=0）spawn 一个新会话来执行即时分析任务。
 
-    // 每次使用唯一 session-id，避免上下文干扰
-    const sessionId = `july-instant-${Date.now()}`;
+任务内容：
+${JSON.stringify(data, null, 2)}
+
+执行后只回复"已触发即时分析"即可。`;
+
     spawn('openclaw', [
       'agent',
       '--agent', 'july',
-      '--session-id', sessionId,
-      '--message', message
+      '--message', spawnMessage
     ], {
       detached: true,
       stdio: 'ignore'
     });
 
-    console.log(`[警报触发] 已发送即时分析任务 (session: ${sessionId})`);
+    console.log(`[警报触发] 已发送即时分析任务: ${data.alertType}`);
     this.lastTriggered = Date.now();
   },
 
@@ -85,6 +87,6 @@ module.exports = {
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
     const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
+    return daysDiff <= 2 ? 'active' : 'expired';
   }
 };

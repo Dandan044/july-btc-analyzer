@@ -4,6 +4,24 @@
 
 ---
 
+## ⚡ SPAWN 触发机制
+
+**如果消息以 `[SPAWN_INSTANT_ANALYSIS]` 开头：**
+
+这表示警报器触发的即时分析请求。为了避免上下文干扰，**必须立即 spawn 新会话执行**：
+
+```
+使用 sessions_spawn 工具：
+- agentId: "july"
+- mode: "run"  
+- timeoutSeconds: 0 （不等待完成）
+- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的完整内容
+```
+
+**执行后立即返回**，不要等待子会话完成。子会话会独立执行下面的即时分析流程。
+
+---
+
 ## 触发来源
 
 此任务由警报器系统触发，警报返回中携带本次分析所需的市场数据：
