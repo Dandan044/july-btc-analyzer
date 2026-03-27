@@ -1,87 +1,178 @@
 #!/usr/bin/env node
 /**
- * 比特币市场数据获取 v2
- * 数据源: CryptoCompare API (主力) + alternative.me (恐惧贪婪指数)
+ * 比特币市场数据获取 v4
+ * 数据源: 
+ *   - Binance Futures API (价格/OHLCV + 交易侧数据)
+ *   - alternative.me (恐惧贪婪指数)
  * 
  * 功能:
- * - 获取实时价格、市值、交易量
- * - 获取30天历史价格数据（可自定义）
- * - 获取30天恐惧贪婪指数
- * - 计算技术指标：SMA、EMA、RSI、动量、波动率
- * 
- * 输出: 与 v1 完全兼容的数据结构
+ *   - 获取日线级别数据（14天展示，30日用于统计）
+ *   - 获取4小时级别数据（14根）
+ *   - 交易侧数据：资金费率、OI、多空比、Taker买卖比
  * 
  * 用法: 
- *   node get_enhanced_analysis_v2.js [--json] [--save]
- *   
- * 参数:
- *   --json  输出JSON格式
- *   --save  自动保存到 data/YYYY-MM-DD.json
+ *   node get_enhanced_analysis.js [--json] [--save] [--proxy http://127.0.0.1:7890]
  */
 
 const https = require('https');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { URL } = require('url');
+
+// ========== 配置 ==========
+
+const PROXY_DEFAULT = 'http://127.0.0.1:7890';
+const BINANCE_FUTURES_BASE = 'https://fapi.binance.com';
 
 // ========== 工具函数 ==========
 
-function fetch(url) {
+function toBeijingTime(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  return d.toLocaleString('en-CA', { 
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(',', '');
+}
+
+function toBeijingDate(timestampMs) {
+  const d = new Date(timestampMs);
+  return d.toLocaleString('en-CA', { 
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
+function toBeijingDatetime(timestampMs) {
+  const d = new Date(timestampMs);
+  return d.toLocaleString('en-CA', { 
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).replace(',', '');
+}
+
+function fetch(url, proxy = null) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
-    const req = https.request({
-      hostname: parsed.hostname,
-      path: parsed.pathname + parsed.search,
-      method: 'GET',
-      headers: { 
-        'User-Agent': 'Mozilla/5.0', 
-        'Accept': 'application/json',
-        'Authorization': 'Apikey YOUR_API_KEY' // 可选，免费版不需要
-      },
-      timeout: 30000
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
+    
+    if (proxy) {
+      const proxyParsed = new URL(proxy);
+      const proxyPort = proxyParsed.port || 80;
+      
+      const proxyReq = http.request({
+        hostname: proxyParsed.hostname,
+        port: proxyPort,
+        method: 'CONNECT',
+        path: `${parsed.hostname}:443`
+      });
+      
+      proxyReq.on('connect', (res, socket) => {
         if (res.statusCode === 200) {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { resolve(data); }
+          const tlsSocket = require('tls').connect({
+            socket: socket,
+            servername: parsed.hostname
+          }, () => {
+            const req = `GET ${parsed.pathname}${parsed.search} HTTP/1.1\r\n` +
+                       `Host: ${parsed.hostname}\r\n` +
+                       `User-Agent: Mozilla/5.0\r\n` +
+                       `Accept: application/json\r\n` +
+                       `Connection: close\r\n\r\n`;
+            tlsSocket.write(req);
+            
+            let data = '';
+            tlsSocket.on('data', chunk => data += chunk);
+            tlsSocket.on('end', () => {
+              const headerEnd = data.indexOf('\r\n\r\n');
+              const body = data.substring(headerEnd + 4);
+              try {
+                resolve(JSON.parse(body));
+              } catch (e) {
+                reject(new Error(`JSON parse error: ${e.message}`));
+              }
+            });
+          });
+          tlsSocket.on('error', reject);
         } else {
-          reject(new Error(`HTTP ${res.statusCode}`));
+          reject(new Error(`Proxy CONNECT failed: ${res.statusCode}`));
         }
       });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
-    req.end();
+      
+      proxyReq.on('error', reject);
+      proxyReq.end();
+    } else {
+      const req = https.request({
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: 'GET',
+        headers: { 
+          'User-Agent': 'Mozilla/5.0', 
+          'Accept': 'application/json'
+        },
+        timeout: 30000
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            try { resolve(JSON.parse(data)); }
+            catch (e) { reject(new Error(`JSON parse error: ${e.message}`)); }
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}`));
+          }
+        });
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
+      req.end();
+    }
   });
 }
 
 // ========== 技术指标计算 ==========
 
-function calcSMA(values, period) {
-  if (values.length < period) return null;
-  const slice = values.slice(0, period);
-  return slice.reduce((a, b) => a + b, 0) / period;
-}
-
-function calcEMA(values, period) {
-  if (values.length < period) return null;
+function calcEMASequence(values, period, outputCount) {
+  if (values.length < period) return [];
   const reversed = [...values].reverse();
   const k = 2 / (period + 1);
+  const emaSeries = [];
   let ema = reversed.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  emaSeries.push(ema);
   for (let i = period; i < reversed.length; i++) {
     ema = reversed[i] * k + ema * (1 - k);
+    emaSeries.push(ema);
   }
-  return ema;
+  return emaSeries.reverse().slice(0, outputCount);
 }
 
 function calcRSI(values, period = 14) {
+  // values: [最新, ..., 最旧]
+  // 需要至少 period+1 个数据点
   if (values.length < period + 1) return null;
   
-  let gains = 0, losses = 0;
+  // 计算价格变化
+  const changes = [];
+  for (let i = 0; i < values.length - 1; i++) {
+    changes.push(values[i] - values[i + 1]);
+  }
   
-  for (let i = 1; i <= period; i++) {
-    const change = values[i - 1] - values[i];
+  // 取最近 period 个变化
+  const recentChanges = changes.slice(0, period);
+  
+  let gains = 0, losses = 0;
+  for (const change of recentChanges) {
     if (change > 0) gains += change;
     else losses -= change;
   }
@@ -94,335 +185,372 @@ function calcRSI(values, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
-function calcVolatility(values, period = 30) {
-  if (values.length < period) return null;
-  
-  const slice = values.slice(0, period);
-  const mean = slice.reduce((a, b) => a + b, 0) / period;
-  const variance = slice.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / period;
-  
-  return Math.sqrt(variance);
-}
-
 function calcMomentum(values, days = 7) {
+  // values: [最新, ..., 最旧]
+  // 动量 = (当前价格 - N天前价格) / N天前价格 * 100
   if (values.length <= days) return null;
   return ((values[0] - values[days]) / values[days]) * 100;
 }
 
-function calcSMASequence(values, period, days) {
-  const result = [];
-  for (let i = 0; i < days && i < values.length - period + 1; i++) {
-    const slice = values.slice(i, i + period);
-    const sma = slice.reduce((a, b) => a + b, 0) / period;
-    result.push(sma);
-  }
-  return result;
-}
+// ========== Binance API ==========
 
-function calcEMASequence(values, period, days) {
-  if (values.length < period) return [];
-  
-  const result = [];
-  const reversed = [...values].reverse();
-  const k = 2 / (period + 1);
-  
-  const emaSeries = [];
-  let ema = reversed.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  emaSeries.push(ema);
-  
-  for (let i = period; i < reversed.length; i++) {
-    ema = reversed[i] * k + ema * (1 - k);
-    emaSeries.push(ema);
-  }
-  
-  return emaSeries.reverse().slice(0, days);
-}
-
-// ========== CryptoCompare API 封装 ==========
-
-/**
- * 获取 CryptoCompare 数据
- * @param {string} endpoint - histominute | histohour | histoday
- * @param {string} fsym - 基础货币 (BTC)
- * @param {string} tsym - 目标货币 (USD)
- * @param {number} limit - 数据条数
- */
-async function getCryptoCompareData(endpoint, fsym = 'BTC', tsym = 'USD', limit = 30) {
-  const url = `https://min-api.cryptocompare.com/data/v2/${endpoint}?fsym=${fsym}&tsym=${tsym}&limit=${limit}`;
-  const data = await fetch(url);
-  
-  if (data.Response !== 'Success') {
-    throw new Error(`CryptoCompare API error: ${data.Message || 'Unknown error'}`);
-  }
-  
-  return data.Data;
+async function getBinanceData(endpoint, proxy) {
+  const url = `${BINANCE_FUTURES_BASE}${endpoint}`;
+  return fetch(url, proxy);
 }
 
 /**
- * 获取当前价格信息（从 CryptoCompare）
+ * 获取日线数据
+ * - 获取30日K线用于统计和指标计算
+ * - 展示14日数据
  */
-async function getCurrentPrice() {
-  // 使用 histohour 获取最新价格和变化
-  const hourData = await getCryptoCompareData('histohour', 'BTC', 'USD', 168); // 7天小时数据
+async function getDailyData(proxy) {
+  const LIMIT_DISPLAY = 14;  // 展示14天
+  const LIMIT_STATS = 30;    // 统计30天
   
-  if (!hourData.Data || hourData.Data.length === 0) {
-    throw new Error('No price data available');
+  // 获取30日K线（用于统计和指标计算）
+  const klines30d = await getBinanceData(`/fapi/v1/klines?symbol=BTCUSDT&interval=1d&limit=${LIMIT_STATS}`, proxy).catch(() => null);
+  
+  if (!klines30d || !Array.isArray(klines30d) || klines30d.length === 0) {
+    throw new Error('无法获取日线K线数据');
   }
   
-  const latest = hourData.Data[hourData.Data.length - 1];
-  const hourAgo = hourData.Data[hourData.Data.length - 2];
-  const dayAgo = hourData.Data[hourData.Data.length - 25];
-  const weekAgo = hourData.Data[0];
+  // 获取24小时聚合交易量
+  const ticker24h = await getBinanceData('/fapi/v1/ticker/24hr?symbol=BTCUSDT', proxy).catch(() => null);
+  const volume24h = ticker24h ? parseFloat(ticker24h.quoteVolume) : null;
   
-  return {
-    current: latest.close,
-    change1h: ((latest.close - hourAgo.close) / hourAgo.close * 100),
-    change24h: ((latest.close - dayAgo.close) / dayAgo.close * 100),
-    change7d: ((latest.close - weekAgo.close) / weekAgo.close * 100),
-    volume24h: latest.volumeto,
-    // 市值需要单独计算或从其他源获取
-  };
-}
-
-/**
- * 获取历史价格数据（日级别）
- */
-async function getPriceHistory(days = 31) {
-  const dayData = await getCryptoCompareData('histoday', 'BTC', 'USD', days);
+  // 并行获取交易侧数据（14天）
+  const [fundingRate, openInterest, globalLongShort, topTraderPosition, takerRatio] = await Promise.all([
+    getBinanceData(`/fapi/v1/fundingRate?symbol=BTCUSDT&limit=${LIMIT_DISPLAY * 3}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/openInterestHist?symbol=BTCUSDT&period=1d&limit=${LIMIT_DISPLAY}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1d&limit=${LIMIT_DISPLAY}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=1d&limit=${LIMIT_DISPLAY}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/takerlongshortRatio?symbol=BTCUSDT&period=1d&limit=${LIMIT_DISPLAY}`, proxy).catch(() => null)
+  ]);
   
-  if (!dayData.Data || dayData.Data.length === 0) {
-    throw new Error('No historical price data available');
+  // 解析30日数据（用于统计和指标计算）
+  const allData = [];
+  for (let i = 0; i < klines30d.length; i++) {
+    const k = klines30d[i];
+    allData.push({
+      timestamp: k[0],
+      date: toBeijingDate(k[0]),
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),
+      quoteVolume: parseFloat(k[7])
+    });
   }
   
-  // CryptoCompare 返回从旧到新，需要反转
-  const data = dayData.Data.reverse();
+  // 最新数据在数组末尾，反转使最新在前
+  allData.reverse();
   
-  return {
-    prices: data.map(d => d.close),
-    timestamps: data.map(d => d.time),
-    volumes: data.map(d => d.volumeto),
-    highs: data.map(d => d.high),
-    lows: data.map(d => d.low)
-  };
-}
-
-/**
- * 获取最近24小时交易量（聚合小时数据）
- * 返回完整的24小时交易量，用于替代当日不完整数据
- * 
- * ⚠️ 这是唯一可靠的交易量来源，不允许 fallback 到不完整数据
- */
-async function get24hVolume(retries = 3) {
-  let lastError = null;
+  // 取最近14天用于展示
+  const displayData = allData.slice(0, LIMIT_DISPLAY);
+  const closes = allData.map(d => d.close);  // 所有收盘价用于指标计算
   
-  for (let i = 0; i < retries; i++) {
-    try {
-      // 获取最近24小时的小时数据
-      const hourData = await getCryptoCompareData('histohour', 'BTC', 'USD', 24);
-      
-      if (!hourData.Data || hourData.Data.length < 24) {
-        throw new Error('No hourly volume data available');
-      }
-      
-      // 聚合最近24小时的交易量
-      const last24Hours = hourData.Data.slice(-24);
-      const volume24h = last24Hours.reduce((sum, h) => sum + (h.volumeto || 0), 0);
-      
-      return {
-        volume24h: volume24h,
-        hourlyData: last24Hours.map(h => ({
-          time: h.time,
-          volume: h.volumeto,
-          close: h.close
-        }))
-      };
-    } catch (e) {
-      lastError = e;
-      if (i < retries - 1) {
-        // 等待 2 秒后重试
-        await new Promise(resolve => setTimeout(resolve, 2000));
+  // 计算 EMA
+  const ema7 = calcEMASequence(closes, 7, LIMIT_DISPLAY);
+  const ema12 = calcEMASequence(closes, 12, LIMIT_DISPLAY);
+  const ema20 = calcEMASequence(closes, 20, LIMIT_DISPLAY);
+  const ema26 = calcEMASequence(closes, 26, LIMIT_DISPLAY);
+  
+  // 构建展示数据（当日volume置为null）
+  const history = displayData.map((d, i) => {
+    const entry = {
+      date: d.date,
+      timestamp: d.timestamp,
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+      volume: i === 0 ? null : d.volume,  // 当日交易量置为null
+      quoteVolume: i === 0 ? null : d.quoteVolume
+    };
+    
+    // EMA
+    if (i < ema7.length) entry.ema7 = parseFloat(ema7[i].toFixed(2));
+    if (i < ema12.length) entry.ema12 = parseFloat(ema12[i].toFixed(2));
+    if (i < ema20.length) entry.ema20 = parseFloat(ema20[i].toFixed(2));
+    if (i < ema26.length) entry.ema26 = parseFloat(ema26[i].toFixed(2));
+    
+    return entry;
+  });
+  
+  // 按 timestamp 映射（用于匹配交易侧数据）
+  const tsMap = new Map(history.map((r, i) => [r.timestamp, i]));
+  
+  // 资金费率 - 按日期分组，取当天最后一条
+  if (fundingRate && Array.isArray(fundingRate)) {
+    const byDate = {};
+    for (const d of fundingRate) {
+      const dateStr = toBeijingDate(d.fundingTime);
+      byDate[dateStr] = parseFloat(d.fundingRate);
+    }
+    for (const r of history) {
+      if (byDate[r.date] !== undefined) {
+        r.fundingRate = byDate[r.date];
       }
     }
   }
   
-  // 重试失败后抛出错误，不允许静默 fallback
-  throw new Error(`get24hVolume failed after ${retries} retries: ${lastError?.message}`);
+  // OI
+  if (openInterest && Array.isArray(openInterest)) {
+    for (const d of openInterest) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        history[idx].openInterest = parseFloat(d.sumOpenInterest);
+        history[idx].openInterestValue = parseFloat(d.sumOpenInterestValue);
+      }
+    }
+  }
+  
+  // 多空人数比
+  if (globalLongShort && Array.isArray(globalLongShort)) {
+    for (const d of globalLongShort) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        history[idx].longShortRatio = parseFloat(d.longShortRatio);
+        history[idx].longAccount = parseFloat(d.longAccount);
+        history[idx].shortAccount = parseFloat(d.shortAccount);
+      }
+    }
+  }
+  
+  // 大户持仓比
+  if (topTraderPosition && Array.isArray(topTraderPosition)) {
+    for (const d of topTraderPosition) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        history[idx].topTraderRatio = parseFloat(d.longShortRatio);
+        history[idx].topTraderLong = parseFloat(d.longAccount);
+        history[idx].topTraderShort = parseFloat(d.shortAccount);
+      }
+    }
+  }
+  
+  // Taker 买卖比
+  if (takerRatio && Array.isArray(takerRatio)) {
+    for (const d of takerRatio) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        history[idx].takerRatio = parseFloat(d.buySellRatio);
+        history[idx].takerBuyVol = parseFloat(d.buyVol);
+        history[idx].takerSellVol = parseFloat(d.sellVol);
+      }
+    }
+  }
+  
+  // 计算统计
+  const currentPrice = displayData[0].close;
+  
+  // 14日价格统计
+  const prices14d = displayData.map(d => d.close);
+  const maxPrice14d = Math.max(...prices14d);
+  const minPrice14d = Math.min(...prices14d);
+  const avgPrice14d = prices14d.reduce((a, b) => a + b, 0) / prices14d.length;
+  
+  // 14日交易量统计（排除当日）
+  const volumes14d = displayData.slice(1).map(d => d.quoteVolume).filter(v => v);
+  const maxVolume14d = volumes14d.length > 0 ? Math.max(...volumes14d) : null;
+  const minVolume14d = volumes14d.length > 0 ? Math.min(...volumes14d) : null;
+  const avgVolume14d = volumes14d.length > 0 ? volumes14d.reduce((a, b) => a + b, 0) / volumes14d.length : null;
+  
+  // 30日价格统计
+  const prices30d = allData.slice(0, 30).map(d => d.close);
+  const maxPrice30d = Math.max(...prices30d);
+  const minPrice30d = Math.min(...prices30d);
+  const avgPrice30d = prices30d.reduce((a, b) => a + b, 0) / prices30d.length;
+  
+  // 30日交易量统计（排除当日）
+  const volumes30d = allData.slice(1, 30).map(d => d.quoteVolume).filter(v => v);
+  const maxVolume30d = volumes30d.length > 0 ? Math.max(...volumes30d) : null;
+  const minVolume30d = volumes30d.length > 0 ? Math.min(...volumes30d) : null;
+  const avgVolume30d = volumes30d.length > 0 ? volumes30d.reduce((a, b) => a + b, 0) / volumes30d.length : null;
+  
+  return {
+    history: history,
+    current: currentPrice,
+    volume24h: volume24h,  // 24小时聚合交易量
+    statistics: {
+      days14: {
+        price: {
+          max: parseFloat(maxPrice14d.toFixed(2)),
+          min: parseFloat(minPrice14d.toFixed(2)),
+          avg: parseFloat(avgPrice14d.toFixed(2)),
+          rangePosition: parseFloat(((currentPrice - minPrice14d) / (maxPrice14d - minPrice14d) * 100).toFixed(1))
+        },
+        volume: {
+          max: maxVolume14d ? parseFloat(maxVolume14d.toFixed(0)) : null,
+          min: minVolume14d ? parseFloat(minVolume14d.toFixed(0)) : null,
+          avg: avgVolume14d ? parseFloat(avgVolume14d.toFixed(0)) : null,
+          volumeRatio: (volume24h && avgVolume14d) ? parseFloat((volume24h / avgVolume14d).toFixed(2)) : null
+        }
+      },
+      days30: {
+        price: {
+          max: parseFloat(maxPrice30d.toFixed(2)),
+          min: parseFloat(minPrice30d.toFixed(2)),
+          avg: parseFloat(avgPrice30d.toFixed(2)),
+          rangePosition: parseFloat(((currentPrice - minPrice30d) / (maxPrice30d - minPrice30d) * 100).toFixed(1))
+        },
+        volume: {
+          max: maxVolume30d ? parseFloat(maxVolume30d.toFixed(0)) : null,
+          min: minVolume30d ? parseFloat(minVolume30d.toFixed(0)) : null,
+          avg: avgVolume30d ? parseFloat(avgVolume30d.toFixed(0)) : null,
+          volumeRatio: (volume24h && avgVolume30d) ? parseFloat((volume24h / avgVolume30d).toFixed(2)) : null
+        }
+      }
+    },
+    indicators: {
+      rsi14: calcRSI(closes, 14) ? parseFloat(calcRSI(closes, 14).toFixed(1)) : null,
+      momentum7d: calcMomentum(closes, 7) ? parseFloat(calcMomentum(closes, 7).toFixed(2)) : null
+    }
+  };
 }
 
 /**
- * 获取恐惧贪婪指数（仍使用 alternative.me）
+ * 获取4小时数据（14根），含所有交易侧数据
  */
+async function get4hData(proxy) {
+  const LIMIT = 14;
+  
+  const klines = await getBinanceData(`/fapi/v1/klines?symbol=BTCUSDT&interval=4h&limit=${LIMIT}`, proxy).catch(e => {
+    console.error('4h klines error:', e.message);
+    return null;
+  });
+  
+  if (!klines || !Array.isArray(klines)) {
+    return null;
+  }
+  
+  const [fundingRate, openInterest, globalLongShort, topTraderPosition, takerRatio] = await Promise.all([
+    getBinanceData(`/fapi/v1/fundingRate?symbol=BTCUSDT&limit=${LIMIT}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/openInterestHist?symbol=BTCUSDT&period=4h&limit=${LIMIT}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=4h&limit=${LIMIT}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=4h&limit=${LIMIT}`, proxy).catch(() => null),
+    getBinanceData(`/futures/data/takerlongshortRatio?symbol=BTCUSDT&period=4h&limit=${LIMIT}`, proxy).catch(() => null)
+  ]);
+  
+  const result = [];
+  
+  for (let i = 0; i < klines.length; i++) {
+    const k = klines[i];
+    const entry = {
+      time: toBeijingDatetime(k[0]),
+      timestamp: k[0],
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),
+      quoteVolume: parseFloat(k[7])
+    };
+    result.push(entry);
+  }
+  
+  const tsMap = new Map(result.map((r, i) => [r.timestamp, i]));
+  
+  if (fundingRate && Array.isArray(fundingRate)) {
+    for (const d of fundingRate) {
+      const idx = tsMap.get(d.fundingTime);
+      if (idx !== undefined) {
+        result[idx].fundingRate = parseFloat(d.fundingRate);
+        result[idx].markPrice = parseFloat(d.markPrice);
+      }
+    }
+  }
+  
+  if (openInterest && Array.isArray(openInterest)) {
+    for (const d of openInterest) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        result[idx].openInterest = parseFloat(d.sumOpenInterest);
+        result[idx].openInterestValue = parseFloat(d.sumOpenInterestValue);
+      }
+    }
+  }
+  
+  if (globalLongShort && Array.isArray(globalLongShort)) {
+    for (const d of globalLongShort) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        result[idx].longShortRatio = parseFloat(d.longShortRatio);
+        result[idx].longAccount = parseFloat(d.longAccount);
+        result[idx].shortAccount = parseFloat(d.shortAccount);
+      }
+    }
+  }
+  
+  if (topTraderPosition && Array.isArray(topTraderPosition)) {
+    for (const d of topTraderPosition) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        result[idx].topTraderRatio = parseFloat(d.longShortRatio);
+        result[idx].topTraderLong = parseFloat(d.longAccount);
+        result[idx].topTraderShort = parseFloat(d.shortAccount);
+      }
+    }
+  }
+  
+  if (takerRatio && Array.isArray(takerRatio)) {
+    for (const d of takerRatio) {
+      const idx = tsMap.get(d.timestamp);
+      if (idx !== undefined) {
+        result[idx].takerRatio = parseFloat(d.buySellRatio);
+        result[idx].takerBuyVol = parseFloat(d.buyVol);
+        result[idx].takerSellVol = parseFloat(d.sellVol);
+      }
+    }
+  }
+  
+  return result;
+}
+
+// ========== 恐惧贪婪指数 ==========
+
 async function getFearGreedIndex(days = 30) {
-  const data = await fetch(`https://api.alternative.me/fng/?limit=${days}`);
-  return data;
+  return fetch(`https://api.alternative.me/fng/?limit=${days}`);
 }
 
 // ========== 主数据获取 ==========
 
-async function getEnhancedAnalysis() {
+async function getEnhancedAnalysis(proxy = null) {
   const result = {
-    timestamp: new Date().toISOString(),
-    price: null,
+    timestamp: toBeijingTime(new Date()),
     priceHistory: null,
-    volume: null,
+    kline4h: null,
     fearGreedIndex: null,
-    dataSource: 'CryptoCompare' // 标识数据源
+    dataSource: {
+      price: 'Binance Futures',
+      sentiment: proxy ? 'Binance Futures (via proxy)' : 'Binance Futures (no proxy)'
+    }
   };
 
   try {
-    // 并行获取数据
-    const [currentPrice, priceHistory, fngData, volume24hData] = await Promise.all([
-      getCurrentPrice().catch(e => { console.error('Price error:', e.message); return null; }),
-      getPriceHistory(31).catch(e => { console.error('History error:', e.message); return null; }),
-      getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; }),
-      get24hVolume(3)  // 重试3次，失败则抛出错误，不允许静默 fallback
+    const [dailyData, kline4h, fngData] = await Promise.all([
+      proxy ? getDailyData(proxy).catch(e => { console.error('Daily error:', e.message); return null; }) : Promise.resolve(null),
+      proxy ? get4hData(proxy).catch(e => { console.error('4h error:', e.message); return null; }) : Promise.resolve(null),
+      getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; })
     ]);
 
-    // ========== 基础价格数据 ==========
-    if (currentPrice) {
-      result.price = {
-        current: parseFloat(currentPrice.current.toFixed(2)),
-        change1h: currentPrice.change1h ? parseFloat(currentPrice.change1h.toFixed(2)) : null,
-        change24h: currentPrice.change24h ? parseFloat(currentPrice.change24h.toFixed(2)) : null,
-        change7d: currentPrice.change7d ? parseFloat(currentPrice.change7d.toFixed(2)) : null,
-        volume24h: currentPrice.volume24h || null,
-        marketCap: null // CryptoCompare 不直接提供市值，需要计算
-      };
-    }
-
-    // ========== 价格历史数据（30天）==========
-    if (priceHistory && priceHistory.prices.length > 0) {
-      const priceValues = priceHistory.prices; // 已经是从新到旧
-      const timestamps = priceHistory.timestamps;
-      const volumeValues = priceHistory.volumes;
-      
-      // 计算各周期SMA序列
-      const sma7Series = calcSMASequence(priceValues, 7, 31);
-      const sma14Series = calcSMASequence(priceValues, 14, 31);
-      const sma20Series = calcSMASequence(priceValues, 20, 31);
-      const sma30Series = calcSMASequence(priceValues, 30, 31);
-      const sma50Series = priceValues.length >= 50 ? calcSMASequence(priceValues, 50, 31) : [];
-      
-      // 计算各周期EMA序列
-      const ema7Series = calcEMASequence(priceValues, 7, 31);
-      const ema12Series = calcEMASequence(priceValues, 12, 31);
-      const ema20Series = calcEMASequence(priceValues, 20, 31);
-      const ema26Series = calcEMASequence(priceValues, 26, 31);
-      
-      // 构建历史数据列表
-      const history = [];
-      for (let i = 0; i < priceValues.length; i++) {
-        const entry = {
-          date: new Date(timestamps[i] * 1000).toISOString().split('T')[0],
-          price: parseFloat(priceValues[i].toFixed(2)),
-          high: priceHistory.highs ? parseFloat(priceHistory.highs[i].toFixed(2)) : null,
-          low: priceHistory.lows ? parseFloat(priceHistory.lows[i].toFixed(2)) : null
-        };
-        
-        if (i < sma7Series.length) entry.sma7 = parseFloat(sma7Series[i].toFixed(2));
-        if (i < sma14Series.length) entry.sma14 = parseFloat(sma14Series[i].toFixed(2));
-        if (i < sma20Series.length) entry.sma20 = parseFloat(sma20Series[i].toFixed(2));
-        if (i < sma30Series.length) entry.sma30 = parseFloat(sma30Series[i].toFixed(2));
-        if (i < sma50Series.length) entry.sma50 = parseFloat(sma50Series[i].toFixed(2));
-        
-        if (i < ema7Series.length) entry.ema7 = parseFloat(ema7Series[i].toFixed(2));
-        if (i < ema12Series.length) entry.ema12 = parseFloat(ema12Series[i].toFixed(2));
-        if (i < ema20Series.length) entry.ema20 = parseFloat(ema20Series[i].toFixed(2));
-        if (i < ema26Series.length) entry.ema26 = parseFloat(ema26Series[i].toFixed(2));
-        
-        history.push(entry);
-      }
-      
-      const currentPrice = priceValues[0];
-      const max30d = Math.max(...priceValues);
-      const min30d = Math.min(...priceValues);
-      const avg30d = priceValues.reduce((a, b) => a + b, 0) / priceValues.length;
-      
+    if (dailyData) {
       result.priceHistory = {
-        current: parseFloat(currentPrice.toFixed(2)),
-        days: priceValues.length,
-        history: history,
-        statistics: {
-          max30d: parseFloat(max30d.toFixed(2)),
-          min30d: parseFloat(min30d.toFixed(2)),
-          avg30d: parseFloat(avg30d.toFixed(2)),
-          rangePosition: parseFloat(((currentPrice - min30d) / (max30d - min30d) * 100).toFixed(1))
-        },
-        indicators: {
-          rsi14: calcRSI(priceValues, 14) ? parseFloat(calcRSI(priceValues, 14).toFixed(1)) : null,
-          volatility30d: calcVolatility(priceValues, 30) ? parseFloat(calcVolatility(priceValues, 30).toFixed(2)) : null,
-          momentum7d: calcMomentum(priceValues, 7) ? parseFloat(calcMomentum(priceValues, 7).toFixed(2)) : null,
-          momentum14d: calcMomentum(priceValues, 14) ? parseFloat(calcMomentum(priceValues, 14).toFixed(2)) : null
-        }
+        current: dailyData.current,
+        days: dailyData.history.length,
+        volume24h: dailyData.volume24h,
+        history: dailyData.history,
+        statistics: dailyData.statistics,
+        indicators: dailyData.indicators
       };
-
-      // ========== 交易量历史数据 ==========
-      // ⚠️ 必须使用聚合的24小时交易量，不允许使用不完整的当日数据
-      if (volume24hData && volumeValues && volumeValues.length > 0) {
-        const currentVolume = volume24hData.volume24h;
-        
-        // 计算均值时排除当日（索引0），因为当日数据不完整
-        // 用历史完整日数据计算均值
-        const historicalVolumes = volumeValues.slice(1); // 排除当日
-        const avgVolume = historicalVolumes.length > 0 
-          ? historicalVolumes.reduce((a, b) => a + b, 0) / historicalVolumes.length 
-          : volumeValues.reduce((a, b) => a + b, 0) / volumeValues.length;
-        
-        const volumeHistory = [];
-        for (let i = 0; i < volumeValues.length; i++) {
-          // 当日（索引0）使用聚合的24小时交易量，避免不完整数据
-          const volume = (i === 0) ? currentVolume : volumeValues[i];
-          volumeHistory.push({
-            date: new Date(timestamps[i] * 1000).toISOString().split('T')[0],
-            volume: volume,
-            isAggregated: (i === 0)  // 标记当日数据为聚合数据
-          });
-        }
-        
-        // max30d 和 min30d 用历史数据，排除当日不完整数据
-        const historicalMax = historicalVolumes.length > 0 ? Math.max(...historicalVolumes) : Math.max(...volumeValues);
-        const historicalMin = historicalVolumes.length > 0 ? Math.min(...historicalVolumes) : Math.min(...volumeValues);
-        
-        result.volume = {
-          current: currentVolume,
-          currentSource: '24h_aggregated',
-          avg30d: avgVolume,
-          max30d: historicalMax,
-          min30d: historicalMin,
-          volumeRatio: parseFloat((currentVolume / avgVolume).toFixed(2)),
-          history: volumeHistory
-        };
-      } else {
-        // volume24hData 获取失败，抛出错误而不是使用不完整数据
-        throw new Error('24h volume data unavailable - cannot use incomplete daily data');
-      }
     }
 
-    // ========== 恐惧贪婪指数历史数据 ==========
+    result.kline4h = kline4h;
+
     if (fngData?.data) {
       const fngValues = fngData.data.map(d => parseInt(d.value));
-      const fngDates = fngData.data.map(d => d.timestamp);
-      
-      const sma7Series = calcSMASequence(fngValues, 7, 30);
-      const sma14Series = calcSMASequence(fngValues, 14, 30);
-      const sma30Series = calcSMASequence(fngValues, 30, 30);
-      const ema7Series = calcEMASequence(fngValues, 7, 30);
-      
-      const history = [];
-      for (let i = 0; i < fngValues.length; i++) {
-        const entry = {
-          date: new Date(fngDates[i] * 1000).toISOString().split('T')[0],
-          value: fngValues[i]
-        };
-        
-        if (i < sma7Series.length) entry.sma7 = parseFloat(sma7Series[i].toFixed(1));
-        if (i < sma14Series.length) entry.sma14 = parseFloat(sma14Series[i].toFixed(1));
-        if (i < sma30Series.length) entry.sma30 = parseFloat(sma30Series[i].toFixed(1));
-        if (i < ema7Series.length) entry.ema7 = parseFloat(ema7Series[i].toFixed(1));
-        
-        history.push(entry);
-      }
-      
       const current = fngValues[0];
       const max30d = Math.max(...fngValues);
       const min30d = Math.min(...fngValues);
@@ -431,17 +559,11 @@ async function getEnhancedAnalysis() {
       result.fearGreedIndex = {
         current: current,
         classification: fngData.data[0].value_classification,
-        history: history,
         statistics: {
           avg30d: parseFloat(avg30d.toFixed(1)),
           max30d: max30d,
           min30d: min30d,
           rangePosition: parseFloat(((current - min30d) / (max30d - min30d) * 100).toFixed(0))
-        },
-        indicators: {
-          rsi14: calcRSI(fngValues, 14) ? parseFloat(calcRSI(fngValues, 14).toFixed(1)) : null,
-          volatility30d: calcVolatility(fngValues, 30) ? parseFloat(calcVolatility(fngValues, 30).toFixed(2)) : null,
-          momentum7d: calcMomentum(fngValues, 7) ? parseFloat(calcMomentum(fngValues, 7).toFixed(1)) : null
         }
       };
     }
@@ -454,99 +576,118 @@ async function getEnhancedAnalysis() {
   return result;
 }
 
-// ========== 格式化输出（与 v1 相同）==========
+// ========== 格式化输出 ==========
+
+function formatVolume(val) {
+  if (!val) return 'N/A';
+  return `$${(val / 1e9).toFixed(2)}B`;
+}
 
 function formatAnalysis(data) {
   let out = '';
   
-  out += '═'.repeat(60) + '\n';
-  out += '         ₿ 比特币市场数据 (v2)\n';
-  out += '═'.repeat(60) + '\n\n';
+  out += '═'.repeat(70) + '\n';
+  out += '              ₿ 比特币市场数据 v4\n';
+  out += '═'.repeat(70) + '\n\n';
   
-  out += `📅 ${new Date(data.timestamp).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })}\n`;
-  out += `📊 数据源: ${data.dataSource}\n\n`;
+  out += `📅 ${data.timestamp}\n\n`;
   
-  // 当前价格
-  if (data.price?.current) {
-    out += '── 💰 当前价格 ──\n';
-    out += `   价格: $${data.price.current.toLocaleString()}\n`;
-    if (data.price.change1h) out += `   1小时: ${data.price.change1h > 0 ? '+' : ''}${data.price.change1h.toFixed(2)}%\n`;
-    if (data.price.change24h) out += `   24小时: ${data.price.change24h > 0 ? '+' : ''}${data.price.change24h.toFixed(2)}%\n`;
-    if (data.price.change7d) out += `   7天: ${data.price.change7d > 0 ? '+' : ''}${data.price.change7d.toFixed(2)}%\n`;
-  }
-  
-  // 价格历史统计
+  // 价格统计
   if (data.priceHistory) {
     const ph = data.priceHistory;
     const stats = ph.statistics;
     const ind = ph.indicators;
     
-    out += '\n── 📈 价格统计 ──\n';
-    out += `   30日最高: $${stats.max30d.toLocaleString()}\n`;
-    out += `   30日最低: $${stats.min30d.toLocaleString()}\n`;
-    out += `   30日均值: $${stats.avg30d.toLocaleString()}\n`;
-    out += `   区间位置: ${stats.rangePosition}%\n`;
+    out += '── 📈 价格统计 ──\n';
+    out += `   当前价格: $${ph.current.toLocaleString()}\n\n`;
     
-    if (ind.rsi14) {
-      const rsiStatus = ind.rsi14 < 30 ? '(超卖)' : ind.rsi14 > 70 ? '(超买)' : '';
-      out += `   RSI(14): ${ind.rsi14} ${rsiStatus}\n`;
-    }
-    if (ind.momentum7d) out += `   7日动量: ${ind.momentum7d > 0 ? '+' : ''}${ind.momentum7d.toFixed(1)}%\n`;
-    if (ind.volatility30d) out += `   30日波动: $${ind.volatility30d.toFixed(0)}\n`;
+    out += `   14日: $${stats.days14.price.min.toLocaleString()} - $${stats.days14.price.max.toLocaleString()}`;
+    out += ` | 均值: $${stats.days14.price.avg.toLocaleString()}`;
+    out += ` | 位置: ${stats.days14.price.rangePosition}%\n`;
     
-    out += '\n── 📊 近7日价格 ──\n';
-    for (let i = 0; i < Math.min(7, ph.history.length); i++) {
-      const h = ph.history[i];
-      out += `   ${h.date}: $${h.price.toLocaleString()}`;
-      if (h.sma7) out += ` | SMA7: $${h.sma7.toLocaleString()}`;
-      if (h.ema7) out += ` | EMA7: $${h.ema7.toLocaleString()}`;
+    out += `   30日: $${stats.days30.price.min.toLocaleString()} - $${stats.days30.price.max.toLocaleString()}`;
+    out += ` | 均值: $${stats.days30.price.avg.toLocaleString()}`;
+    out += ` | 位置: ${stats.days30.price.rangePosition}%\n`;
+    
+    // 交易量统计
+    out += '\n── 📊 交易量统计 ──\n';
+    if (ph.volume24h) {
+      out += `   24h聚合: ${formatVolume(ph.volume24h)}`;
+      if (stats.days14.volume.avg) {
+        out += ` (14日均值的${stats.days14.volume.volumeRatio}x)`;
+      }
       out += '\n';
     }
-  }
-  
-  // 交易量
-  if (data.volume) {
-    const v = data.volume;
-    out += '\n── 📊 交易量 ──\n';
-    out += `   当前: $${(v.current / 1e9).toFixed(2)}B`;
-    if (v.currentSource === '24h_aggregated') {
-      out += ' (24h聚合)';
+    out += `   14日: ${formatVolume(stats.days14.volume.min)} - ${formatVolume(stats.days14.volume.max)}`;
+    out += ` | 均值: ${formatVolume(stats.days14.volume.avg)}\n`;
+    out += `   30日: ${formatVolume(stats.days30.volume.min)} - ${formatVolume(stats.days30.volume.max)}`;
+    out += ` | 均值: ${formatVolume(stats.days30.volume.avg)}\n`;
+    
+    // 技术指标
+    out += '\n── 📈 技术指标 ──\n';
+    if (ind.rsi14 !== null) {
+      const rsiStatus = ind.rsi14 < 30 ? '⚠️ 超卖' : ind.rsi14 > 70 ? '⚠️ 超买' : '';
+      out += `   RSI(14): ${ind.rsi14} ${rsiStatus}`;
     } else {
-      out += ' (当日累积)';
+      out += `   RSI(14): N/A`;
     }
-    out += '\n';
-    out += `   30日均值: $${(v.avg30d / 1e9).toFixed(2)}B\n`;
-    out += `   相对均值: ${v.volumeRatio}x\n`;
+    if (ind.momentum7d !== null) {
+      out += ` | 7日动量: ${ind.momentum7d > 0 ? '+' : ''}${ind.momentum7d}%\n`;
+      out += `           (当前价格相对7天前的变化幅度)\n`;
+    }
   }
   
   // 恐惧贪婪指数
   if (data.fearGreedIndex) {
     const fng = data.fearGreedIndex;
-    const stats = fng.statistics;
-    const ind = fng.indicators;
-    
     out += '\n── 😰 恐惧贪婪指数 ──\n';
     const emoji = fng.current <= 25 ? '😱' : fng.current <= 45 ? '😰' : fng.current <= 55 ? '😐' : fng.current <= 75 ? '😊' : '🤑';
     out += `   当前: ${fng.current} (${fng.classification}) ${emoji}\n`;
-    out += `   30日均值: ${stats.avg30d}\n`;
-    out += `   30日区间: ${stats.min30d} - ${stats.max30d}\n`;
-    out += `   区间位置: ${stats.rangePosition}%\n`;
-    
-    if (ind.rsi14) out += `   RSI(14): ${ind.rsi14}\n`;
-    if (ind.momentum7d) out += `   7日动量: ${ind.momentum7d > 0 ? '+' : ''}${ind.momentum7d.toFixed(1)}\n`;
-    
-    out += '\n   近7日数据:\n';
-    for (let i = 0; i < Math.min(7, fng.history.length); i++) {
-      const h = fng.history[i];
-      out += `   ${h.date}: ${h.value}`;
-      if (h.sma7) out += ` (SMA7: ${h.sma7})`;
+    out += `   30日: 均值${fng.statistics.avg30d} | 区间${fng.statistics.min30d}-${fng.statistics.max30d}\n`;
+  }
+  
+  // 14日日线数据
+  if (data.priceHistory?.history) {
+    out += '\n── 📊 14日日线 ──\n';
+    for (const h of data.priceHistory.history) {
+      out += `   ${h.date}: O$${h.open.toLocaleString()} H$${h.high.toLocaleString()} L$${h.low.toLocaleString()} C$${h.close.toLocaleString()}`;
+      if (h.fundingRate !== undefined) {
+        const ratePct = (h.fundingRate * 100).toFixed(4);
+        out += ` | 费率${ratePct}%`;
+      }
+      if (h.openInterest !== undefined) {
+        out += ` | OI${(h.openInterest/1000).toFixed(1)}k`;
+      }
+      if (h.longShortRatio !== undefined) {
+        out += ` | 多空比${h.longShortRatio.toFixed(2)}`;
+      }
       out += '\n';
     }
   }
   
-  out += '\n' + '─'.repeat(60) + '\n';
-  out += '📊 数据源: CryptoCompare API + alternative.me\n';
-  out += '📋 使用 --json 参数获取完整历史数据\n';
+  // 4小时数据
+  if (data.kline4h && data.kline4h.length > 0) {
+    out += '\n── 📊 4小时K线 (14根) ──\n';
+    for (let i = 0; i < Math.min(7, data.kline4h.length); i++) {
+      const k = data.kline4h[i];
+      const timeShort = k.time.split(' ')[0].slice(5) + ' ' + k.time.split(' ')[1].slice(0, 5);
+      out += `   ${timeShort}: O$${k.open.toLocaleString()} H$${k.high.toLocaleString()} L$${k.low.toLocaleString()} C$${k.close.toLocaleString()}`;
+      if (k.fundingRate !== undefined) {
+        const ratePct = (k.fundingRate * 100).toFixed(4);
+        out += ` | 费率${ratePct}%`;
+      }
+      if (k.openInterest !== undefined) {
+        out += ` | OI${(k.openInterest/1000).toFixed(1)}k`;
+      }
+      out += '\n';
+    }
+    if (data.kline4h.length > 7) {
+      out += `   ... 共 ${data.kline4h.length} 根\n`;
+    }
+  }
+  
+  out += '\n' + '─'.repeat(70) + '\n';
+  out += '📊 数据源: Binance Futures + alternative.me\n';
   
   return out;
 }
@@ -557,40 +698,38 @@ function saveData(data, basePath) {
   const scriptDir = __dirname;
   const workspaceDir = basePath || path.resolve(scriptDir, '..', '..', '..');
   const dataDir = path.join(workspaceDir, 'data');
-  
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  
-  const date = new Date(data.timestamp);
-  const shanghaiDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }));
-  const dateStr = shanghaiDate.toISOString().split('T')[0];
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  const dateStr = data.timestamp.split(' ')[0];
   const filePath = path.join(dataDir, `${dateStr}.json`);
-  
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-  
   return filePath;
 }
 
+function parseArgs() {
+  const args = { json: false, save: false, proxy: null };
+  for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i];
+    if (arg === '--json') args.json = true;
+    else if (arg === '--save') args.save = true;
+    else if (arg === '--proxy') args.proxy = process.argv[++i] || PROXY_DEFAULT;
+    else if (arg.startsWith('--proxy=')) args.proxy = arg.split('=')[1];
+  }
+  if (!args.proxy) args.proxy = PROXY_DEFAULT;
+  return args;
+}
+
 async function main() {
+  const args = parseArgs();
   try {
-    const data = await getEnhancedAnalysis();
-    const json = process.argv.includes('--json');
-    const save = process.argv.includes('--save');
-    
-    let savedPath = null;
-    if (save) {
-      savedPath = saveData(data);
+    const data = await getEnhancedAnalysis(args.proxy);
+    if (args.save) {
+      const savedPath = saveData(data);
+      console.log(`📁 数据已保存: ${savedPath}`);
     }
-    
-    if (json) {
+    if (args.json) {
       console.log(JSON.stringify(data, null, 2));
     } else {
       console.log(formatAnalysis(data));
-    }
-    
-    if (savedPath) {
-      console.log(`\n📁 数据已保存: ${savedPath}`);
     }
   } catch (e) {
     console.error('错误:', e.message);
@@ -598,7 +737,7 @@ async function main() {
   }
 }
 
-module.exports = { getEnhancedAnalysis, formatAnalysis, saveData, getCryptoCompareData };
+module.exports = { getEnhancedAnalysis, formatAnalysis, saveData };
 
 if (require.main === module) {
   main();

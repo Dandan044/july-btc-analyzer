@@ -1,9 +1,9 @@
 {
   "cycle_id": "cycle-20260323-001",
-  "status": "active",
+  "status": "archived",
   "started_at": "2026-03-23T19:38:00+08:00",
-  "closed_at": null,
-  "closed_reason": null,
+  "closed_at": "2026-03-27T16:30:00+08:00",
+  "closed_reason": "用户手动止损",
   "suggestions": [
     {
       "id": "sug-001",
@@ -14,15 +14,15 @@
       "stop_loss": 67000,
       "take_profit": [73000, 75000],
       "position_size": "50%",
-      "status": "open",
-      "closed_at": null,
-      "close_reason": null,
+      "status": "closed",
+      "closed_at": "2026-03-27T16:30:00+08:00",
+      "close_reason": "手动止损",
       "notes": "地缘政治缓和（美伊冲突降温）带来催化剂，今日强势拉升6%，技术面修复。FGI极端恐惧是逆向信号。"
     }
   ],
   "summary": {
     "total": 1,
-    "open": 1,
-    "closed": 0
+    "open": 0,
+    "closed": 1
   }
 }
