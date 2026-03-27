@@ -18,11 +18,18 @@ const ENGINE_LOG = path.join(LOGS_DIR, 'alert-engine.log');
 // 扫描间隔：检查规则文件是否存在
 const SCAN_INTERVAL = 60 * 1000; // 1分钟
 
+// 4小时窗口（毫秒）
+const THRESHOLD_WINDOW_MS = 4 * 60 * 60 * 1000;
+
 // 存储每个规则的定时器
 const timers = new Map();
 
 // 存储正在运行的规则信息（用于扫描检查）
 const activeRules = new Map();
+
+// 存储每个规则的错误统计
+// 结构: { consecutiveErrors, threshold5HitCount, threshold5FirstTime }
+const ruleErrorStats = new Map();
 
 // ========== 日志系统 ==========
 
@@ -65,6 +72,153 @@ function logRuleEvent(ruleName, event, details = {}) {
   logEngine('INFO', ruleName, event, details);
 }
 
+// ========== 错误监控与通知 ==========
+
+/**
+ * 通知十四月（通过QQ告知主人）
+ */
+function notifyShisiyue(message) {
+  const { spawn } = require('child_process');
+  
+  const spawnMessage = `请通过QQ告诉主人这条消息：
+
+${message}`;
+
+  spawn('openclaw', [
+    'agent',
+    '--agent', 'shisiyue',
+    '--message', spawnMessage
+  ], {
+    detached: true,
+    stdio: 'ignore'
+  });
+  
+  console.log(`[Alert Engine] 已发送通知给十四月`);
+}
+
+/**
+ * 获取或初始化规则的错误统计
+ */
+function getErrorStats(filename) {
+  if (!ruleErrorStats.has(filename)) {
+    ruleErrorStats.set(filename, {
+      consecutiveErrors: 0,
+      threshold5HitCount: 0,
+      threshold5FirstTime: null
+    });
+  }
+  return ruleErrorStats.get(filename);
+}
+
+/**
+ * 重置规则的错误统计
+ */
+function resetErrorStats(filename) {
+  ruleErrorStats.set(filename, {
+    consecutiveErrors: 0,
+    threshold5HitCount: 0,
+    threshold5FirstTime: null
+  });
+}
+
+/**
+ * 处理规则执行错误
+ * @returns {boolean} true 表示应该暂停规则
+ */
+function handleRuleError(filename, ruleName, errorMessage) {
+  const stats = getErrorStats(filename);
+  const now = Date.now();
+  
+  // 检查4小时窗口是否过期
+  if (stats.threshold5HitCount > 0 && stats.threshold5FirstTime) {
+    if (now - stats.threshold5FirstTime > THRESHOLD_WINDOW_MS) {
+      // 超过4小时，重置计数
+      stats.threshold5HitCount = 0;
+      stats.threshold5FirstTime = null;
+      logRuleEvent(ruleName, '错误计数窗口过期，重置');
+    }
+  }
+  
+  // 增加连续错误计数
+  stats.consecutiveErrors++;
+  
+  logEngine('WARN', ruleName, `规则执行失败`, { 
+    error: errorMessage,
+    consecutiveErrors: stats.consecutiveErrors 
+  });
+  
+  // 达到5次阈值
+  if (stats.consecutiveErrors === 5) {
+    // 首次达到5次，记录时间
+    if (stats.threshold5FirstTime === null) {
+      stats.threshold5FirstTime = now;
+    }
+    
+    stats.threshold5HitCount++;
+    
+    // 通知十四月
+    const notifyMsg = `主人～警报器规则连续失败5次！
+
+规则: ${ruleName}
+错误: ${errorMessage}
+累计触发阈值: ${stats.threshold5HitCount}/3
+
+继续运行中，若反复出现可能会暂停哦～`;
+    
+    notifyShisiyue(notifyMsg);
+    logRuleEvent(ruleName, '达到5次错误阈值', { threshold5HitCount: stats.threshold5HitCount });
+    
+    // 累计3次触发5次阈值
+    if (stats.threshold5HitCount >= 3) {
+      const pauseMsg = `主人～警报器规则已暂停！
+
+规则: ${ruleName}
+原因: 累计触发阈值3次（4小时内反复出现5次连续失败）
+错误: ${errorMessage}
+
+请检查后手动重启～`;
+      
+      notifyShisiyue(pauseMsg);
+      logRuleEvent(ruleName, 'RULE_PAUSED', { reason: '累计触发阈值3次' });
+      return true; // 暂停
+    }
+  }
+  
+  // 达到10次阈值
+  if (stats.consecutiveErrors === 10) {
+    const pauseMsg = `主人～警报器规则已暂停！
+
+规则: ${ruleName}
+原因: 连续失败10次
+错误: ${errorMessage}
+
+请检查后手动重启～`;
+    
+    notifyShisiyue(pauseMsg);
+    logRuleEvent(ruleName, 'RULE_PAUSED', { reason: '连续失败10次' });
+    return true; // 暂停
+  }
+  
+  return false; // 不暂停
+}
+
+/**
+ * 处理规则执行成功
+ */
+function handleRuleSuccess(filename, ruleName) {
+  const stats = getErrorStats(filename);
+  
+  if (stats.consecutiveErrors > 0 || stats.threshold5HitCount > 0) {
+    logRuleEvent(ruleName, '规则恢复正常', { 
+      previousConsecutiveErrors: stats.consecutiveErrors,
+      previousThreshold5HitCount: stats.threshold5HitCount 
+    });
+  }
+  
+  // 成功一次，完全重置
+  resetErrorStats(filename);
+}
+
 // ========== 规则管理 ==========
 
 /**
@@ -97,6 +251,37 @@ function archiveRule(filename, ruleName, reason) {
 }
 
 /**
+ * 加载单个规则文件
+ * @returns {object|null} 规则信息或 null（加载失败）
+ */
+function loadSingleRule(file) {
+  try {
+    const rulePath = path.join(RULES_DIR, file);
+    // 清除缓存以获取最新版本
+    delete require.cache[require.resolve(rulePath)];
+    
+    const rule = require(rulePath);
+    
+    // 验证必需字段
+    if (!rule.name || !rule.interval || !rule.check || !rule.collect || !rule.trigger || !rule.lifetime) {
+      console.warn(`[Alert Engine] Rule ${file} missing required fields, skipping`);
+      logEngine('WARN', 'Engine', `规则缺少必需字段: ${file}`);
+      return null;
+    }
+    
+    return {
+      filename: file,
+      path: rulePath,
+      module: rule
+    };
+  } catch (error) {
+    console.error(`[Alert Engine] Failed to load rule ${file}:`, error.message);
+    logEngine('ERROR', 'Engine', `加载规则失败: ${file}`, { error: error.message });
+    return null;
+  }
+}
+
+/**
  * 加载所有规则
  */
 function loadRules() {
@@ -111,30 +296,10 @@ function loadRules() {
   const files = fs.readdirSync(RULES_DIR).filter(f => f.endsWith('.js'));
   
   for (const file of files) {
-    try {
-      const rulePath = path.join(RULES_DIR, file);
-      // 清除缓存以获取最新版本
-      delete require.cache[require.resolve(rulePath)];
-      
-      const rule = require(rulePath);
-      
-      // 验证必需字段
-      if (!rule.name || !rule.interval || !rule.check || !rule.collect || !rule.trigger || !rule.lifetime) {
-        console.warn(`[Alert Engine] Rule ${file} missing required fields, skipping`);
-        logEngine('WARN', 'Engine', `规则缺少必需字段: ${file}`);
-        continue;
-      }
-      
-      rules.push({
-        filename: file,
-        path: rulePath,
-        module: rule
-      });
-      
-      console.log(`[Alert Engine] Loaded rule: ${rule.name} (interval: ${rule.interval}ms)`);
-    } catch (error) {
-      console.error(`[Alert Engine] Failed to load rule ${file}:`, error.message);
-      logEngine('ERROR', 'Engine', `加载规则失败: ${file}`, { error: error.message });
+    const ruleInfo = loadSingleRule(file);
+    if (ruleInfo) {
+      rules.push(ruleInfo);
+      console.log(`[Alert Engine] Loaded rule: ${ruleInfo.module.name} (interval: ${ruleInfo.module.interval}ms)`);
     }
   }
   
@@ -170,6 +335,9 @@ async function runRule(ruleInfo) {
     // 执行检测
     const shouldTrigger = await check();
     
+    // 检测成功，重置错误统计
+    handleRuleSuccess(filename, name);
+    
     if (shouldTrigger) {
       logRuleEvent(name, 'TRIGGERED');
       
@@ -187,7 +355,13 @@ async function runRule(ruleInfo) {
     
     return 'continue';
   } catch (error) {
-    logEngine('ERROR', name, '执行错误', { error: error.message, stack: error.stack });
+    // 处理错误，决定是否暂停
+    const shouldPause = handleRuleError(filename, name, error.message);
+    
+    if (shouldPause) {
+      return 'pause'; // 新增暂停状态
+    }
+    
     return 'continue';
   }
 }
@@ -202,14 +376,20 @@ function unloadRule(filename, ruleName, reason) {
   }
   activeRules.delete(filename);
   
+  // 保留错误统计以便查看，但也可以选择清理
+  // ruleErrorStats.delete(filename);
+  
   logRuleEvent(ruleName, 'RULE_UNLOADED', { reason });
   console.log(`[Alert Engine] Unloaded rule "${ruleName}" (${reason})`);
 }
 
 /**
- * 扫描检查：发现规则文件被移走时自动卸载
+ * 扫描检查：
+ * 1. 发现规则文件被移走时自动卸载
+ * 2. 发现新增规则文件时自动加载
  */
 function scanRuleFiles() {
+  // 1. 检测移除的规则
   for (const [filename, info] of activeRules) {
     const filePath = info.path;
     
@@ -217,6 +397,25 @@ function scanRuleFiles() {
       // 规则文件不存在了（被手动归档或删除）
       logEngine('INFO', info.name, '检测到规则文件已不存在', { path: filePath });
       unloadRule(filename, info.name, 'file_removed');
+    }
+  }
+  
+  // 2. 检测新增的规则
+  if (!fs.existsSync(RULES_DIR)) {
+    return;
+  }
+  
+  const currentFiles = fs.readdirSync(RULES_DIR).filter(f => f.endsWith('.js'));
+  
+  for (const file of currentFiles) {
+    if (!activeRules.has(file)) {
+      // 新文件，加载并启动
+      const ruleInfo = loadSingleRule(file);
+      if (ruleInfo) {
+        startRuleTimer(ruleInfo);
+        logEngine('INFO', 'Engine', '热加载新规则', { file, name: ruleInfo.module.name });
+        console.log(`[Alert Engine] Hot-loaded new rule: ${ruleInfo.module.name}`);
+      }
     }
   }
 }
@@ -231,6 +430,9 @@ function startRuleTimer(ruleInfo) {
   if (timers.has(filename)) {
     clearInterval(timers.get(filename));
   }
+  
+  // 初始化错误统计
+  resetErrorStats(filename);
   
   // 记录规则信息（用于扫描检查）
   activeRules.set(filename, {
@@ -251,6 +453,8 @@ function startRuleTimer(ruleInfo) {
   runRule(ruleInfo).then(result => {
     if (result === 'stop') {
       unloadRule(filename, rule.name, 'lifetime_ended');
+    } else if (result === 'pause') {
+      unloadRule(filename, rule.name, 'error_threshold_reached');
     }
   });
   
@@ -259,6 +463,8 @@ function startRuleTimer(ruleInfo) {
     const result = await runRule(ruleInfo);
     if (result === 'stop') {
       unloadRule(filename, rule.name, 'lifetime_ended');
+    } else if (result === 'pause') {
+      unloadRule(filename, rule.name, 'error_threshold_reached');
     }
   }, rule.interval);
   

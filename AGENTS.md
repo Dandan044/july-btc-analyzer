@@ -133,6 +133,24 @@ july-btc-analyzer/
 | `active/` 有周期，有建议 | 持仓期，监控止盈止损 |
 | 所有建议关闭 | 归档周期（移动到 `archived/`） |
 
+### 归档规则
+
+归档周期时，必须在 `trade-suggestions.json` 中记录以下信息：
+
+1. **周期级别字段**：
+   - `status`: 更新为 `"archived"`
+   - `closed_at`: 记录归档时间（ISO 8601格式）
+   - `closed_reason`: 归档原因（如 "所有建议已关闭"、"手动归档" 等）
+
+2. **建议级别字段**（如果尚未关闭）：
+   - `status`: 更新为 `"closed"`
+   - `closed_at`: 记录关闭时间
+   - `close_reason`: 关闭原因（如 "周期归档"）
+
+3. **归档时机**：
+   - 所有建议状态为 `closed` 或 `partial_closed` 且无剩余持仓
+   - 或用户手动要求归档
+
 ### 读取当前周期状态
 
 在每次报告生成前，检查周期状态：

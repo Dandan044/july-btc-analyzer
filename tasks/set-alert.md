@@ -39,28 +39,51 @@ module.exports = {
     }
 
     // 检测条件，返回 true/false
-    const ticker = await api.getTicker('BTC');
-    return ticker.price >= TARGET_PRICE; // 或 <= TARGET_PRICE
+    // ⚠️ 注意：API 错误必须抛出，不能吞掉，否则引擎无法监控错误
+    try {
+      const ticker = await api.getTicker('BTC');
+      return ticker.price >= TARGET_PRICE; // 或 <= TARGET_PRICE
+    } catch (error) {
+      console.error('[警报检查错误]', error.message);
+      throw error; // 必须抛出，让引擎监控到错误
+    }
   },
 
   async collect() {
     // 收集数据，返回要传递给触发器的数据
-    const ticker = await api.getTicker('BTC');
-    const klines = await api.getKlines('BTC', '15m', 5);
-    const fgi = await api.getFearGreedIndex(7);
+    // ⚠️ 注意：API 错误必须抛出，不能吞掉，否则引擎无法监控错误
+    try {
+      const ticker = await api.getTicker('BTC');
+      const klines = await api.getKlines('BTC', '15m', 5);
+      const fgi = await api.getFearGreedIndex(7);
 
-    return {
-      alertTime: new Date().toISOString(),
-      currentPrice: ticker.price,
-      // ... 其他数据
-    };
+      return {
+        alertTime: new Date().toISOString(),
+        currentPrice: ticker.price,
+        // ... 其他数据
+      };
+    } catch (error) {
+      console.error('[数据收集错误]', error.message);
+      throw error; // 必须抛出，让引擎监控到错误
+    }
   },
 
   async trigger(data) {
-    // 使用异步方式（spawn），避免阻塞引擎
-    const message = `即时分析\n${JSON.stringify(data, null, 2)}`;
+    // 使用 cron 创建隔离会话，每次警报触发独立分析
+    const now = new Date().toISOString();
+    const jobName = `alert-${Date.now()}`;
+    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
-    spawn('openclaw', ['agent', '--agent', 'july', '--message', message], {
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], {
       detached: true,
       stdio: 'ignore'
     });
@@ -115,9 +138,19 @@ trigger() 必须使用异步方式（spawn），不能使用 execSync：
 const { execSync } = require('child_process');
 execSync('openclaw agent ...', { timeout: 30000 });
 
-// ✅ 正确：异步方式，不阻塞引擎
+// ✅ 正确：异步方式，创建隔离会话执行即时分析
 const { spawn } = require('child_process');
-spawn('openclaw', ['agent', '--agent', 'july', '--message', message], {
+const now = new Date().toISOString();
+spawn('openclaw', [
+  'cron', 'add',
+  '--agent', 'july',
+  '--session', 'isolated',
+  '--at', now,
+  '--message', message,
+  '--name', `alert-${Date.now()}`,
+  '--delete-after-run',
+  '--no-deliver'
+], {
   detached: true,
   stdio: 'ignore'
 });
@@ -141,12 +174,69 @@ spawn('openclaw', ['agent', '--agent', 'july', '--message', message], {
 const api = require('../../btc-market-lite/scripts/api');
 ```
 
-可用方法：
-- `getKlines(symbol, interval, limit)` - 获取K线数据
-- `getTicker(symbol)` - 获取实时价格
-- `get24hVolume(symbol)` - 获取24小时交易量
-- `getPriceHistory(symbol, days)` - 获取历史价格
-- `getFearGreedIndex(days)` - 获取恐惧贪婪指数
+**已封装的方法**（定义在 `skills/btc-market-lite/scripts/api.js`）：
+
+| 方法 | 说明 | 数据源 |
+|------|------|--------|
+| `getKlines(symbol, interval, limit)` | 获取K线数据（支持 1m, 5m, 15m, 1h, 4h, 1d） | CryptoCompare |
+| `getTicker(symbol)` | 获取实时价格 + 涨跌幅 | CryptoCompare |
+| `get24hVolume(symbol)` | 获取24小时交易量（小时级） | CryptoCompare |
+| `getPriceHistory(symbol, days)` | 获取历史价格（日线） | CryptoCompare |
+| `getFearGreedIndex(days)` | 获取恐惧贪婪指数 | alternative.me |
+| `fetch(url)` | **通用 HTTP 请求工具** | 任意 API |
+
+---
+
+### ⚠️ API 扩展机制
+
+**这些方法不是全部！** 只是已封装的常用方法。你有两种方式扩展：
+
+#### 方式 1：使用 `api.fetch()` 调用任意 API
+
+`fetch` 方法已导出，可以直接调用任意 HTTP API：
+
+```javascript
+const api = require('../../btc-market-lite/scripts/api');
+
+async check() {
+  // 示例：获取交易所净流入流出数据
+  const data = await api.fetch('https://api.example.com/btc/flow');
+  return data.netflow > 10000;
+}
+```
+
+#### 方式 2：在 api.js 中添加新方法
+
+如果某个 API 需要反复使用，可以在 `skills/btc-market-lite/scripts/api.js` 中封装：
+
+```javascript
+// 添加新方法到 api.js
+async function getFundingRate() {
+  const data = await fetch('https://api.coinglass.com/api/fundingRate/v2/home');
+  return data.data;
+}
+
+// 更新导出
+module.exports = {
+  // ... 现有方法
+  getFundingRate
+};
+```
+
+#### 可扩展的数据源（举例）
+
+| 数据类型 | 可用 API | 用途 |
+|---------|---------|------|
+| 链上数据 | Blockchain.info, Glassnode | 交易所流入流出、活跃地址 |
+| 衍生品数据 | Coinglass API | 期货持仓、资金费率、清算数据 |
+| 交易所数据 | Binance API, Coinbase API | 订单簿深度、大单监控 |
+| 市场情绪 | LunarCrush, Santiment | 社交媒体情绪、趋势 |
+| 宏观经济 | FRED API | 利率、通胀数据 |
+
+**注意**：使用新 API 前，请确认：
+1. API 是否需要认证（API Key）
+2. 是否有请求频率限制
+3. 返回数据格式是否稳定
 
 ## 5. 创建规则文件
 
@@ -215,7 +305,7 @@ module.exports = {
       return ticker.price >= TARGET_PRICE;
     } catch (error) {
       console.error('[警报检查错误]', error.message);
-      return false;
+      throw error; // 必须抛出，让引擎监控到错误
     }
   },
 
@@ -248,20 +338,31 @@ module.exports = {
       };
     } catch (error) {
       console.error('[数据收集错误]', error.message);
-      return { alertTime: new Date().toISOString(), error: error.message };
+      throw error; // 必须抛出，让引擎监控到错误
     }
   },
 
   async trigger(data) {
-    const message = `即时分析\n${JSON.stringify(data, null, 2)}`;
+    // 使用 cron 创建隔离会话，每次警报触发独立分析
+    const now = new Date().toISOString();
+    const jobName = `alert-${Date.now()}`;
+    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
-    // 异步触发，不阻塞引擎
-    spawn('openclaw', ['agent', '--agent', 'july', '--message', message], {
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], {
       detached: true,
       stdio: 'ignore'
     });
 
-    console.log('[警报触发] 已发送即时分析任务');
+    console.log(`[警报触发] 已创建即时分析任务: ${jobName}`);
 
     // 更新冷却时间
     this.lastTriggered = Date.now();
@@ -275,3 +376,144 @@ module.exports = {
 ```
 
 ⚠️ 所有新规则默认触发即时分析任务。
+
+---
+
+## 8. 非价格类警报示例
+
+除了支撑/阻力位的价格警报，系统支持监控多种市场维度。以下是一个**交易量异动警报**的完整示例：
+
+```javascript
+/**
+ * 交易量异动警报
+ * 监控 BTC 小时交易量异常放大（超过30日均值2倍）
+ */
+
+const api = require('../../btc-market-lite/scripts/api');
+const { spawn } = require('child_process');
+
+const CREATED_DATE = '2026-03-25';
+const VOLUME_MULTIPLIER = 2; // 触发阈值：均值倍数
+const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
+
+module.exports = {
+  name: '交易量异动警报',
+  interval: 5 * 60 * 1000, // 5分钟检查一次
+  lastTriggered: 0,
+
+  async check() {
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
+    
+    try {
+      // 获取24小时交易量（小时级数据）
+      const volumeData = await api.get24hVolume('BTC');
+      
+      // 获取30日历史交易量
+      const priceHistory = await api.getPriceHistory('BTC', 30);
+      const avgVolume = priceHistory.volumes.reduce((a, b) => a + b, 0) / priceHistory.volumes.length;
+      
+      const currentVolume = volumeData.volume24h;
+      const ratio = currentVolume / avgVolume;
+      
+      console.log(`[警报检查] 当前交易量: $${(currentVolume/1e9).toFixed(2)}B, 均值: $${(avgVolume/1e9).toFixed(2)}B, 比率: ${ratio.toFixed(2)}x`);
+      
+      return ratio >= VOLUME_MULTIPLIER;
+    } catch (error) {
+      console.error('[警报检查错误]', error.message);
+      throw error; // 必须抛出，让引擎监控到错误
+    }
+  },
+
+  async collect() {
+    try {
+      const ticker = await api.getTicker('BTC');
+      const volumeData = await api.get24hVolume('BTC');
+      const priceHistory = await api.getPriceHistory('BTC', 30);
+      const avgVolume = priceHistory.volumes.reduce((a, b) => a + b, 0) / priceHistory.volumes.length;
+      const klines = await api.getKlines('BTC', '1h', 6);
+
+      return {
+        alertTime: new Date().toISOString(),
+        currentPrice: ticker.price,
+        currentVolume: volumeData.volume24h,
+        averageVolume: avgVolume,
+        volumeRatio: (volumeData.volume24h / avgVolume).toFixed(2),
+        hourlyVolume: volumeData.hourlyData,
+        klines1h: klines.map(k => ({
+          time: k.datetime,
+          open: k.open,
+          high: k.high,
+          low: k.low,
+          close: k.close,
+          volume: k.volume
+        })),
+        alertType: '交易量异动',
+        significance: '大资金可能正在进场或离场，需关注价格突破方向'
+      };
+    } catch (error) {
+      console.error('[数据收集错误]', error.message);
+      throw error; // 必须抛出，让引擎监控到错误
+    }
+  },
+
+  async trigger(data) {
+    const spawnMessage = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
+    const now = new Date().toISOString();
+    const jobName = `alert-volume-${Date.now()}`;
+
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--session', 'isolated',
+      '--at', now,
+      '--message', spawnMessage,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    console.log(`[警报触发] 已创建即时分析任务: ${jobName}`);
+    this.lastTriggered = Date.now();
+  },
+
+  lifetime() {
+    const today = new Date().toISOString().split('T')[0];
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired'; // 有效期3天
+  }
+};
+```
+
+---
+
+## 9. ⚠️ 发散思维：警报类型的可能性
+
+**不要局限于价格警报！** 系统框架支持任意维度的监控，只要 `check()` 返回布尔值即可。
+
+**可实现的警报类型（举例，非穷尽）**：
+
+| 警报类型 | 实现思路 | 适用场景 |
+|---------|---------|---------|
+| **交易量异动** | 小时交易量 > N日均值 × M | 大资金进出 |
+| **振幅警报** | 1小时 high-low > 阈值% | 剧烈波动 |
+| **波动率收窄** | 连续N小时振幅递减 | 变盘前夕 |
+| **快速涨跌** | N分钟内涨跌幅 > 阈值% | 突发行情 |
+| **情绪极端** | FGI < 10 或 > 80 | 市场极度恐慌/贪婪 |
+| **连阳/连阴** | 连续N根同向K线 | 趋势加速 |
+| **交易量萎缩** | 交易量 < 均值 × 0.5 | 市场冷清 |
+| **价格与情绪背离** | 价格上涨但FGI下降 | 可能的反转信号 |
+| **突破失败确认** | 突破后N小时内跌回 | 假突破 |
+| **...** | **自由发挥** | **不限** |
+
+**警示**：每次设定警报时，主动问自己：
+
+1. 当前市场有什么异常？
+2. 有哪些维度的变化值得提前预警？
+3. 是否只盯着价格而忽略了其他信号？
+
+**如果连续多次只设定价格警报，说明思维已固化，需要主动打破。**
