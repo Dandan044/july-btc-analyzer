@@ -1,23 +1,23 @@
 {
-  "timestamp": "2026-03-27 16:32:14",
+  "timestamp": "2026-03-27 17:20:56",
   "priceHistory": {
-    "current": 68191.9,
+    "current": 67823,
     "days": 14,
-    "volume24h": 12638343666.54,
+    "volume24h": 13534344766.76,
     "history": [
       {
         "date": "2026-03-27",
         "timestamp": 1774569600000,
         "open": 68788.1,
         "high": 69142.7,
-        "low": 68181,
-        "close": 68191.9,
+        "low": 67500.2,
+        "close": 67823,
         "volume": null,
         "quoteVolume": null,
-        "ema7": 69612.21,
-        "ema12": 69906.33,
-        "ema20": 69618.98,
-        "ema26": 69597.86,
+        "ema7": 69519.99,
+        "ema12": 69849.57,
+        "ema20": 69583.84,
+        "ema26": 69570.53,
         "fundingRate": -0.00006298,
         "openInterest": 87406.838,
         "openInterestValue": 6012543398.45203,
@@ -359,35 +359,35 @@
       "days14": {
         "price": {
           "max": 74846.4,
-          "min": 67830.6,
-          "avg": 70758.17,
-          "rangePosition": 5.1
+          "min": 67823,
+          "avg": 70731.82,
+          "rangePosition": 0
         },
         "volume": {
           "max": 20370260334,
           "min": 5205605276,
           "avg": 12994030809,
-          "volumeRatio": 0.97
+          "volumeRatio": 1.04
         }
       },
       "days30": {
         "price": {
           "max": 74846.4,
           "min": 65750,
-          "avg": 69608.33,
-          "rangePosition": 26.8
+          "avg": 69596.04,
+          "rangePosition": 22.8
         },
         "volume": {
           "max": 25451510256,
           "min": 5205605276,
           "avg": 14440352018,
-          "volumeRatio": 0.88
+          "volumeRatio": 0.94
         }
       }
     },
     "indicators": {
-      "rsi14": 43,
-      "momentum7d": -3.24
+      "rsi14": 42.2,
+      "momentum7d": -3.76
     }
   },
   "kline4h": [
@@ -673,10 +673,10 @@
       "timestamp": 1774598400000,
       "open": 68501.8,
       "high": 68619.9,
-      "low": 68181,
-      "close": 68190,
-      "volume": 4925.775,
-      "quoteVolume": 336806127.449,
+      "low": 67500.2,
+      "close": 67818.2,
+      "volume": 23091.333,
+      "quoteVolume": 1568283051.8943,
       "fundingRate": -0.00006298,
       "markPrice": 68496.9,
       "openInterest": 89034.276,
