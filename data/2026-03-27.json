@@ -1,23 +1,23 @@
 {
-  "timestamp": "2026-03-27 17:20:56",
+  "timestamp": "2026-03-27 21:00:45",
   "priceHistory": {
-    "current": 67823,
+    "current": 66599.8,
     "days": 14,
-    "volume24h": 13534344766.76,
+    "volume24h": null,
     "history": [
       {
         "date": "2026-03-27",
         "timestamp": 1774569600000,
         "open": 68788.1,
         "high": 69142.7,
-        "low": 67500.2,
-        "close": 67823,
+        "low": 66175.4,
+        "close": 66599.8,
         "volume": null,
         "quoteVolume": null,
-        "ema7": 69519.99,
-        "ema12": 69849.57,
-        "ema20": 69583.84,
-        "ema26": 69570.53,
+        "ema7": 69214.19,
+        "ema12": 69661.39,
+        "ema20": 69467.35,
+        "ema26": 69479.92,
         "fundingRate": -0.00006298,
         "openInterest": 87406.838,
         "openInterestValue": 6012543398.45203,
@@ -359,59 +359,38 @@
       "days14": {
         "price": {
           "max": 74846.4,
-          "min": 67823,
-          "avg": 70731.82,
+          "min": 66599.8,
+          "avg": 70644.45,
           "rangePosition": 0
         },
         "volume": {
           "max": 20370260334,
           "min": 5205605276,
           "avg": 12994030809,
-          "volumeRatio": 1.04
+          "volumeRatio": null
         }
       },
       "days30": {
         "price": {
           "max": 74846.4,
           "min": 65750,
-          "avg": 69596.04,
-          "rangePosition": 22.8
+          "avg": 69555.26,
+          "rangePosition": 9.3
         },
         "volume": {
           "max": 25451510256,
           "min": 5205605276,
           "avg": 14440352018,
-          "volumeRatio": 0.94
+          "volumeRatio": null
         }
       }
     },
     "indicators": {
-      "rsi14": 42.2,
-      "momentum7d": -3.76
+      "rsi14": 39.8,
+      "momentum7d": -5.5
     }
   },
   "kline4h": [
-    {
-      "time": "2026-03-25 12:00",
-      "timestamp": 1774411200000,
-      "open": 70689.2,
-      "high": 71319.9,
-      "low": 70659.9,
-      "close": 70900,
-      "volume": 20176.191,
-      "quoteVolume": 1433414877.4267,
-      "openInterest": 85974.143,
-      "openInterestValue": 6077443389.3556,
-      "longShortRatio": 1.553,
-      "longAccount": 0.6083,
-      "shortAccount": 0.3917,
-      "topTraderRatio": 0.9797,
-      "topTraderLong": 0.4949,
-      "topTraderShort": 0.5051,
-      "takerRatio": 0.9388,
-      "takerBuyVol": 9887.256,
-      "takerSellVol": 10532.362
-    },
     {
       "time": "2026-03-25 16:00",
       "timestamp": 1774425600000,
@@ -673,10 +652,10 @@
       "timestamp": 1774598400000,
       "open": 68501.8,
       "high": 68619.9,
-      "low": 67500.2,
-      "close": 67818.2,
-      "volume": 23091.333,
-      "quoteVolume": 1568283051.8943,
+      "low": 66175.4,
+      "close": 66663.2,
+      "volume": 66255.788,
+      "quoteVolume": 4456587187.2535,
       "fundingRate": -0.00006298,
       "markPrice": 68496.9,
       "openInterest": 89034.276,
@@ -686,7 +665,28 @@
       "shortAccount": 0.3078,
       "topTraderRatio": 0.9695,
       "topTraderLong": 0.4923,
-      "topTraderShort": 0.5077
+      "topTraderShort": 0.5077,
+      "takerRatio": 0.7607,
+      "takerBuyVol": 28795.176,
+      "takerSellVol": 37851.356
+    },
+    {
+      "time": "2026-03-27 20:00",
+      "timestamp": 1774612800000,
+      "open": 66663.3,
+      "high": 66742.2,
+      "low": 66388,
+      "close": 66591.2,
+      "volume": 6169.94,
+      "quoteVolume": 410707345.7381,
+      "openInterest": 91748.608,
+      "openInterestValue": 6116255804.8256,
+      "longShortRatio": 2.3523,
+      "longAccount": 0.7017,
+      "shortAccount": 0.2983,
+      "topTraderRatio": 0.9279,
+      "topTraderLong": 0.4813,
+      "topTraderShort": 0.5187
     }
   ],
   "fearGreedIndex": {

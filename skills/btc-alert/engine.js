@@ -31,6 +31,13 @@ const activeRules = new Map();
 // 结构: { consecutiveErrors, threshold5HitCount, threshold5FirstTime }
 const ruleErrorStats = new Map();
 
+// 存储每个规则的触发冷却时间
+// 结构: { cooldownUntil: timestamp, lastTriggerTime: timestamp }
+const triggerCooldowns = new Map();
+
+// 默认冷却时间：30分钟（毫秒）
+const DEFAULT_COOLDOWN_MS = 30 * 60 * 1000;
+
 // ========== 日志系统 ==========
 
 /**
@@ -329,6 +336,21 @@ async function runRule(ruleInfo) {
       return 'stop';
     }
     
+    // 检查冷却期
+    const cooldownInfo = triggerCooldowns.get(filename);
+    if (cooldownInfo && cooldownInfo.cooldownUntil) {
+      const now = Date.now();
+      if (now < cooldownInfo.cooldownUntil) {
+        const remainingMs = cooldownInfo.cooldownUntil - now;
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        logRuleEvent(name, 'COOLDOWN_ACTIVE', { 
+          remainingMinutes: remainingMin,
+          lastTriggerTime: cooldownInfo.lastTriggerTime 
+        });
+        return 'continue'; // 在冷却期内，跳过检测
+      }
+    }
+    
     // 记录检测开始
     logRuleEvent(name, 'CHECK_START');
     
@@ -349,6 +371,14 @@ async function runRule(ruleInfo) {
       await trigger(data);
       
       logRuleEvent(name, 'TRIGGER_COMPLETED');
+      
+      // 设置冷却时间（30分钟内不再触发）
+      const cooldownMs = rule.cooldownMs || DEFAULT_COOLDOWN_MS;
+      triggerCooldowns.set(filename, {
+        cooldownUntil: Date.now() + cooldownMs,
+        lastTriggerTime: Date.now()
+      });
+      logRuleEvent(name, 'COOLDOWN_SET', { cooldownMinutes: cooldownMs / 60000 });
     } else {
       logRuleEvent(name, 'CHECK_PASSED');
     }
@@ -375,6 +405,7 @@ function unloadRule(filename, ruleName, reason) {
     timers.delete(filename);
   }
   activeRules.delete(filename);
+  triggerCooldowns.delete(filename); // 清理冷却信息
   
   // 保留错误统计以便查看，但也可以选择清理
   // ruleErrorStats.delete(filename);

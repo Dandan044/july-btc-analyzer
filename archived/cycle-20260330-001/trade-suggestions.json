@@ -1,0 +1,34 @@
+{
+  "cycle_id": "cycle-20260330-001",
+  "status": "archived",
+  "started_at": "2026-03-30T09:15:00+08:00",
+  "closed_at": "2026-03-31T09:31:00+08:00",
+  "closed_reason": "pending建议放弃，周期无持仓结束",
+  
+  "suggestions": [
+    {
+      "id": "sug-001",
+      "created_at": "2026-03-31T01:23:00+08:00",
+      "triggered_by": "instant-report-2026-03-31-0123",
+      "direction": "short",
+      "entry_zone": [67000, 67500],
+      "stop_loss": 68300,
+      "take_profit": [65750, 64500],
+      "position_size": "100%",
+      "status": "closed",
+      "closed_at": "2026-03-31T09:31:00+08:00",
+      "close_reason": "entry_zone_exceeded",
+      "notes": "多空比跌破2.0信号明确，反弹失败后等待入场机会。入场条件：等待价格反弹测试$67,000-$67,500区域出现阻力后入场。若直接跌破$66,500则放弃。",
+      "close_detail": "价格突破入场区上沿$67,500，最高触及$67,850。多空比回升超过2.0阈值(2.05)，扭转空头信号。放弃入场。"
+    }
+  ],
+  
+  "summary": {
+    "total": 1,
+    "open": 0,
+    "pending": 0,
+    "closed": 1
+  },
+  
+  "notes": "本次建议为做空，入场条件为反弹测试阻力区。当前价格$66,858，距离入场区约$142-$642。"
+}

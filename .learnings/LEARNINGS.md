@@ -1,5 +1,54 @@
 # LEARNINGS.md
 
+## [LRN-20260328-001] correction - 止盈止损判断混淆
+
+**Logged**: 2026-03-28T09:59:00+08:00
+**Priority**: critical
+**Status**: pending
+**Area**: backend
+
+### Summary
+混淆"支撑跌破"与"止盈触发"，导致错误归档周期
+
+### Details
+**错误场景**：
+- 27日最低价：$65,501
+- 止盈2目标：$65,000
+- 错误判断：$65,501 触及止盈 $65,000 → 周期归档
+
+**实际逻辑**：
+- 止盈触发条件：**最低价 ≤ 止盈价**
+- $65,501 > $65,000，差距 $501
+- 止盈2 **未触发**
+
+**混淆的概念**：
+| 概念 | 含义 | 判断方式 |
+|------|------|---------|
+| 支撑跌破 | 价格跌破支撑位 | 最低价 < 支撑价 |
+| 止盈触发 | 价格触及止盈目标 | 最低价 ≤ 止盈价 |
+
+这两个概念完全不同，不可混用！
+
+### Suggested Action
+1. 在 `tasks/daily-report.md` 中添加明确的止盈止损检查规则：
+   ```
+   止盈触发：最低价 ≤ 止盈价
+   止损触发：最高价 ≥ 止损价
+   ```
+2. 归档前必须核对：确认价格是否真正触发止盈/止损
+3. 添加到周期归档检查清单
+
+### Metadata
+- Source: user_feedback
+- Related Files: tasks/daily-report.md, active/cycle-*/trade-suggestions.json
+- Tags: 止盈止损, 周期归档, 逻辑错误
+- Pattern-Key: logic.stoploss_takeprofit_confusion
+- Recurrence-Count: 1
+- First-Seen: 2026-03-28
+- Last-Seen: 2026-03-28
+
+---
+
 ## 2026-03-20 | 交易方向偏向问题
 
 **问题：** 分析报告中总是偏向做多，从未给出正式的做空建议。
