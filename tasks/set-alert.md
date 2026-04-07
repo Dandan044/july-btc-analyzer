@@ -491,7 +491,257 @@ module.exports = {
 
 ---
 
-## 9. ⚠️ 发散思维：警报类型的可能性
+## 9. ⭐ 定时器警报示例（纯时间触发）
+
+**定时器警报不依赖市场数据，只依赖时间判断。** 适用场景：
+- 计划入场时间提醒（如"N小时后检查入场条件"）
+- 定时检查市场状态
+- 等待某事件发生后的定时观察
+
+```javascript
+/**
+ * 定时器警报（延迟触发）
+ * 不依赖市场数据，纯时间触发
+ * 适用场景：计划入场时间提醒
+ */
+
+const { spawn } = require('child_process');
+const api = require('../../btc-market-lite/scripts/api');
+
+const CREATED_DATE = '2026-03-31';
+const CREATED_TIME = Date.now();          // 规则创建时间
+const TRIGGER_DELAY_MS = 4 * 60 * 60 * 1000; // 4小时后触发
+
+module.exports = {
+  name: '计划入场定时器-4小时',
+  interval: 30 * 60 * 1000, // 30分钟检查一次（定时器不需要高频检查）
+  lastTriggered: 0,
+
+  async check() {
+    // 简单判断：当前时间是否超过计划触发时间
+    const now = Date.now();
+    const triggerTime = CREATED_TIME + TRIGGER_DELAY_MS;
+    
+    if (now >= triggerTime) {
+      console.log(`[定时器检查] 已到达触发时间: ${new Date(triggerTime).toISOString()}`);
+      return true;
+    }
+    
+    const remainingMs = triggerTime - now;
+    const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000));
+    const remainingMins = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+    console.log(`[定时器检查] 距触发时间还有 ${remainingHours}小时${remainingMins}分钟`);
+    
+    return false;
+  },
+
+  async collect() {
+    // 定时器触发时，收集当前市场快照供即时分析使用
+    try {
+      const ticker = await api.getTicker('BTC');
+      const klines = await api.getKlines('BTC', '1h', 4);
+      
+      return {
+        alertTime: new Date().toISOString(),
+        currentPrice: ticker.price,
+        priceChange: {
+          '1h': ticker.change1h,
+          '24h': ticker.change24h
+        },
+        klines1h: klines.map(k => ({
+          time: k.datetime,
+          open: k.open,
+          high: k.high,
+          low: k.low,
+          close: k.close
+        })),
+        alertType: '计划入场提醒',
+        message: '设定的入场观察时间已到，请检查是否满足入场条件'
+      };
+    } catch (error) {
+      console.error('[数据收集错误]', error.message);
+      throw error;
+    }
+  },
+
+  async trigger(data) {
+    const now = new Date().toISOString();
+    const jobName = `timer-alert-${Date.now()}`;
+    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
+
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    console.log(`[定时器触发] 已创建即时分析任务: ${jobName}`);
+    this.lastTriggered = Date.now();
+  },
+
+  lifetime() {
+    // 定时器是一次性的，触发后即完成
+    const now = Date.now();
+    if (now >= CREATED_TIME + TRIGGER_DELAY_MS) {
+      return 'completed';
+    }
+    return 'active';
+  }
+};
+```
+
+**⚠️ 定时器警报命名建议：**
+
+使用格式：`YYYY-MM-DD-timer-Nh.js`（N表示延迟小时数）
+
+例如：`2026-03-31-timer-4h.js`
+
+---
+
+## 10. ⭐ 延迟触发警报示例（价格条件 + 延迟确认）
+
+**延迟触发警报在价格条件满足后，等待一段时间再触发即时分析。** 适用场景：
+- 突破后等待确认（避免假突破）
+- 跌破后等待反弹确认
+- 价格触及关键位后观察走势
+
+```javascript
+/**
+ * 延迟触发警报
+ * 价格条件满足后，延迟一段时间再触发即时分析
+ * 用于观察突破是否有效，避免假突破
+ */
+
+const api = require('../../btc-market-lite/scripts/api');
+const { spawn } = require('child_process');
+
+const CREATED_DATE = '2026-03-31';
+const TARGET_PRICE = 75000;
+const DELAY_MS = 30 * 60 * 1000; // 突破后等待30分钟
+const COOLDOWN_MS = 60 * 60 * 1000;
+
+module.exports = {
+  name: '压力位突破-延迟确认-75000',
+  interval: 3 * 60 * 1000,
+  lastTriggered: 0,
+  
+  // ⭐ 延迟状态管理
+  breakthroughTime: null,  // 记录突破发生时间
+
+  async check() {
+    // 冷却检查
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
+
+    try {
+      const ticker = await api.getTicker('BTC');
+
+      if (ticker.price >= TARGET_PRICE) {
+        // 突破发生
+        if (!this.breakthroughTime) {
+          this.breakthroughTime = Date.now();
+          console.log(`[突破检测] 价格已突破 ${TARGET_PRICE}，开始计时...`);
+        }
+        
+        // 检查是否已延迟足够时间
+        if (Date.now() - this.breakthroughTime >= DELAY_MS) {
+          console.log(`[延迟确认] 突破已稳定 ${DELAY_MS / 60000} 分钟，触发警报`);
+          return true; // 延迟确认完成，触发警报
+        }
+        
+        const elapsedMs = Date.now() - this.breakthroughTime;
+        const elapsedMins = Math.floor(elapsedMs / 60000);
+        console.log(`[等待确认] 突破已持续 ${elapsedMins} 分钟，等待 ${DELAY_MS / 60000} 分钟`);
+      } else {
+        // 价格回落，重置计时
+        if (this.breakthroughTime) {
+          console.log(`[突破失效] 价格回落至 ${ticker.price}，重置计时`);
+          this.breakthroughTime = null;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('[警报检查错误]', error.message);
+      throw error;
+    }
+  },
+
+  async collect() {
+    try {
+      const ticker = await api.getTicker('BTC');
+      const klines = await api.getKlines('BTC', '15m', 10); // 获取延迟期间的K线
+      
+      return {
+        alertTime: new Date().toISOString(),
+        currentPrice: ticker.price,
+        triggerPrice: TARGET_PRICE,
+        breakthroughTime: this.breakthroughTime ? new Date(this.breakthroughTime).toISOString() : null,
+        delayMinutes: DELAY_MS / 60000,
+        klines15m: klines.map(k => ({
+          time: k.datetime,
+          open: k.open,
+          high: k.high,
+          low: k.low,
+          close: k.close,
+          volume: k.volume
+        })),
+        alertType: '延迟确认警报',
+        message: `价格突破 ${TARGET_PRICE} 后已稳定 ${DELAY_MS / 60000} 分钟，确认有效突破`
+      };
+    } catch (error) {
+      console.error('[数据收集错误]', error.message);
+      throw error;
+    }
+  },
+
+  async trigger(data) {
+    const now = new Date().toISOString();
+    const jobName = `delayed-alert-${Date.now()}`;
+    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
+
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    console.log(`[警报触发] 已创建即时分析任务: ${jobName}`);
+    this.lastTriggered = Date.now();
+    this.breakthroughTime = null; // 重置突破时间
+  },
+
+  lifetime() {
+    const today = new Date().toISOString().split('T')[0];
+    return today === CREATED_DATE ? 'active' : 'expired';
+  }
+};
+```
+
+**⚠️ 延迟触发警报命名建议：**
+
+使用格式：`YYYY-MM-DD-delayed-<类型>-<价格>.js`
+
+例如：`2026-03-31-delayed-resistance-75000.js`
+
+---
+
+## 11. ⚠️ 发散思维：警报类型的可能性
 
 **不要局限于价格警报！** 系统框架支持任意维度的监控，只要 `check()` 返回布尔值即可。
 
@@ -499,6 +749,9 @@ module.exports = {
 
 | 警报类型 | 实现思路 | 适用场景 |
 |---------|---------|---------|
+| **价格警报** | 价格 >= 或 <= 目标位 | 支撑/阻力位监控 |
+| **定时器警报** | 纯时间判断，无数据依赖 | 计划入场时间提醒、定时检查 |
+| **延迟触发警报** | 条件满足后等待N分钟 | 确认突破有效性、避免假突破 |
 | **交易量异动** | 小时交易量 > N日均值 × M | 大资金进出 |
 | **振幅警报** | 1小时 high-low > 阈值% | 剧烈波动 |
 | **波动率收窄** | 连续N小时振幅递减 | 变盘前夕 |

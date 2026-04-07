@@ -172,7 +172,39 @@ node skills/btc-market-lite/scripts/get_instant_data.js --save
 
 **如果当前周期有持仓中的建议：**
 
-读取 `trade-suggestions.json`，检查警报触发的价位是否命中任何止盈/止损：
+读取 `trade-suggestions.json`，根据建议状态执行不同操作：
+
+#### 6.1 ⭐ 检查 pending_entry 状态的建议（入场确认）
+
+对于 `status: "pending_entry"` 的建议，检查是否满足入场条件：
+
+**判断逻辑：**
+1. 检查当前价格是否在 `entry_zone` 范围内
+2. 检查是否满足 `entry_condition` 中设定的触发条件
+3. 如果满足，确认入场，更新状态：
+   ```json
+   {
+     "status": "open",
+     "entry_actual": 当前价格,
+     "entry_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+     "entry_confirmed_by": "instant-report-YYYY-MM-DD-HHMM"
+   }
+   ```
+
+**入场条件判断示例：**
+
+| 入场条件类型 | 判断方式 |
+|-------------|---------|
+| 到达$xxx立即入场 | 当前价格在 entry_zone 范围内 |
+| 突破$xxx确认后入场 | 价格已突破 trigger_price 且当前仍在 entry_zone 内 |
+| N小时后检查入场 | 检查当前价格是否在 entry_zone 范围内 |
+| 量能放大后入场 | 检查交易量数据是否满足 trigger_criteria |
+
+**⚠️ 注意：** 只有满足入场条件才更新状态为 `open`。如果不满足条件，保持 `pending_entry` 状态，等待下次检查。
+
+#### 6.2 检查 open 状态的建议（止盈/止损触发）
+
+对于 `status: "open"` 的建议，检查警报触发的价位是否命中任何止盈/止损：
 
 - 如触发止盈/止损，更新建议状态：
   ```json
@@ -184,6 +216,69 @@ node skills/btc-market-lite/scripts/get_instant_data.js --save
   ```
 - 更新 `summary`（open -= 1, closed += 1）
 - 检查是否需要归档（open === 0 且 total > 0）
+
+#### 6.3 ⭐ 如果即时分析给出新交易建议（必须执行）
+
+即时分析任务也可能给出新的交易建议（周期内无建议时，或市场出现新机会时）。
+
+**如果给出新建议，必须执行以下流程：**
+
+**1. 写入交易建议到 `trade-suggestions.json`：**
+
+使用与日报任务相同的建议结构（参考 `tasks/daily-report.md` 第5.2节）：
+
+```json
+{
+  "id": "sug-xxx",
+  "created_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+  "triggered_by": "instant-report-YYYY-MM-DD-HHMM",
+  "direction": "long|short",
+  "entry_zone": [下限, 上限],
+  
+  // ⭐ 入场条件（必须填写）
+  "entry_condition": {
+    "type": "immediate | delayed | conditional",
+    "description": "具体入场条件描述",
+    "trigger_price": null,
+    "trigger_criteria": null,
+    "delay_hours": null
+  },
+  
+  // ⭐ 警报配置（非立即入场时必须填写）
+  "alert_config": {
+    "should_create": true,
+    "alert_type": "price | timer | conditional",
+    "alert_name": null,
+    "alert_file": null
+  },
+  
+  "stop_loss": 止损价,
+  "take_profit": [止盈1, 止盈2],
+  "position_size": "建议仓位描述",
+  "status": "pending_entry | open",
+  "closed_at": null,
+  "close_reason": null,
+  "notes": "建议依据说明"
+}
+```
+
+**2. 判断初始状态：**
+- `entry_condition.type === "immediate"` → `status: "open"`（立即入场）
+- `entry_condition.type !== "immediate"` → `status: "pending_entry"`（等待入场）
+
+**3. ⭐ 若非立即入场，必须创建警报：**
+
+如果 `entry_condition.type !== "immediate"`，必须执行：
+1. 阅读 `tasks/set-alert.md` 了解警报创建方法
+2. 根据入场条件创建对应类型的警报：
+   - **价格触发** → 创建价格警报
+   - **定时触发** → 创建定时器警报
+   - **条件触发** → 创建延迟触发警报或条件警报
+3. 将警报信息写入 `alert_config` 字段
+
+**4. 更新 `summary`：**
+- `total` += 1
+- `open` += 1
 
 ---
 
@@ -307,17 +402,27 @@ mv active/cycle-* archived/
 - 多空变换灵活，你不应该只做空或只做多，快速变换交易风格、交易方向
 - 如果当前周期已有未关闭的建议，谨慎给出新建议
 - 若给出新建议,记得要更新当前周期文件夹内的建议文件
+- ⭐ **入场条件必须明确**：说明何时入场、触发条件、是否需要创建警报
 
 | 项目 | 内容 |
 |------|------|
 | 方向 | 做多/做空/观望 |
 | 入场位置 | $xxx |
+| 入场条件 | 立即入场 / 到达$xxx立即入场 / 突破$xxx确认后入场 / N小时后检查入场 |
 | 仓位 | xx% (50%~300%)|
 | 止损 | $xxx (-xx%) |
 | 止盈1 | $xxx (+xx%，平仓xx%) |
 | 止盈2 | $xxx (+xx%，平仓剩余) |
 | 盈亏比 | 1:xx |
 | 风险 | 高/中/低（依据越多，风险等级越低。） |
+
+**入场条件填写说明：**
+- **立即入场**：当前市场条件满足，建议直接入场
+- **到达$xxx立即入场**：价格触及目标位后立即入场（需要创建价格警报）
+- **突破$xxx确认后入场**：突破后等待确认（需要创建延迟触发警报）
+- **N小时后检查入场**：定时检查（需要创建定时器警报）
+
+在表格下方，简要说明这个建议与你分析的关联——为什么给出这个建议？为什么设定这个入场条件？
 
 ### 六、警报变更
 

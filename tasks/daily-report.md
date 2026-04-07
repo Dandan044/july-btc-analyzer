@@ -138,7 +138,21 @@ mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
 
 ### 5. 交易建议管理
 
-#### 5.1 如果报告给出了交易建议
+#### 5.1 交易建议状态说明
+
+交易建议有三种状态：
+
+| 状态 | 含义 | 说明 |
+|------|------|------|
+| `pending_entry` | 等待入场 | 计划入场，需要创建警报监控触发条件 |
+| `open` | 持仓中 | 已入场，需要监控止盈/止损 |
+| `closed` | 已平仓 | 交易结束，记录平仓原因 |
+
+**状态转换：**
+- `pending_entry` → `open`：入场条件触发后，由即时分析任务更新
+- `open` → `closed`：止盈/止损触发后，由日报或即时分析任务更新
+
+#### 5.2 如果报告给出了交易建议
 
 将交易建议追加到 `trade-suggestions.json` 的 `suggestions` 数组中：
 
@@ -148,22 +162,86 @@ mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
   "created_at": "YYYY-MM-DDTHH:MM:SS+08:00",
   "triggered_by": "report-YYYY-MM-DD-HHMM",
   "direction": "long|short",
+  
   "entry_zone": [下限, 上限],
+  
+  // ⭐ 入场条件（必须填写）
+  "entry_condition": {
+    "type": "immediate | delayed | conditional",
+    "description": "具体入场条件描述",
+    // 例如：
+    // - "立即入场"
+    // - "到达$xxx价位立即入场"
+    // - "突破$xxx后回踩确认入场"
+    // - "量能放大2倍后入场"
+    // - "4小时后检查入场条件"
+    
+    "trigger_price": null,      // 条件触发价位（如有）
+    "trigger_criteria": null,   // 其他触发条件描述（如量能要求）
+    "delay_hours": null         // 延迟入场的小时数（定时入场场景）
+  },
+  
+  // ⭐ 警报配置（非立即入场时必须填写）
+  "alert_config": {
+    "should_create": true,               // 是否需要创建警报
+    "alert_type": "price | timer | conditional",  // 警报类型
+    "alert_name": null,                  // 创建后填入警报名称
+    "alert_file": null                   // 创建后填入规则文件路径
+  },
+  
   "stop_loss": 止损价,
   "take_profit": [止盈1, 止盈2],
   "position_size": "建议仓位描述",
-  "status": "open",
+  
+  "status": "pending_entry | open",      // 根据入场条件决定初始状态
+  "entry_actual": null,                  // 实际入场价（入场后填写）
+  "entry_at": null,                      // 实际入场时间（入场后填写）
   "closed_at": null,
   "close_reason": null,
   "notes": "建议依据说明"
 }
 ```
 
+**状态初始值判断：**
+- `entry_condition.type === "immediate"` → `status: "open"`（立即入场）
+- `entry_condition.type !== "immediate"` → `status: "pending_entry"`（等待入场）
+
 同时更新 `summary`：
 - `total` += 1
-- `open` += 1
+- `open` += 1（注意：`pending_entry` 也计入 `open`，因为这是持仓计划的一部分）
 
-#### 5.2 如果价格触发止盈/止损
+#### 5.3 ⭐ 非立即入场的警报创建（必须执行）
+
+**如果 `entry_condition.type !== "immediate"`，必须创建对应的警报！**
+
+执行步骤：
+1. 阅读 `tasks/set-alert.md` 了解警报创建方法
+2. 根据入场条件创建对应类型的警报：
+   - **价格触发**：`entry_condition.trigger_price` 有值 → 创建价格警报
+   - **定时触发**：`entry_condition.delay_hours` 有值 → 创建定时器警报
+   - **条件触发**：有其他触发条件 → 创建条件警报
+3. 将警报信息写入 `alert_config` 字段：
+   ```json
+   {
+     "should_create": true,
+     "alert_type": "price",
+     "alert_name": "压力位突破确认-75000",
+     "alert_file": "skills/btc-alert/rules/2026-03-31-resistance-75000.js"
+   }
+   ```
+
+**警报类型参考：**
+
+| 入场条件 | 警报类型 | 示例 |
+|---------|---------|------|
+| 到达$xxx立即入场 | 价格警报 | 监控价格触及目标位 |
+| 突破$xxx后确认入场 | 延迟触发警报 | 监控突破后等待确认 |
+| N小时后检查入场 | 定时器警报 | 纯时间触发，不依赖数据 |
+| 量能放大后入场 | 条件警报 | 监控交易量指标 |
+
+**⚠️ 注意：** 创建警报后，警报触发时会执行即时分析任务，即时分析任务负责检查是否满足入场条件并更新建议状态。
+
+#### 5.4 如果价格触发止盈/止损
 
 确认 `trade-suggestions.json` 中每个建议的止盈/止损价格是否真的被触发。**最低价 ≤ 止盈价** 才算触发止盈，**最高价 ≥ 止损价** 才算触发止损。切勿混淆"支撑/阻力跌破"与"止盈止损触发"。
 
@@ -181,7 +259,7 @@ mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
 - `open` -= 1
 - `closed` += 1
 
-#### 5.3 检查是否需要归档
+#### 5.5 检查是否需要归档
 
 ```bash
 # 读取 trade-suggestions.json
@@ -351,11 +429,13 @@ mv active/cycle-* archived/
 - 多空变换灵活，你不应该只做空或只做多，快速变换交易风格、交易方向
 - 如果当前周期已有未关闭的建议，谨慎给出新建议
 - 若给出新建议,记得要更新当前周期文件夹内的建议文件
+- ⭐ **入场条件必须明确**：说明何时入场、触发条件、是否需要创建警报
 
 | 项目 | 内容 |
 |------|------|
 | 方向 | 做多/做空/观望 |
 | 入场位置 | $xxx |
+| 入场条件 | 立即入场 / 到达$xxx立即入场 / 突破$xxx确认后入场 / N小时后检查入场 |
 | 仓位 | xx% (50%~300%)|
 | 止损 | $xxx (-xx%) |
 | 止盈1 | $xxx (+xx%，平仓xx%) |
@@ -363,7 +443,13 @@ mv active/cycle-* archived/
 | 盈亏比 | 1:xx |
 | 风险 | 高/中/低（依据越多，风险等级越低。） |
 
-在表格下方，简要说明这个建议与你分析的关联——为什么给出这个建议？
+**入场条件填写说明：**
+- **立即入场**：当前市场条件满足，建议直接入场
+- **到达$xxx立即入场**：价格触及目标位后立即入场（需要创建价格警报）
+- **突破$xxx确认后入场**：突破后等待确认（需要创建延迟触发警报）
+- **N小时后检查入场**：定时检查（需要创建定时器警报）
+
+在表格下方，简要说明这个建议与你分析的关联——为什么给出这个建议？为什么设定这个入场条件？
 
 ### 六、警报变更
 
