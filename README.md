@@ -293,7 +293,14 @@ pm2 logs july-report-monitor
 
 ## 更新日志
 
-### 2026-04-07
+### 2026-04-07 (v2)
+- **期权数据整合** 🔮
+  - 新增 Deribit 期权数据获取（两大核心到期日）
+  - 新增指标：Put/Call Ratio、Max Pain、隐含波动率、关键支撑阻力
+  - 移除动量指标（滞后性，非领先数据）
+- **数据源**：Binance Futures + alternative.me + Deribit
+
+### 2026-04-07 (v1)
 - **交易建议状态系统重构** 🔄
   - 新增 `pending_entry` 状态，区分"等待入场"和"持仓中"
   - 状态流转：`pending_entry` → `open` → `closed`

@@ -185,12 +185,7 @@ function calcRSI(values, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
-function calcMomentum(values, days = 7) {
-  // values: [最新, ..., 最旧]
-  // 动量 = (当前价格 - N天前价格) / N天前价格 * 100
-  if (values.length <= days) return null;
-  return ((values[0] - values[days]) / values[days]) * 100;
-}
+
 
 // ========== Binance API ==========
 
@@ -405,8 +400,7 @@ async function getDailyData(proxy) {
       }
     },
     indicators: {
-      rsi14: calcRSI(closes, 14) ? parseFloat(calcRSI(closes, 14).toFixed(1)) : null,
-      momentum7d: calcMomentum(closes, 7) ? parseFloat(calcMomentum(closes, 7).toFixed(2)) : null
+      rsi14: calcRSI(closes, 14) ? parseFloat(calcRSI(closes, 14).toFixed(1)) : null
     }
   };
 }
@@ -515,6 +509,170 @@ async function getFearGreedIndex(days = 30) {
   return fetch(`https://api.alternative.me/fng/?limit=${days}`);
 }
 
+// ========== Deribit 期权数据 ==========
+
+/**
+ * 获取 Deribit 期权数据
+ * 使用 curl 通过代理请求
+ */
+async function getDeribitOptions(proxy) {
+  if (!proxy) return null;
+  
+  return new Promise((resolve) => {
+    const { exec } = require('child_process');
+    const cmd = `curl -s --max-time 30 -x ${proxy} 'https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option'`;
+    
+    exec(cmd, { maxBuffer: 100 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Deribit curl error:', error.message);
+        resolve(null);
+        return;
+      }
+      
+      try {
+        const json = JSON.parse(stdout);
+        if (json.result && Array.isArray(json.result)) {
+          console.error('Deribit: 获取到', json.result.length, '个期权合约');
+          resolve(analyzeOptionsData(json.result));
+        } else {
+          console.error('Deribit: 无有效数据');
+          resolve(null);
+        }
+      } catch (e) {
+        console.error('Deribit 解析错误:', e.message);
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * 分析期权数据，提取关键指标
+ */
+function analyzeOptionsData(options) {
+  // 按到期日分组
+  const byExpiry = {};
+  
+  for (const opt of options) {
+    const parts = opt.instrument_name.split('-');
+    if (parts.length < 4) continue;
+    
+    const expiry = parts[1];  // e.g., '24APR26'
+    const strike = parseInt(parts[2]);
+    const type = parts[3];  // 'C' or 'P'
+    const oi = opt.open_interest || 0;
+    const vol = opt.volume || 0;
+    const iv = opt.mark_iv || 0;
+    
+    if (!byExpiry[expiry]) {
+      byExpiry[expiry] = {
+        contracts: 0,
+        callOI: 0,
+        putOI: 0,
+        callVol: 0,
+        putVol: 0,
+        ivs: [],
+        strikeData: {}
+      };
+    }
+    
+    byExpiry[expiry].contracts++;
+    
+    if (type === 'C') {
+      byExpiry[expiry].callOI += oi;
+      byExpiry[expiry].callVol += vol;
+    } else {
+      byExpiry[expiry].putOI += oi;
+      byExpiry[expiry].putVol += vol;
+    }
+    
+    if (iv > 0) byExpiry[expiry].ivs.push(iv);
+    
+    // 记录执行价数据
+    if (!byExpiry[expiry].strikeData[strike]) {
+      byExpiry[expiry].strikeData[strike] = { callOI: 0, putOI: 0 };
+    }
+    if (type === 'C') {
+      byExpiry[expiry].strikeData[strike].callOI += oi;
+    } else {
+      byExpiry[expiry].strikeData[strike].putOI += oi;
+    }
+  }
+  
+  // 计算每个到期日的指标
+  const result = {};
+  
+  for (const [expiry, data] of Object.entries(byExpiry)) {
+    const totalOI = data.callOI + data.putOI;
+    const totalVol = data.callVol + data.putVol;
+    
+    // Max Pain 计算
+    let maxPain = 60000, maxLoss = 0;
+    const strikes = Object.keys(data.strikeData).map(Number).sort((a,b) => a-b);
+    
+    for (let price = 40000; price <= 150000; price += 500) {
+      let callLoss = 0, putLoss = 0;
+      
+      for (const strike of strikes) {
+        const sd = data.strikeData[strike];
+        if (strike > price) callLoss += sd.callOI;  // Call 作废
+        if (strike < price) putLoss += sd.putOI;    // Put 作废
+      }
+      
+      const totalLoss = callLoss + putLoss;
+      if (totalLoss > maxLoss) {
+        maxLoss = totalLoss;
+        maxPain = price;
+      }
+    }
+    
+    // 关键价位 (净阻力/支撑)
+    const resistance = [];
+    const support = [];
+    
+    for (const [strike, sd] of Object.entries(data.strikeData)) {
+      const net = sd.callOI - sd.putOI;
+      if (net > 500) {
+        resistance.push({ strike: parseInt(strike), netOI: net });
+      }
+      if (net < -500) {
+        support.push({ strike: parseInt(strike), netOI: Math.abs(net) });
+      }
+    }
+    
+    resistance.sort((a, b) => b.netOI - a.netOI);
+    support.sort((a, b) => b.netOI - a.netOI);
+    
+    result[expiry] = {
+      totalOI: parseFloat(totalOI.toFixed(0)),
+      totalVol: parseFloat(totalVol.toFixed(0)),
+      contracts: data.contracts,
+      callOI: parseFloat(data.callOI.toFixed(0)),
+      putOI: parseFloat(data.putOI.toFixed(0)),
+      pcOI: data.callOI > 0 ? parseFloat((data.putOI / data.callOI).toFixed(3)) : null,
+      pcVol: data.callVol > 0 ? parseFloat((data.putVol / data.callVol).toFixed(3)) : null,
+      avgIV: data.ivs.length > 0 ? parseFloat((data.ivs.reduce((a,b) => a+b, 0) / data.ivs.length).toFixed(1)) : null,
+      maxPain: maxPain,
+      topResistance: resistance.slice(0, 3).map(r => ({ strike: r.strike, netOI: parseFloat(r.netOI.toFixed(0)) })),
+      topSupport: support.slice(0, 3).map(s => ({ strike: s.strike, netOI: parseFloat(s.netOI.toFixed(0)) }))
+    };
+  }
+  
+  // 找出最大的两个到期日
+  const sorted = Object.entries(result)
+    .sort((a, b) => b[1].totalOI - a[1].totalOI);
+  
+  const top2 = sorted.slice(0, 2).map(([expiry, data]) => ({
+    expiry,
+    ...data
+  }));
+  
+  return {
+    all: result,
+    top2: top2
+  };
+}
+
 // ========== 主数据获取 ==========
 
 async function getEnhancedAnalysis(proxy = null) {
@@ -523,6 +681,7 @@ async function getEnhancedAnalysis(proxy = null) {
     priceHistory: null,
     kline4h: null,
     fearGreedIndex: null,
+    options: null,
     dataSource: {
       price: 'Binance Futures',
       sentiment: proxy ? 'Binance Futures (via proxy)' : 'Binance Futures (no proxy)'
@@ -530,10 +689,11 @@ async function getEnhancedAnalysis(proxy = null) {
   };
 
   try {
-    const [dailyData, kline4h, fngData] = await Promise.all([
+    const [dailyData, kline4h, fngData, optionsData] = await Promise.all([
       proxy ? getDailyData(proxy).catch(e => { console.error('Daily error:', e.message); return null; }) : Promise.resolve(null),
       proxy ? get4hData(proxy).catch(e => { console.error('4h error:', e.message); return null; }) : Promise.resolve(null),
-      getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; })
+      getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; }),
+      proxy ? getDeribitOptions(proxy).catch(e => { console.error('Options error:', e.message); return null; }) : Promise.resolve(null)
     ]);
 
     if (dailyData) {
@@ -565,6 +725,14 @@ async function getEnhancedAnalysis(proxy = null) {
           min30d: min30d,
           rangePosition: parseFloat(((current - min30d) / (max30d - min30d) * 100).toFixed(0))
         }
+      };
+    }
+
+    // 期权数据
+    if (optionsData && optionsData.top2) {
+      result.options = {
+        topExpiries: optionsData.top2,
+        allExpiries: optionsData.all
       };
     }
 
@@ -627,13 +795,9 @@ function formatAnalysis(data) {
     out += '\n── 📈 技术指标 ──\n';
     if (ind.rsi14 !== null) {
       const rsiStatus = ind.rsi14 < 30 ? '⚠️ 超卖' : ind.rsi14 > 70 ? '⚠️ 超买' : '';
-      out += `   RSI(14): ${ind.rsi14} ${rsiStatus}`;
+      out += `   RSI(14): ${ind.rsi14} ${rsiStatus}\n`;
     } else {
-      out += `   RSI(14): N/A`;
-    }
-    if (ind.momentum7d !== null) {
-      out += ` | 7日动量: ${ind.momentum7d > 0 ? '+' : ''}${ind.momentum7d}%\n`;
-      out += `           (当前价格相对7天前的变化幅度)\n`;
+      out += `   RSI(14): N/A\n`;
     }
   }
   
@@ -644,6 +808,34 @@ function formatAnalysis(data) {
     const emoji = fng.current <= 25 ? '😱' : fng.current <= 45 ? '😰' : fng.current <= 55 ? '😐' : fng.current <= 75 ? '😊' : '🤑';
     out += `   当前: ${fng.current} (${fng.classification}) ${emoji}\n`;
     out += `   30日: 均值${fng.statistics.avg30d} | 区间${fng.statistics.min30d}-${fng.statistics.max30d}\n`;
+  }
+  
+  // 期权数据
+  if (data.options?.topExpiries) {
+    out += '\n── 🔮 期权市场 (Deribit) ──\n';
+    
+    for (let i = 0; i < data.options.topExpiries.length; i++) {
+      const opt = data.options.topExpiries[i];
+      const label = i === 0 ? '近期主力' : '远期主力';
+      
+      out += `\n   【${opt.expiry} - ${label}】\n`;
+      out += `   OI: ${opt.totalOI} BTC | 合约: ${opt.contracts}个\n`;
+      out += `   Put/Call OI: ${opt.pcOI} | Put/Call Vol: ${opt.pcVol}\n`;
+      out += `   Max Pain: $${opt.maxPain.toLocaleString()}`;
+      if (data.priceHistory?.current) {
+        const diff = ((opt.maxPain - data.priceHistory.current) / data.priceHistory.current * 100).toFixed(1);
+        out += ` (${diff > 0 ? '+' : ''}${diff}%)\n`;
+      } else {
+        out += '\n';
+      }
+      
+      if (opt.topResistance.length > 0) {
+        out += `   阻力: ${opt.topResistance.map(r => `$${(r.strike/1000).toFixed(0)}K(${r.netOI})`).join(', ')}\n`;
+      }
+      if (opt.topSupport.length > 0) {
+        out += `   支撑: ${opt.topSupport.map(s => `$${(s.strike/1000).toFixed(0)}K(${s.netOI})`).join(', ')}\n`;
+      }
+    }
   }
   
   // 14日日线数据

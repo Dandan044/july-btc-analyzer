@@ -1,0 +1,44 @@
+{
+  "cycle_id": "cycle-20260406-001",
+  "status": "active",
+  "started_at": "2026-04-06T21:00:00+08:00",
+  "closed_at": null,
+  "closed_reason": null,
+  "suggestions": [
+    {
+      "id": "sug-001",
+      "created_at": "2026-04-07T09:20:00+08:00",
+      "triggered_by": "instant-report-2026-04-07-0920",
+      "direction": "long",
+      "entry_zone": [68500, 68900],
+      "entry_condition": {
+        "type": "immediate",
+        "description": "价格已站上EMA20，信号已确认，立即入场",
+        "trigger_price": null,
+        "trigger_criteria": null,
+        "delay_hours": null
+      },
+      "alert_config": {
+        "should_create": false,
+        "alert_type": null,
+        "alert_name": null,
+        "alert_file": null
+      },
+      "stop_loss": 67900,
+      "take_profit": [69500, 70500],
+      "position_size": "100%",
+      "status": "open",
+      "entry_actual": 68845.2,
+      "entry_at": "2026-04-07T09:21:00+08:00",
+      "entry_confirmed_by": "instant-report-2026-04-07-0920",
+      "closed_at": null,
+      "close_reason": null,
+      "notes": "EMA20突破警报触发，Taker买盘放大(1.73)，空头已获利平仓(OI下降+费率负)，短期偏多"
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "open": 1,
+    "closed": 0
+  }
+}
