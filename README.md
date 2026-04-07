@@ -87,6 +87,20 @@ july-btc-analyzer/
 [下一周期在下一篇报告时开启]
 ```
 
+### 交易建议状态系统
+
+交易建议有三种状态：
+
+| 状态 | 含义 | 说明 |
+|------|------|------|
+| `pending_entry` | 等待入场 | 计划入场，需要创建警报监控触发条件 |
+| `open` | 持仓中 | 已入场，需要监控止盈/止损 |
+| `closed` | 已平仓 | 交易结束，记录平仓原因 |
+
+**状态转换：**
+- `pending_entry` → `open`：入场条件触发后，由即时分析任务更新
+- `open` → `closed`：止盈/止损触发后，由日报或即时分析任务更新
+
 ### 交易建议文件结构
 
 `trade-suggestions.json`:
@@ -106,10 +120,30 @@ july-btc-analyzer/
       "triggered_by": "report-2026-03-19-morning",
       "direction": "long",
       "entry_zone": [69500, 70000],
+      
+      // ⭐ 入场条件（必须填写）
+      "entry_condition": {
+        "type": "immediate | delayed | conditional",
+        "description": "具体入场条件描述",
+        "trigger_price": null,      // 条件触发价位（如有）
+        "trigger_criteria": null,   // 其他触发条件描述
+        "delay_hours": null         // 延迟入场的小时数
+      },
+      
+      // ⭐ 警报配置（非立即入场时必须填写）
+      "alert_config": {
+        "should_create": true,
+        "alert_type": "price | timer | conditional",
+        "alert_name": null,
+        "alert_file": null
+      },
+      
       "stop_loss": 68000,
       "take_profit": [72000, 74000],
       "position_size": "建议仓位 20%",
-      "status": "open",
+      "status": "pending_entry | open",
+      "entry_actual": null,
+      "entry_at": null,
       "closed_at": null,
       "close_reason": null,
       "notes": "突破阻力位后的回踩确认"
@@ -148,6 +182,16 @@ july-btc-analyzer/
     │                                    ▼
 执行即时分析 ◄─────── 触发通知 ◄─────── 警报器监控
 ```
+
+### 警报类型
+
+| 警报类型 | 实现思路 | 适用场景 |
+|---------|---------|---------|
+| **价格警报** | 价格 >= 或 <= 目标位 | 支撑/阻力位监控 |
+| **定时器警报** | 纯时间判断，无数据依赖 | 计划入场时间提醒、定时检查 |
+| **延迟触发警报** | 条件满足后等待N分钟 | 确认突破有效性、避免假突破 |
+| **交易量异动** | 小时交易量 > N日均值 × M | 大资金进出 |
+| **振幅警报** | 1小时 high-low > 阈值% | 剧烈波动 |
 
 ### 规则接口
 
@@ -248,6 +292,27 @@ pm2 logs july-report-monitor
 ---
 
 ## 更新日志
+
+### 2026-04-07
+- **交易建议状态系统重构** 🔄
+  - 新增 `pending_entry` 状态，区分"等待入场"和"持仓中"
+  - 状态流转：`pending_entry` → `open` → `closed`
+  - 入场确认由即时分析任务执行
+- **入场条件机制** ⭐
+  - 每个建议必须有 `entry_condition` 字段
+  - 类型：`immediate`（立即入场）/ `delayed`（延迟入场）/ `conditional`（条件触发）
+  - 非立即入场必须创建对应警报监控触发条件
+- **警报类型扩展** 🔔
+  - 新增 **定时器警报**：纯时间触发，不依赖市场数据（如"N小时后检查入场"）
+  - 新增 **延迟触发警报**：价格条件满足后等待确认（如"突破后等待30分钟验证有效性"）
+  - 更新 `tasks/set-alert.md` 添加完整示例代码
+- **即时分析任务增强** 📊
+  - 新增 `pending_entry` 入场确认流程
+  - 支持即时分析创建新交易建议（周期内无建议或市场新机会时）
+- **任务规则更新** 📝
+  - `tasks/daily-report.md` - 交易建议状态管理 + 入场条件机制
+  - `tasks/instant-analysis.md` - 入场确认 + 新建议创建流程
+  - `tasks/set-alert.md` - 定时器/延迟触发警报示例
 
 ### 2026-03-31
 - **警报器引擎优化** ⏱️
