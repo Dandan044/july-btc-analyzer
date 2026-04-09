@@ -23,7 +23,18 @@ const { URL } = require('url');
 // ========== 配置 ==========
 
 const PROXY_DEFAULT = 'http://127.0.0.1:7890';
+
+// ===== Binance 配置 (原数据源，地区限制) =====
 const BINANCE_FUTURES_BASE = 'https://fapi.binance.com';
+
+// ===== OKX 配置 (备用数据源，无地区限制) =====
+const OKX_API_BASE = 'https://www.okx.com';
+const OKX_INST_ID = 'BTC-USDT-SWAP';  // OKX 永续合约
+
+// 数据源选择：优先 OKX，失败后回退 Binance
+let activeDataSource = 'OKX';  // 'OKX' | 'Binance'
+
+const CRYPTOCOMPARE_API = 'https://min-api.cryptocompare.com/data/v2/histo';
 
 // ========== 工具函数 ==========
 
@@ -185,6 +196,726 @@ function calcRSI(values, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
+// ========== 斐波那契分析模块 ==========
+
+/**
+ * 获取 CryptoCompare OHLCV 数据（无需代理，带重试）
+ */
+async function getCryptoCompareData(limit, aggregate, timeframe, retries = 3) {
+  const url = `${CRYPTOCOMPARE_API}${timeframe}?fsym=BTC&tsym=USDT&limit=${limit}&aggregate=${aggregate}`;
+  
+  for (let i = 0; i < retries; i++) {
+    try {
+      const data = await fetch(url, null);
+      if (data?.Data?.Data && data.Data.Data.length > 0) {
+        return data;
+      }
+    } catch (e) {
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  return null;
+}
+
+/**
+ * 计算平均真实波幅 ATR
+ */
+function calcATR(candles, period = 14) {
+  if (candles.length < period + 1) return 0;
+  
+  const trueRanges = [];
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high;
+    const low = candles[i].low;
+    const prevClose = candles[i - 1].close;
+    
+    const tr = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose)
+    );
+    trueRanges.push(tr);
+  }
+  
+  if (trueRanges.length < period) return 0;
+  return trueRanges.slice(-period).reduce((a, b) => a + b, 0) / period;
+}
+
+/**
+ * 计算斐波那契回调位
+ */
+function calcFibonacciLevels(high, low) {
+  const diff = high - low;
+  
+  return {
+    '0%': { price: high, label: '高点' },
+    '23.6%': { price: high - diff * 0.236 },
+    '38.2%': { price: high - diff * 0.382 },
+    '50%': { price: high - diff * 0.5 },
+    '61.8%': { price: high - diff * 0.618, label: '黄金分割' },
+    '78.6%': { price: high - diff * 0.786 },
+    '100%': { price: low, label: '低点' }
+  };
+}
+
+/**
+ * 分析单个时间框架
+ */
+function analyzeTimeframe(timeframe, candles) {
+  if (!candles || candles.length < 10) return null;
+  
+  // 找波段高低点
+  let swingHigh = candles[0].high;
+  let swingLow = candles[0].low;
+  let highIdx = 0;
+  let lowIdx = 0;
+  
+  for (let i = 0; i < candles.length; i++) {
+    if (candles[i].high > swingHigh) {
+      swingHigh = candles[i].high;
+      highIdx = i;
+    }
+    if (candles[i].low < swingLow) {
+      swingLow = candles[i].low;
+      lowIdx = i;
+    }
+  }
+  
+  // 计算 ATR
+  const atr = calcATR(candles, 14);
+  
+  // 当前价格
+  const currentPrice = candles[candles.length - 1].close;
+  
+  // 波段幅度
+  const swingRange = swingHigh - swingLow;
+  const swingRangePct = (swingRange / swingLow) * 100;
+  
+  // 波动率
+  const volatility = atr / currentPrice;
+  const volatilityLevel = volatility > 0.05 ? '高波动' : volatility > 0.03 ? '中等波动' : '低波动';
+  
+  // 计算斐波那契位
+  const fibLevels = calcFibonacciLevels(swingHigh, swingLow);
+  
+  // 趋势方向
+  const trend = highIdx > lowIdx ? '上升趋势' : '下降趋势';
+  
+  // 找当前价格最接近的斐波那契位
+  let closestLevel = null;
+  let closestDist = Infinity;
+  for (const [level, data] of Object.entries(fibLevels)) {
+    const dist = Math.abs(data.price - currentPrice);
+    if (dist < closestDist) {
+      closestDist = dist;
+      closestLevel = level;
+    }
+  }
+  
+  return {
+    timeframe,
+    currentPrice: parseFloat(currentPrice.toFixed(2)),
+    swingHigh: parseFloat(swingHigh.toFixed(2)),
+    swingLow: parseFloat(swingLow.toFixed(2)),
+    swingRange: parseFloat(swingRange.toFixed(2)),
+    swingRangePct: parseFloat(swingRangePct.toFixed(1)),
+    atr: parseFloat(atr.toFixed(2)),
+    volatility: parseFloat(volatility.toFixed(4)),
+    volatilityLevel,
+    fibLevels: Object.fromEntries(
+      Object.entries(fibLevels).map(([k, v]) => [k, parseFloat(v.price.toFixed(2))])
+    ),
+    trend,
+    closestLevel,
+    closestPrice: parseFloat(fibLevels[closestLevel].price.toFixed(2)),
+    closestDistPct: parseFloat((closestDist / currentPrice * 100).toFixed(2)),
+    highTime: candles[highIdx].time ? toBeijingDatetime(candles[highIdx].time * 1000) : null,
+    lowTime: candles[lowIdx].time ? toBeijingDatetime(candles[lowIdx].time * 1000) : null,
+    durationBars: Math.abs(highIdx - lowIdx)
+  };
+}
+
+/**
+ * 找多时间框架重合区域
+ */
+function findConfluenceZones(analyses, tolerance = 0.015) {
+  const allLevels = [];
+  
+  for (const analysis of analyses) {
+    if (!analysis) continue;
+    for (const [levelName, price] of Object.entries(analysis.fibLevels)) {
+      allLevels.push({
+        price,
+        level: levelName,
+        timeframe: analysis.timeframe
+      });
+    }
+  }
+  
+  // 按价格排序
+  allLevels.sort((a, b) => a.price - b.price);
+  
+  // 找重合区域
+  const confluenceZones = [];
+  const used = new Set();
+  
+  for (let i = 0; i < allLevels.length; i++) {
+    if (used.has(i)) continue;
+    
+    const zone = [allLevels[i]];
+    used.add(i);
+    
+    for (let j = i + 1; j < allLevels.length; j++) {
+      if (used.has(j)) continue;
+      
+      const priceDiff = Math.abs(allLevels[j].price - allLevels[i].price) / allLevels[i].price;
+      
+      if (priceDiff <= tolerance && allLevels[j].timeframe !== allLevels[i].timeframe) {
+        zone.push(allLevels[j]);
+        used.add(j);
+      }
+    }
+    
+    // 至少2个不同时间框架才算有效
+    const timeframes = new Set(zone.map(z => z.timeframe));
+    if (timeframes.size >= 2) {
+      const avgPrice = zone.reduce((a, b) => a + b.price, 0) / zone.length;
+      
+      confluenceZones.push({
+        priceRange: {
+          low: Math.min(...zone.map(z => z.price)),
+          high: Math.max(...zone.map(z => z.price))
+        },
+        avgPrice: parseFloat(avgPrice.toFixed(2)),
+        levels: zone.map(z => ({
+          timeframe: z.timeframe,
+          level: z.level,
+          price: z.price
+        })),
+        timeframes: Array.from(timeframes),
+        strength: timeframes.size
+      });
+    }
+  }
+  
+  // 按强度排序
+  confluenceZones.sort((a, b) => b.strength - a.strength);
+  
+  return confluenceZones;
+}
+
+/**
+ * 获取多时间框架斐波那契分析
+ */
+async function getFibonacciAnalysis() {
+  try {
+    // 串行获取数据避免竞争
+    const dailyData = await getCryptoCompareData(100, 1, 'day');
+    const h4Data = await getCryptoCompareData(100, 4, 'hour');
+    const weeklyData = await getCryptoCompareData(200, 1, 'day');
+    
+    const result = {
+      currentPrice: null,
+      daily: null,
+      fourHour: null,
+      weekly: null
+    };
+    
+    // 解析日线
+    if (dailyData?.Data?.Data) {
+      const candles = dailyData.Data.Data
+        .filter(c => c.close > 0)
+        .map(c => ({
+          time: c.time,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          open: c.open
+        }));
+      if (candles.length >= 10) {
+        const analysis = analyzeTimeframeRaw('日线', candles);
+        result.currentPrice = analysis.currentPrice;
+        result.daily = analysis;
+      }
+    }
+    
+    // 解析4小时
+    if (h4Data?.Data?.Data) {
+      const candles = h4Data.Data.Data
+        .filter(c => c.close > 0)
+        .map(c => ({
+          time: c.time,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          open: c.open
+        }));
+      if (candles.length >= 10) {
+        const analysis = analyzeTimeframeRaw('4小时', candles);
+        result.fourHour = analysis;
+      }
+    }
+    
+    // 解析周线（从日线聚合）
+    if (weeklyData?.Data?.Data && weeklyData.Data.Data.length >= 7) {
+      const dailyCandles = weeklyData.Data.Data
+        .filter(c => c.close > 0)
+        .map(c => ({
+          time: c.time,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          open: c.open
+        }));
+      
+      // 聚合为周线
+      const weeklyCandles = [];
+      for (let i = 0; i < dailyCandles.length; i += 7) {
+        const week = dailyCandles.slice(i, i + 7);
+        if (week.length > 0) {
+          weeklyCandles.push({
+            time: week[0].time,
+            open: week[0].open,
+            high: Math.max(...week.map(w => w.high)),
+            low: Math.min(...week.map(w => w.low)),
+            close: week[week.length - 1].close
+          });
+        }
+      }
+      
+      if (weeklyCandles.length >= 10) {
+        const analysis = analyzeTimeframeRaw('周线', weeklyCandles);
+        result.weekly = analysis;
+      }
+    }
+    
+    return result;
+  } catch (e) {
+    console.error('斐波那契分析错误:', e.message);
+    return null;
+  }
+}
+
+/**
+ * 分析时间框架（返回完整的斐波那契位信息）
+ */
+function analyzeTimeframeRaw(timeframe, candles) {
+  if (!candles || candles.length < 10) return null;
+  
+  // 找波段高低点
+  let swingHigh = candles[0].high;
+  let swingLow = candles[0].low;
+  
+  for (const c of candles) {
+    if (c.high > swingHigh) swingHigh = c.high;
+    if (c.low < swingLow) swingLow = c.low;
+  }
+  
+  const currentPrice = candles[candles.length - 1].close;
+  const diff = swingHigh - swingLow;
+  const rangePercent = ((diff / swingLow) * 100).toFixed(1);
+  
+  return {
+    timeframe: timeframe,
+    timeframeNote: `${timeframe}级别斐波那契回调分析`,
+    currentPrice: parseFloat(currentPrice.toFixed(2)),
+    
+    // 波段背景信息
+    swingHigh: parseFloat(swingHigh.toFixed(2)),
+    swingHighNote: '波段高点(分析区间内的最高价)',
+    swingLow: parseFloat(swingLow.toFixed(2)),
+    swingLowNote: '波段低点(分析区间内的最低价)',
+    swingRange: parseFloat(diff.toFixed(2)),
+    swingRangeNote: `波段幅度 $${diff.toFixed(0)} (${rangePercent}% 波动)`,
+    
+    // 斐波那契回调位
+    fibonacciLevels: {
+      level_0_percent: {
+        price: parseFloat(swingHigh.toFixed(2)),
+        label: '波段高点',
+        note: '0%回调位, 等于波段高点价格'
+      },
+      level_23_6_percent: {
+        price: parseFloat((swingHigh - diff * 0.236).toFixed(2)),
+        label: '23.6%回调',
+        note: '23.6%回调位, 计算方式: 波段高点 - 波段幅度×0.236'
+      },
+      level_38_2_percent: {
+        price: parseFloat((swingHigh - diff * 0.382).toFixed(2)),
+        label: '38.2%回调',
+        note: '38.2%回调位, 计算方式: 波段高点 - 波段幅度×0.382'
+      },
+      level_50_percent: {
+        price: parseFloat((swingHigh - diff * 0.5).toFixed(2)),
+        label: '50%回调',
+        note: '50%回调位, 波段高低点的中位价, 不属于斐波那契数列'
+      },
+      level_61_8_percent: {
+        price: parseFloat((swingHigh - diff * 0.618).toFixed(2)),
+        label: '61.8%回调',
+        note: '61.8%回调位(黄金分割), 计算方式: 波段高点 - 波段幅度×0.618'
+      },
+      level_78_6_percent: {
+        price: parseFloat((swingHigh - diff * 0.786).toFixed(2)),
+        label: '78.6%回调',
+        note: '78.6%回调位, 计算方式: 波段高点 - 波段幅度×0.786'
+      },
+      level_100_percent: {
+        price: parseFloat(swingLow.toFixed(2)),
+        label: '波段低点',
+        note: '100%回调位, 等于波段低点价格'
+      }
+    },
+    
+    // 使用说明
+    usageNote: '斐波那契回调位基于斐波那契数列计算, 常用回调位包括23.6%、38.2%、50%、61.8%、78.6%'
+  };
+}
+
+
+
+// ========== OKX API (备用数据源，无地区限制) ==========
+
+/**
+ * 使用 curl 获取 OKX 数据（处理 chunked transfer encoding）
+ */
+async function getOKXData(endpoint, proxy) {
+  if (!proxy) return null;
+  
+  return new Promise((resolve) => {
+    const { exec } = require('child_process');
+    const url = `${OKX_API_BASE}${endpoint}`;
+    const cmd = `curl -s --max-time 30 -x ${proxy} '${url}'`;
+    
+    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('OKX curl error:', error.message);
+        resolve(null);
+        return;
+      }
+      
+      try {
+        const json = JSON.parse(stdout);
+        resolve(json);
+      } catch (e) {
+        console.error('OKX JSON parse error:', e.message);
+        resolve(null);
+      }
+    });
+  });
+}
+
+/**
+ * OKX 日线数据获取
+ * 数据结构保持与 Binance 一致
+ */
+async function getDailyDataOKX(proxy) {
+  const LIMIT_DISPLAY = 14;
+  const LIMIT_STATS = 30;
+  
+  // OKX K线: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm]
+  const klines30d = await getOKXData(`/api/v5/market/candles?instId=${OKX_INST_ID}&bar=1D&limit=${LIMIT_STATS}`, proxy).catch(() => null);
+  
+  if (!klines30d || klines30d.code !== '0' || !klines30d.data || klines30d.data.length === 0) {
+    throw new Error('OKX: 无法获取日线K线数据');
+  }
+  
+  // OKX 24小时数据
+  const ticker24h = await getOKXData(`/api/v5/market/ticker?instId=${OKX_INST_ID}`, proxy).catch(() => null);
+  const volume24h = ticker24h?.data?.[0]?.vol24h ? parseFloat(ticker24h.data[0].vol24h) * parseFloat(ticker24h.data[0].last || 70000) : null;
+  
+  // 并行获取交易侧数据
+  const [fundingRate, openInterest, longShortRatio, topTraderRatio, takerVolume] = await Promise.all([
+    // 资金费率历史 (OKX 不提供历史列表，只获取当前)
+    getOKXData(`/api/v5/public/funding-rate?instId=${OKX_INST_ID}`, proxy).catch(() => null),
+    // 持仓量历史
+    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D`, proxy).catch(() => null),
+    // 散户多空比
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D`, proxy).catch(() => null),
+    // 大户多空比
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID}&period=1D`, proxy).catch(() => null),
+    // Taker买卖比
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID}&instType=CONTRACTS&ccy=BTC&period=1D`, proxy).catch(() => null)
+  ]);
+  
+  // 解析 K线数据 (OKX 格式: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm])
+  // OKX 返回数据是倒序的（最新在前），我们保持这个顺序用于展示
+  const allDataDesc = [];  // 最新在前（用于展示）
+  for (let i = 0; i < klines30d.data.length; i++) {
+    const k = klines30d.data[i];
+    const ts = parseInt(k[0]);
+    allDataDesc.push({
+      timestamp: ts,
+      date: toBeijingDate(ts),
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),          // BTC 数量
+      quoteVolume: parseFloat(k[7])      // USDT 数量
+    });
+  }
+  
+  // 展示数据：取前14条（最新的14天）
+  const displayData = allDataDesc.slice(0, LIMIT_DISPLAY);
+  
+  // EMA 计算需要从旧到新的顺序
+  const allDataAsc = [...allDataDesc].reverse();  // 反转：最旧在前
+  const closes = allDataAsc.map(d => d.close);
+  
+  // 计算 EMA（从旧到新计算）
+  const ema7 = calcEMASequence(closes, 7, LIMIT_DISPLAY);
+  const ema12 = calcEMASequence(closes, 12, LIMIT_DISPLAY);
+  const ema20 = calcEMASequence(closes, 20, LIMIT_DISPLAY);
+  const ema26 = calcEMASequence(closes, 26, LIMIT_DISPLAY);
+  
+  // EMA 结果是最新在前（calcEMASequence 内部已反转），直接使用
+  
+  // 构建历史数据
+  const history = displayData.map((d, i) => {
+    const entry = {
+      date: d.date,
+      timestamp: d.timestamp,
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+      volume: i === 0 ? null : d.volume,
+      quoteVolume: i === 0 ? null : d.quoteVolume
+    };
+    
+    if (i < ema7.length) entry.ema7 = parseFloat(ema7[i].toFixed(2));
+    if (i < ema12.length) entry.ema12 = parseFloat(ema12[i].toFixed(2));
+    if (i < ema20.length) entry.ema20 = parseFloat(ema20[i].toFixed(2));
+    if (i < ema26.length) entry.ema26 = parseFloat(ema26[i].toFixed(2));
+    
+    return entry;
+  });
+  
+  // 处理资金费率 (OKX 只返回当前费率，填入当天)
+  if (fundingRate?.data?.[0]) {
+    const rate = parseFloat(fundingRate.data[0].fundingRate);
+    if (history[0]) history[0].fundingRate = rate;
+  }
+  
+  // 处理持仓量历史
+  // OKX open-interest-volume: [ts, oi, vol] - oi 是 BTC 数量
+  if (openInterest?.data && Array.isArray(openInterest.data)) {
+    const oiData = openInterest.data.slice(0, LIMIT_DISPLAY);
+    for (const item of oiData) {
+      const ts = parseInt(item[0]);
+      const idx = history.findIndex(h => h.timestamp === ts);
+      if (idx !== -1) {
+        history[idx].openInterest = parseFloat(item[1]);
+        history[idx].openInterestValue = parseFloat(item[1]) * history[idx].close;
+      }
+    }
+  }
+  
+  // 处理散户多空比
+  if (longShortRatio?.data && Array.isArray(longShortRatio.data)) {
+    for (const item of longShortRatio.data.slice(0, LIMIT_DISPLAY)) {
+      const ts = parseInt(item[0]);
+      const idx = history.findIndex(h => h.timestamp === ts);
+      if (idx !== -1) {
+        history[idx].longShortRatio = parseFloat(item[1]);
+      }
+    }
+  }
+  
+  // 处理大户多空比
+  if (topTraderRatio?.data && Array.isArray(topTraderRatio.data)) {
+    for (const item of topTraderRatio.data.slice(0, LIMIT_DISPLAY)) {
+      const ts = parseInt(item[0]);
+      const idx = history.findIndex(h => h.timestamp === ts);
+      if (idx !== -1) {
+        history[idx].topTraderRatio = parseFloat(item[1]);
+      }
+    }
+  }
+  
+  // 处理 Taker 买卖比
+  if (takerVolume?.data && Array.isArray(takerVolume.data)) {
+    for (const item of takerVolume.data.slice(0, LIMIT_DISPLAY)) {
+      const ts = parseInt(item[0]);
+      const idx = history.findIndex(h => h.timestamp === ts);
+      if (idx !== -1) {
+        const buyVol = parseFloat(item[1]);
+        const sellVol = parseFloat(item[2]);
+        history[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
+        history[idx].takerBuyVol = buyVol;
+        history[idx].takerSellVol = sellVol;
+      }
+    }
+  }
+  
+  // 计算统计
+  const currentPrice = displayData[0].close;
+  const prices14d = displayData.map(d => d.close);
+  const maxPrice14d = Math.max(...prices14d);
+  const minPrice14d = Math.min(...prices14d);
+  const avgPrice14d = prices14d.reduce((a, b) => a + b, 0) / prices14d.length;
+  
+  const volumes14d = displayData.slice(1).map(d => d.quoteVolume).filter(v => v);
+  const maxVolume14d = volumes14d.length > 0 ? Math.max(...volumes14d) : null;
+  const minVolume14d = volumes14d.length > 0 ? Math.min(...volumes14d) : null;
+  const avgVolume14d = volumes14d.length > 0 ? volumes14d.reduce((a, b) => a + b, 0) / volumes14d.length : null;
+  
+  const prices30d = allDataAsc.slice(-30).map(d => d.close);
+  const maxPrice30d = Math.max(...prices30d);
+  const minPrice30d = Math.min(...prices30d);
+  const avgPrice30d = prices30d.reduce((a, b) => a + b, 0) / prices30d.length;
+  
+  const volumes30d = allDataAsc.slice(-30).slice(0, 29).map(d => d.quoteVolume).filter(v => v);
+  const maxVolume30d = volumes30d.length > 0 ? Math.max(...volumes30d) : null;
+  const minVolume30d = volumes30d.length > 0 ? Math.min(...volumes30d) : null;
+  const avgVolume30d = volumes30d.length > 0 ? volumes30d.reduce((a, b) => a + b, 0) / volumes30d.length : null;
+  
+  return {
+    history: history,
+    current: currentPrice,
+    volume24h: volume24h,
+    statistics: {
+      days14: {
+        price: {
+          max: parseFloat(maxPrice14d.toFixed(2)),
+          min: parseFloat(minPrice14d.toFixed(2)),
+          avg: parseFloat(avgPrice14d.toFixed(2)),
+          rangePosition: parseFloat(((currentPrice - minPrice14d) / (maxPrice14d - minPrice14d) * 100).toFixed(1))
+        },
+        volume: {
+          max: maxVolume14d ? parseFloat(maxVolume14d.toFixed(0)) : null,
+          min: minVolume14d ? parseFloat(minVolume14d.toFixed(0)) : null,
+          avg: avgVolume14d ? parseFloat(avgVolume14d.toFixed(0)) : null,
+          volumeRatio: (volume24h && avgVolume14d) ? parseFloat((volume24h / avgVolume14d).toFixed(2)) : null
+        }
+      },
+      days30: {
+        price: {
+          max: parseFloat(maxPrice30d.toFixed(2)),
+          min: parseFloat(minPrice30d.toFixed(2)),
+          avg: parseFloat(avgPrice30d.toFixed(2)),
+          rangePosition: parseFloat(((currentPrice - minPrice30d) / (maxPrice30d - minPrice30d) * 100).toFixed(1))
+        },
+        volume: {
+          max: maxVolume30d ? parseFloat(maxVolume30d.toFixed(0)) : null,
+          min: minVolume30d ? parseFloat(minVolume30d.toFixed(0)) : null,
+          avg: avgVolume30d ? parseFloat(avgVolume30d.toFixed(0)) : null,
+          volumeRatio: (volume24h && avgVolume30d) ? parseFloat((volume24h / avgVolume30d).toFixed(2)) : null
+        }
+      }
+    },
+    indicators: {
+      rsi14: calcRSI(closes, 14) ? parseFloat(calcRSI(closes, 14).toFixed(1)) : null
+    }
+  };
+}
+
+/**
+ * OKX 4小时数据获取
+ */
+async function get4hDataOKX(proxy) {
+  const LIMIT = 14;
+  
+  const klines = await getOKXData(`/api/v5/market/candles?instId=${OKX_INST_ID}&bar=4H&limit=${LIMIT}`, proxy).catch(e => {
+    console.error('OKX 4h klines error:', e.message);
+    return null;
+  });
+  
+  if (!klines || klines.code !== '0' || !klines.data) {
+    return null;
+  }
+  
+  const [fundingRate, openInterest, longShortRatio, topTraderRatio, takerVolume] = await Promise.all([
+    getOKXData(`/api/v5/public/funding-rate?instId=${OKX_INST_ID}`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=4H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=4H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID}&period=4H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID}&instType=CONTRACTS&ccy=BTC&period=4H`, proxy).catch(() => null)
+  ]);
+  
+  const result = [];
+  
+  for (let i = 0; i < klines.data.length; i++) {
+    const k = klines.data[i];
+    const ts = parseInt(k[0]);
+    const entry = {
+      time: toBeijingDatetime(ts),
+      timestamp: ts,
+      open: parseFloat(k[1]),
+      high: parseFloat(k[2]),
+      low: parseFloat(k[3]),
+      close: parseFloat(k[4]),
+      volume: parseFloat(k[5]),
+      quoteVolume: parseFloat(k[7])
+    };
+    result.push(entry);
+  }
+  
+  const tsMap = new Map(result.map((r, i) => [r.timestamp, i]));
+  
+  // 资金费率
+  if (fundingRate?.data?.[0]) {
+    const rate = parseFloat(fundingRate.data[0].fundingRate);
+    const markPrice = parseFloat(fundingRate.data[0].markPrice || 0);
+    // 只填入最新一根
+    if (result[0]) {
+      result[0].fundingRate = rate;
+      result[0].markPrice = markPrice;
+    }
+  }
+  
+  // 持仓量
+  if (openInterest?.data && Array.isArray(openInterest.data)) {
+    for (const item of openInterest.data.slice(0, LIMIT)) {
+      const ts = parseInt(item[0]);
+      const idx = tsMap.get(ts);
+      if (idx !== undefined) {
+        result[idx].openInterest = parseFloat(item[1]);
+        result[idx].openInterestValue = parseFloat(item[1]) * result[idx].close;
+      }
+    }
+  }
+  
+  // 多空比
+  if (longShortRatio?.data && Array.isArray(longShortRatio.data)) {
+    for (const item of longShortRatio.data.slice(0, LIMIT)) {
+      const ts = parseInt(item[0]);
+      const idx = tsMap.get(ts);
+      if (idx !== undefined) {
+        result[idx].longShortRatio = parseFloat(item[1]);
+      }
+    }
+  }
+  
+  // 大户多空比
+  if (topTraderRatio?.data && Array.isArray(topTraderRatio.data)) {
+    for (const item of topTraderRatio.data.slice(0, LIMIT)) {
+      const ts = parseInt(item[0]);
+      const idx = tsMap.get(ts);
+      if (idx !== undefined) {
+        result[idx].topTraderRatio = parseFloat(item[1]);
+      }
+    }
+  }
+  
+  // Taker 买卖比
+  if (takerVolume?.data && Array.isArray(takerVolume.data)) {
+    for (const item of takerVolume.data.slice(0, LIMIT)) {
+      const ts = parseInt(item[0]);
+      const idx = tsMap.get(ts);
+      if (idx !== undefined) {
+        const buyVol = parseFloat(item[1]);
+        const sellVol = parseFloat(item[2]);
+        result[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
+        result[idx].takerBuyVol = buyVol;
+        result[idx].takerSellVol = sellVol;
+      }
+    }
+  }
+  
+  return result;
+}
 
 
 // ========== Binance API ==========
@@ -644,33 +1375,57 @@ function analyzeOptionsData(options) {
     support.sort((a, b) => b.netOI - a.netOI);
     
     result[expiry] = {
-      totalOI: parseFloat(totalOI.toFixed(0)),
-      totalVol: parseFloat(totalVol.toFixed(0)),
-      contracts: data.contracts,
-      callOI: parseFloat(data.callOI.toFixed(0)),
-      putOI: parseFloat(data.putOI.toFixed(0)),
-      pcOI: data.callOI > 0 ? parseFloat((data.putOI / data.callOI).toFixed(3)) : null,
-      pcVol: data.callVol > 0 ? parseFloat((data.putVol / data.callVol).toFixed(3)) : null,
-      avgIV: data.ivs.length > 0 ? parseFloat((data.ivs.reduce((a,b) => a+b, 0) / data.ivs.length).toFixed(1)) : null,
-      maxPain: maxPain,
-      topResistance: resistance.slice(0, 3).map(r => ({ strike: r.strike, netOI: parseFloat(r.netOI.toFixed(0)) })),
-      topSupport: support.slice(0, 3).map(s => ({ strike: s.strike, netOI: parseFloat(s.netOI.toFixed(0)) }))
+      // 基本信息
+      expiryDate: expiry,
+      expiryNote: `期权到期日 (${expiry})`,
+      contractCount: data.contracts,
+      
+      // 持仓量数据
+      totalOpenInterest: parseFloat(totalOI.toFixed(0)),
+      totalOpenInterestNote: '总持仓量(未平仓合约数), 单位: BTC',
+      callOpenInterest: parseFloat(data.callOI.toFixed(0)),
+      callOpenInterestNote: '看涨期权持仓量, 单位: BTC',
+      putOpenInterest: parseFloat(data.putOI.toFixed(0)),
+      putOpenInterestNote: '看跌期权持仓量, 单位: BTC',
+      putCallRatioOI: data.callOI > 0 ? parseFloat((data.putOI / data.callOI).toFixed(3)) : null,
+      putCallRatioOINote: '看跌/看涨持仓量比值, 计算方式: 看跌期权持仓量 / 看涨期权持仓量',
+      
+      // 交易量数据
+      totalVolume: parseFloat(totalVol.toFixed(0)),
+      totalVolumeNote: '总交易量, 单位: BTC',
+      callVolume: parseFloat(data.callVol.toFixed(0)),
+      callVolumeNote: '看涨期权交易量, 单位: BTC',
+      putVolume: parseFloat(data.putVol.toFixed(0)),
+      putVolumeNote: '看跌期权交易量, 单位: BTC',
+      putCallRatioVolume: data.callVol > 0 ? parseFloat((data.putVol / data.callVol).toFixed(3)) : null,
+      putCallRatioVolumeNote: '看跌/看跌交易量比值, 计算方式: 看跌期权交易量 / 看涨期权交易量',
+      
+      // 隐含波动率
+      averageImpliedVolatility: data.ivs.length > 0 ? parseFloat((data.ivs.reduce((a,b) => a+b, 0) / data.ivs.length).toFixed(1)) : null,
+      averageImpliedVolatilityNote: '平均隐含波动率(%), 所有期权合约隐含波动率的算术平均值',
+      
+      // 最大痛点
+      maxPainPrice: maxPain,
+      maxPainPriceNote: '期权最大痛点价格, 到期时期权买方总收益最大(卖方损失最大)的价格点位',
+      
+      // 关键价位
+      topResistance: resistance.slice(0, 3).map(r => ({ strikePrice: r.strike, netCallOI: parseFloat(r.netOI.toFixed(0)) })),
+      topResistanceNote: '主要阻力位, 看涨期权净持仓(看涨OI - 看跌OI)为正且较大的执行价',
+      topSupport: support.slice(0, 3).map(s => ({ strikePrice: s.strike, netPutOI: parseFloat(s.netOI.toFixed(0)) })),
+      topSupportNote: '主要支撑位, 看跌期权净持仓(看跌OI - 看涨OI)为正且较大的执行价'
     };
   }
   
   // 找出最大的两个到期日
   const sorted = Object.entries(result)
-    .sort((a, b) => b[1].totalOI - a[1].totalOI);
+    .sort((a, b) => b[1].totalOpenInterest - a[1].totalOpenInterest);
   
   const top2 = sorted.slice(0, 2).map(([expiry, data]) => ({
     expiry,
     ...data
   }));
   
-  return {
-    all: result,
-    top2: top2
-  };
+  return top2;
 }
 
 // ========== 主数据获取 ==========
@@ -682,18 +1437,49 @@ async function getEnhancedAnalysis(proxy = null) {
     kline4h: null,
     fearGreedIndex: null,
     options: null,
+    fibonacci: null,
     dataSource: {
-      price: 'Binance Futures',
-      sentiment: proxy ? 'Binance Futures (via proxy)' : 'Binance Futures (no proxy)'
+      price: 'Unknown',
+      sentiment: 'Unknown'
     }
   };
 
   try {
-    const [dailyData, kline4h, fngData, optionsData] = await Promise.all([
-      proxy ? getDailyData(proxy).catch(e => { console.error('Daily error:', e.message); return null; }) : Promise.resolve(null),
-      proxy ? get4hData(proxy).catch(e => { console.error('4h error:', e.message); return null; }) : Promise.resolve(null),
+    // ===== 优先尝试 OKX (无地区限制) =====
+    let dailyData = null;
+    let kline4h = null;
+    
+    if (proxy) {
+      console.error('尝试 OKX 数据源...');
+      try {
+        dailyData = await getDailyDataOKX(proxy);
+        kline4h = await get4hDataOKX(proxy);
+        activeDataSource = 'OKX';
+        result.dataSource.price = 'OKX';
+        result.dataSource.sentiment = 'OKX (via proxy)';
+        console.error('OKX 数据获取成功');
+      } catch (e) {
+        console.error('OKX 失败:', e.message);
+        console.error('回退到 Binance...');
+        
+        // ===== 回退到 Binance =====
+        try {
+          dailyData = await getDailyData(proxy);
+          kline4h = await get4hData(proxy);
+          activeDataSource = 'Binance';
+          result.dataSource.price = 'Binance Futures';
+          result.dataSource.sentiment = 'Binance Futures (via proxy)';
+        } catch (e2) {
+          console.error('Binance 也失败:', e2.message);
+        }
+      }
+    }
+    
+    // ===== 其他数据源（无需代理或使用代理） =====
+    const [fngData, optionsData, fibData] = await Promise.all([
       getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; }),
-      proxy ? getDeribitOptions(proxy).catch(e => { console.error('Options error:', e.message); return null; }) : Promise.resolve(null)
+      proxy ? getDeribitOptions(proxy).catch(e => { console.error('Options error:', e.message); return null; }) : Promise.resolve(null),
+      getFibonacciAnalysis().catch(e => { console.error('Fibonacci error:', e.message); return null; })
     ]);
 
     if (dailyData) {
@@ -729,11 +1515,13 @@ async function getEnhancedAnalysis(proxy = null) {
     }
 
     // 期权数据
-    if (optionsData && optionsData.top2) {
-      result.options = {
-        topExpiries: optionsData.top2,
-        allExpiries: optionsData.all
-      };
+    if (optionsData && Array.isArray(optionsData)) {
+      result.options = optionsData;
+    }
+
+    // 斐波那契数据
+    if (fibData) {
+      result.fibonacci = fibData;
     }
 
   } catch (e) {
@@ -811,31 +1599,98 @@ function formatAnalysis(data) {
   }
   
   // 期权数据
-  if (data.options?.topExpiries) {
+  if (data.options && data.options.length > 0) {
     out += '\n── 🔮 期权市场 (Deribit) ──\n';
     
-    for (let i = 0; i < data.options.topExpiries.length; i++) {
-      const opt = data.options.topExpiries[i];
+    for (let i = 0; i < data.options.length; i++) {
+      const opt = data.options[i];
       const label = i === 0 ? '近期主力' : '远期主力';
       
-      out += `\n   【${opt.expiry} - ${label}】\n`;
-      out += `   OI: ${opt.totalOI} BTC | 合约: ${opt.contracts}个\n`;
-      out += `   Put/Call OI: ${opt.pcOI} | Put/Call Vol: ${opt.pcVol}\n`;
-      out += `   Max Pain: $${opt.maxPain.toLocaleString()}`;
+      out += `\n   【${opt.expiryDate} - ${label}】\n`;
+      out += `   总持仓: ${opt.totalOpenInterest} BTC | 合约数: ${opt.contractCount}个\n`;
+      out += `   看涨持仓: ${opt.callOpenInterest} BTC | 看跌持仓: ${opt.putOpenInterest} BTC\n`;
+      out += `   Put/Call持仓比: ${opt.putCallRatioOI} (${opt.putCallRatioOI > 1 ? '看跌情绪占优' : '看涨情绪占优'})\n`;
+      out += `   Put/Call交易比: ${opt.putCallRatioVolume} (当日交易情绪)\n`;
+      
+      if (opt.averageImpliedVolatility) {
+        out += `   平均隐含波动率: ${opt.averageImpliedVolatility}% (市场对未来波动的预期)\n`;
+      }
+      
+      out += `   最大痛点: $${opt.maxPainPrice.toLocaleString()}`;
       if (data.priceHistory?.current) {
-        const diff = ((opt.maxPain - data.priceHistory.current) / data.priceHistory.current * 100).toFixed(1);
-        out += ` (${diff > 0 ? '+' : ''}${diff}%)\n`;
+        const diff = ((opt.maxPainPrice - data.priceHistory.current) / data.priceHistory.current * 100).toFixed(1);
+        out += ` (${diff > 0 ? '+' : ''}${diff}%距现价)\n`;
       } else {
         out += '\n';
       }
       
-      if (opt.topResistance.length > 0) {
-        out += `   阻力: ${opt.topResistance.map(r => `$${(r.strike/1000).toFixed(0)}K(${r.netOI})`).join(', ')}\n`;
+      if (opt.topResistance && opt.topResistance.length > 0) {
+        out += `   阻力位: ${opt.topResistance.map(r => `$${r.strikePrice/1000}K(净看涨${r.netCallOI})`).join(', ')}\n`;
       }
-      if (opt.topSupport.length > 0) {
-        out += `   支撑: ${opt.topSupport.map(s => `$${(s.strike/1000).toFixed(0)}K(${s.netOI})`).join(', ')}\n`;
+      if (opt.topSupport && opt.topSupport.length > 0) {
+        out += `   支撑位: ${opt.topSupport.map(s => `$${s.strikePrice/1000}K(净看跌${s.netPutOI})`).join(', ')}\n`;
       }
     }
+    
+    out += '\n   📝 说明: Put/Call持仓比>1表示看跌情绪占优; 最大痛点往往是价格磁吸位。\n';
+  }
+  
+  // 斐波那契分析
+  if (data.fibonacci) {
+    out += '\n── 📐 斐波那契回调位 ──\n';
+    out += `   当前价格: $${data.fibonacci.currentPrice?.toLocaleString() || 'N/A'}\n\n`;
+    
+    // 显示各时间框架的波段背景
+    const timeframes = ['daily', 'fourHour', 'weekly'];
+    const timeframeNames = { daily: '日线', fourHour: '4小时', weekly: '周线' };
+    
+    for (const tf of timeframes) {
+      const tfData = data.fibonacci[tf];
+      if (tfData) {
+        out += `   【${timeframeNames[tf]}】 `;
+        out += `高点 $${tfData.swingHigh?.toLocaleString() || 'N/A'} ~ `;
+        out += `低点 $${tfData.swingLow?.toLocaleString() || 'N/A'}`;
+        if (tfData.swingRange) {
+          out += ` (幅度 $${tfData.swingRange?.toLocaleString()})`;
+        }
+        out += '\n';
+      }
+    }
+    
+    out += '\n';
+    
+    // 表格头
+    out += '   级别          日线            4小时           周线\n';
+    out += '   ─────────────────────────────────────────────────────\n';
+    
+    const levelKeys = [
+      'level_0_percent', 
+      'level_23_6_percent', 
+      'level_38_2_percent', 
+      'level_50_percent',
+      'level_61_8_percent', 
+      'level_78_6_percent', 
+      'level_100_percent'
+    ];
+    const levelLabels = ['0%', '23.6%', '38.2%', '50%', '61.8%', '78.6%', '100%'];
+    
+    for (let i = 0; i < levelKeys.length; i++) {
+      const levelKey = levelKeys[i];
+      const levelLabel = levelLabels[i];
+      
+      const dPrice = data.fibonacci.daily?.fibonacciLevels?.[levelKey]?.price;
+      const h4Price = data.fibonacci.fourHour?.fibonacciLevels?.[levelKey]?.price;
+      const wPrice = data.fibonacci.weekly?.fibonacciLevels?.[levelKey]?.price;
+      
+      out += `   ${levelLabel.padEnd(8)}  `;
+      out += dPrice ? `$${dPrice.toLocaleString().padStart(12)}  ` : '            N/A  ';
+      out += h4Price ? `$${h4Price.toLocaleString().padStart(12)}  ` : '            N/A  ';
+      out += wPrice ? `$${wPrice.toLocaleString().padStart(12)}\n` : '            N/A\n';
+    }
+    
+    // 使用说明
+    out += '\n   📝 说明: 斐波那契回调位用于判断趋势中的潜在支撑/阻力位置。\n';
+    out += '      61.8%(黄金分割)是最关键的支撑/阻力位。\n';
   }
   
   // 14日日线数据
@@ -879,7 +1734,7 @@ function formatAnalysis(data) {
   }
   
   out += '\n' + '─'.repeat(70) + '\n';
-  out += '📊 数据源: Binance Futures + alternative.me\n';
+  out += `📊 数据源: ${activeDataSource || 'N/A'} + alternative.me + CryptoCompare\n`;
   
   return out;
 }
