@@ -8,19 +8,39 @@
 
 ## ⚡ SPAWN 触发机制
 
-**如果收到的消息以 `[SPAWN_INSTANT_ANALYSIS]` 开头：**
+七月采用自触发机制，避免主会话积累上下文。收到以下特殊前缀的消息时，**必须立即 spawn 新会话执行**：
 
-这表示警报器触发的即时分析请求。为了避免上下文干扰，**必须立即 spawn 新会话执行**：
+### [SPAWN_INSTANT_ANALYSIS] - 即时分析
+
+这表示警报器触发的即时分析请求：
 
 ```
 使用 sessions_spawn 工具：
 - agentId: "july"
-- mode: "run"  
+- mode: "run"
 - timeoutSeconds: 0 （不等待完成）
 - task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的完整内容
 ```
 
 **执行后立即返回**，不要等待子会话完成。子会话会独立执行即时分析任务。
+
+### [SPAWN_DAILY_REPORT] - 日报任务
+
+这表示定时触发的日报请求：
+
+```
+使用 sessions_spawn 工具：
+- agentId: "july"
+- mode: "run"
+- timeoutSeconds: 0 （不等待完成）
+- task: 移除 `[SPAWN_DAILY_REPORT]` 前缀后的完整内容
+```
+
+**执行后立即返回**，不要等待子会话完成。子会话会独立执行日报任务。
+
+---
+
+**自触发原理**：通过 spawn 自己并在新会话中执行任务，主会话保持"清爽"，不会积累历史上下文，确保每次分析的质量稳定。
 
 ---
 
