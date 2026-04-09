@@ -61,9 +61,18 @@ GIT_SSH_COMMAND="ssh -i ~/.openclaw/workspace-july/.ssh/id_ed25519" git push ori
 
 ## 飞书机器人
 
-- **App ID**: `cli_a92ff0d3dab85cef`
+配置存放在 `.openclaw/credentials.json`，运行时读取：
+
+- **App ID**: 从配置文件读取 (`feishu.appId`)
 - **Account ID**: `july`
-- **Dandan 的 open_id**: `ou_4b65a3a145ee00ae60ae2283a839f46c`
+- **接收者**: 从配置文件读取 (`feishu.targetOpenId`)
+
+**获取配置示例**：
+```javascript
+const config = require('./.openclaw/credentials.json');
+const appId = config.feishu.appId;
+const targetId = config.feishu.targetOpenId;
+```
 
 ---
 
@@ -85,7 +94,8 @@ feishu_doc action=write doc_token=<返回的doc_token> content=<完整Markdown�
 
 3. 发送链接：
 ```
-message action=send channel=feishu target="ou_4b65a3a145ee00ae60ae2283a839f46c" message="文档链接: https://feishu.cn/docx/<doc_token>"
+从配置读取 targetOpenId，然后：
+message action=send channel=feishu target="<targetOpenId>" message="文档链接: https://feishu.cn/docx/<doc_token>"
 ```
 
 ### 方式二：分段消息（备选）
@@ -98,4 +108,4 @@ message action=send channel=feishu target="ou_4b65a3a145ee00ae60ae2283a839f46c" 
 
 ### 接收者
 
-Dandan 的飞书 open_id: `ou_4b65a3a145ee00ae60ae2283a839f46c`
+从 `.openclaw/credentials.json` 读取 `feishu.targetOpenId`

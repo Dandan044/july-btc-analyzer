@@ -7,9 +7,7 @@
 
 ## 飞书接收ID
 
-`ou_4b65a3a145ee00ae60ae2283a839f46c`
-
-所有报告都发送到这个飞书用户。
+从 `.openclaw/credentials.json` 读取 `feishu.targetOpenId`
 
 ---
 

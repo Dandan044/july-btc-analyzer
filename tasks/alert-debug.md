@@ -116,7 +116,9 @@ active/cycle-*/reports/alert-report-YYYY-MM-DD-HHMM.md
 
 ### 第4步：发送到飞书
 
-将生成的文件发送至飞书：'ou_4b65a3a145ee00ae60ae2283a839f46c'
+### 第4步：发送到飞书
+
+从 `.openclaw/credentials.json` 读取 `feishu.targetOpenId`，将生成的文件发送至飞书
 
 
 ### 第5步：确认完成

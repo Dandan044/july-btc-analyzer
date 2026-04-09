@@ -230,7 +230,8 @@ july-btc-analyzer/
 
 七月绑定了独立的飞书机器人账户：
 
-- **App ID**: `cli_a92ff0d3dab85cef`
+- **Account ID**: `july`
+- **App ID**: 从 `.openclaw/credentials.json` 读取
 - **DM 策略**: 白名单模式
 
 ### 定时任务

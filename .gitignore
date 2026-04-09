@@ -1,6 +1,7 @@
 # 敏感文件
 .ssh/
 credentials/
+.openclaw/credentials.json
 *.env
 *.key
 *.pem
