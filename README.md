@@ -315,6 +315,17 @@ env: {
   - 新增 `.openclaw/credentials.json` 存放飞书 App ID 和 targetOpenId
   - 更新 `.gitignore` 排除敏感配置文件
   - 所有文档改为指向配置文件读取，移除硬编码凭证
+- **数据脚本升级 v5** 📊
+  - `get_enhanced_analysis.js` / `get_instant_data.js` 升级到 v5
+  - 数据源从 Binance 改为 OKX CLI（统一数据源，服务端计算技术指标）
+  - 新增 `scripts/okx-proxy.sh` 代理 wrapper（使用 proxychains4）
+- **自触发 SPAWN 机制** ⚡
+  - 新增 `[SPAWN_DAILY_REPORT]` 前缀触发日报任务
+  - AGENTS.md / tasks/daily-report.md 新增自触发说明
+  - 主会话保持清爽，子会话独立执行任务
+- **警报规则更新** 🔔
+  - 归档过期规则（$69500阻力、$68000支撑等）
+  - 新增活跃规则：$75000阻力突破、$70000支撑跌破、多空比下跌警报
 - **数据源架构升级** 🌐
   - 新增 OKX 数据源作为主力（无地区限制，无需特殊网络配置）
   - Binance 作为备用，自动切换（需代理）
