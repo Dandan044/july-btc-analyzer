@@ -299,7 +299,31 @@ mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
 
 ---
 
-### 6. 归档周期
+### 6. ⭐ 仓位执行检查（必须执行）
+
+**无论本次报告是否给出交易建议，都必须路由到仓位执行任务！**
+
+阅读 `tasks/execute-trade.md`，按照其中的步骤执行：
+1. 检查周期状态
+2. 读取交易建议文件
+3. 根据建议状态执行相应操作：
+   - `status: "open"` 且 `entry_actual === null` → 执行开仓
+   - `status: "open"` 且 `entry_actual !== null` → 记录"已开仓"日志
+   - `status: "pending_entry"` → 记录"等待入场"日志
+   - `status: "closed"` → 记录"已平仓"日志
+   - 无建议或观望 → 记录"无待执行建议"日志
+4. 记录日志到 `logs/trade-execution.log`
+
+**安全限制（开仓时）：**
+- 杠杆固定为 3x，不更改
+- 使用逐仓模式（isolated）
+- 必须创建止盈止损
+- 止损覆盖全部仓位
+- 两档止盈合计覆盖全部仓位
+
+---
+
+### 7. 归档周期
 
 **触发条件：** `summary.open === 0` 且 `summary.total > 0`
 
@@ -341,7 +365,7 @@ mv active/cycle-* archived/
 
 ---
 
-### 7. 发送报告到飞书
+### 8. 发送报告到飞书
 
 使用 feishu_doc 工具发送报告内容到飞书：
 1. 读取刚保存的报告文件
@@ -349,7 +373,7 @@ mv active/cycle-* archived/
 
 ---
 
-### 8. 记录日志（必须执行）
+### 9. 记录日志（必须执行）
 
 **⚠️ 无论成功或失败，都必须记录日志！**
 
@@ -505,6 +529,7 @@ mv active/cycle-* archived/
    - 周期管理 → 创建新周期或读取现有周期
    - 报告文件 → `active/cycle-*/reports/btc-report-YYYY-MM-DD-HHMM.md`
    - 交易建议 → 更新 `trade-suggestions.json`
+   - 仓位执行 → 如有新建议，执行 `tasks/execute-trade.md`
    - 归档检查 → 如所有建议关闭，执行归档
    - 发送记录 → `logs/btc-reports.log`
    - 发送报告到飞书私聊
@@ -514,7 +539,7 @@ mv active/cycle-* archived/
 
 ---
 
-### 9. 警报器管理
+### 10. 警报器管理
 
 **日报任务完成后，立即执行警报器管理任务！**
 
