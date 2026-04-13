@@ -95,12 +95,12 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 | 脚本 | 方法 | 数据 | 说明 |
 |------|------|------|------|
-| `scripts/api.js` | `getKlines(symbol, interval, limit)` | K线数据 | 支持 1m/5m/15m/1h/4h/1d |
-| `scripts/api.js` | `getPriceHistory(symbol, days)` | 日线历史 | 指定天数，用于长趋势 |
-| `scripts/api.js` | `getTicker(symbol)` | 实时价格 | 价格、1h/24h/7d变化 |
-| `scripts/api.js` | `getFearGreedIndex(days)` | 恐惧贪婪指数 | 历史数据 |
-| `get_enhanced_analysis.js` | Binance `/fapi/v1/klines` | K线数据 | 需代理，支持任意粒度 |
-| `get_enhanced_analysis.js` | Binance `/futures/data/*` | 交易侧数据 | OI、多空比、Taker比等 |
+| `scripts/api.js` | `getKlines(symbol, interval, limit)` | K线数据 | CryptoCompare，支持 1m/5m/15m/1h/4h/1d，无需代理 |
+| `scripts/api.js` | `getPriceHistory(symbol, days)` | 日线历史 | CryptoCompare，指定天数，用于长趋势 |
+| `scripts/api.js` | `getTicker(symbol)` | 实时价格 | CryptoCompare，价格、1h/24h/7d变化 |
+| `scripts/api.js` | `getFearGreedIndex(days)` | 恐惧贪婪指数 | alternative.me，历史数据 |
+| `get_enhanced_analysis.js` | OKX CLI | K线+技术指标 | 需代理，服务端计算 EMA/RSI |
+| `get_enhanced_analysis.js` | OKX API | 交易侧数据 | 需代理，OI、多空比、Taker比等 |
 
 ---
 

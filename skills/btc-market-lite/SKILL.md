@@ -14,12 +14,13 @@ metadata:
 
 | 数据 | API | 更新频率 | 说明 |
 |------|-----|----------|------|
-| 价格/OHLCV | CryptoCompare | 实时 | 无需代理 |
+| 价格/OHLCV | CryptoCompare | 实时 | 无需代理，警报器专用 |
 | 恐惧贪婪指数 | alternative.me | 每日 | 无需代理 |
-| 资金费率 | Binance Futures | 8小时 | 需要代理 |
-| 持仓量(OI) | Binance Futures | 实时 | 需要代理 |
-| 多空情绪 | Binance Futures | 5分钟~1日 | 需要代理 |
-| Taker买卖比 | Binance Futures | 5分钟~1日 | 需要代理 |
+| K线+技术指标 | OKX CLI | 实时 | 需代理，服务端计算 EMA/RSI |
+| 资金费率 | OKX API | 8小时 | 需代理 |
+| 持仓量(OI) | OKX API | 实时 | 需代理 |
+| 多空情绪 | OKX API | 1日 | 需代理 |
+| Taker买卖比 | OKX API | 1日 | 需代理 |
 
 ## 用法
 
@@ -69,7 +70,7 @@ node scripts/get_enhanced_analysis.js --save
 
 | 数据 | 说明 |
 |------|------|
-| K线 | Binance 4h OHLCV |
+| K线 | OKX 4h OHLCV |
 | 资金费率 | 14条（约56小时） |
 | 持仓量(OI) | 14条 |
 | 多空人数比 | 14条 |
@@ -119,7 +120,7 @@ node scripts/get_enhanced_analysis.js --save
 
 ## 代理配置
 
-国内访问 Binance API 需要代理。
+国内访问 OKX API 需要代理。
 
 **默认代理**: `http://127.0.0.1:7890`
 
@@ -128,19 +129,21 @@ node scripts/get_enhanced_analysis.js --save
 # 方式1：命令行参数
 node scripts/get_enhanced_analysis.js --proxy http://127.0.0.1:7890
 
-# 方式2：修改脚本中的 PROXY_DEFAULT 常量
+# 方式2：使用 okx-proxy.sh wrapper（推荐）
+./scripts/okx-proxy.sh market ticker BTC-USDT
 ```
 
 ## 注意事项
 
-- CryptoCompare API 有速率限制（约 100,000 次/月）
+- CryptoCompare API 有速率限制（约 100,000 次/月），警报器专用
 - 恐惧贪婪指数每日更新一次
-- Binance 数据需要代理访问
-- 无代理时仍可获取价格和恐惧贪婪指数数据
+- OKX 数据需要代理访问
+- 无代理时仍可获取 CryptoCompare 价格数据和恐惧贪婪指数
 
 ## 更新日志
 
-- 2026-03-27: **v4 重构** - 整合 Binance 交易数据（资金费率、OI、多空比、Taker比），支持日线和4小时两种粒度
+- 2026-04-10: **v5 重构** - 数据源从 Binance 改为 OKX CLI/API，服务端计算技术指标
+- 2026-03-27: **v4 重构** - 整合交易数据（资金费率、OI、多空比、Taker比），支持日线和4小时两种粒度
 - 2026-03-03: **v3 重构** - 简化输出，数据源切换为 CryptoCompare
 - 2026-02-27: 新增增强技术分析脚本，支持 SMA/EMA/RSI/动量/波动率计算
 - 2026-02-27: 初始版本

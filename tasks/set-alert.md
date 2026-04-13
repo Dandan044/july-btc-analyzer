@@ -229,7 +229,7 @@ module.exports = {
 |---------|---------|------|
 | 链上数据 | Blockchain.info, Glassnode | 交易所流入流出、活跃地址 |
 | 衍生品数据 | Coinglass API | 期货持仓、资金费率、清算数据 |
-| 交易所数据 | Binance API, Coinbase API | 订单簿深度、大单监控 |
+| 交易所数据 | OKX API | 订单簿深度、大单监控（国内需代理） |
 | 市场情绪 | LunarCrush, Santiment | 社交媒体情绪、趋势 |
 | 宏观经济 | FRED API | 利率、通胀数据 |
 

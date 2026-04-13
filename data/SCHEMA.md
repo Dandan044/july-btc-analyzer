@@ -1,6 +1,6 @@
 # 数据字段说明
 
-> 最后更新: 2026-03-27
+> 最后更新: 2026-04-13
 
 ---
 
@@ -152,8 +152,8 @@
 
 | 数据 | 来源 | 备注 |
 |------|------|------|
-| 价格/OHLCV/交易量 | Binance Futures | 需要代理 |
-| 资金费率 | Binance Futures | 需要代理 |
-| 持仓量(OI) | Binance Futures | 需要代理 |
-| 多空比/Taker比 | Binance Futures | 需要代理 |
+| 价格/OHLCV/交易量 | OKX CLI/API | 需要代理，服务端计算技术指标 |
+| 资金费率 | OKX API | 需要代理 |
+| 持仓量(OI) | OKX API | 需要代理 |
+| 多空比/Taker比 | OKX API | 需要代理 |
 | 恐惧贪婪指数 | alternative.me | 无需代理 |

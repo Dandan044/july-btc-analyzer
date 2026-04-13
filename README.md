@@ -20,13 +20,12 @@
 
 | 数据 | API | 说明 |
 |------|-----|------|
-| 比特币价格 | **OKX** (优先) | K线、实时价格、交易量、资金费率、OI、多空比 |
-| 比特币价格 | Binance (备用) | 备用数据源，需代理 |
-| 比特币价格 | CryptoCompare | 斐波那契分析专用（无需代理） |
-| 恐惧贪婪指数 | alternative.me | 每日更新 |
-| 期权数据 | Deribit | Put/Call Ratio、Max Pain、IV |
+| 比特币价格 | **OKX** | K线、实时价格、交易量、资金费率、OI、多空比（需代理） |
+| 比特币价格 | CryptoCompare | 警报器专用，无需代理 |
+| 恐惧贪婪指数 | alternative.me | 每日更新，无需代理 |
+| 期权数据 | Deribit | Put/Call Ratio、Max Pain、IV（需代理） |
 
-> **数据源优先级**: OKX → Binance (自动切换，解决地区限制问题)
+> **数据源说明**: OKX 为主力数据源（国内网络需代理），CryptoCompare 用于警报器（国内直连）
 
 ### 技术指标
 
