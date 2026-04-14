@@ -259,11 +259,15 @@ async function getDailyDataCLI(proxy) {
   const fundingData = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP} --history --limit 90`, proxy).catch(() => null);
   
   // 5. 获取交易侧数据 (OKX API，CLI 不支持)
-  const [openInterest, longShortRatio, topTraderRatio, takerVolume] = await Promise.all([
+  // ⭐ 同时获取 1D (用于历史天数) 和 1H (用于最新一天) 两个周期
+  const [openInterest, longShortRatio1D, longShortRatio1H, topTraderRatio1D, topTraderRatio1H, takerVolume1D, takerVolume1H] = await Promise.all([
     getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=1D`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1D`, proxy).catch(() => null)
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=1H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1D`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1H`, proxy).catch(() => null)
   ]);
   
   // 解析 K线数据 (OKX 格式: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm])
@@ -362,39 +366,60 @@ async function getDailyDataCLI(proxy) {
   }
   
   // 处理多空比
-  if (longShortRatio?.data && Array.isArray(longShortRatio.data)) {
-    for (const item of longShortRatio.data.slice(0, LIMIT_DISPLAY)) {
+  // 历史天数用 1D 数据（通过时间戳匹配），最新一天用 1H 数据（取最近一小时）
+  if (longShortRatio1D?.data && Array.isArray(longShortRatio1D.data)) {
+    // 历史天数：通过时间戳匹配日级别数据
+    for (const item of longShortRatio1D.data.slice(0, LIMIT_DISPLAY)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
-      if (idx !== undefined) {
+      if (idx !== undefined && idx > 0) {  // idx > 0 表示不是最新一天
         history[idx].longShortRatio = parseFloat(item[1]);
       }
     }
   }
+  // 最新一天：使用 1H 数据的最新一小时
+  if (longShortRatio1H?.data && Array.isArray(longShortRatio1H.data) && longShortRatio1H.data.length > 0) {
+    const latestHour = longShortRatio1H.data[0];
+    history[0].longShortRatio = parseFloat(latestHour[1]);
+  }
   
   // 处理大户多空比
-  if (topTraderRatio?.data && Array.isArray(topTraderRatio.data)) {
-    for (const item of topTraderRatio.data.slice(0, LIMIT_DISPLAY)) {
+  if (topTraderRatio1D?.data && Array.isArray(topTraderRatio1D.data)) {
+    for (const item of topTraderRatio1D.data.slice(0, LIMIT_DISPLAY)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
-      if (idx !== undefined) {
+      if (idx !== undefined && idx > 0) {
         history[idx].topTraderRatio = parseFloat(item[1]);
       }
     }
   }
+  if (topTraderRatio1H?.data && Array.isArray(topTraderRatio1H.data) && topTraderRatio1H.data.length > 0) {
+    const latestHour = topTraderRatio1H.data[0];
+    history[0].topTraderRatio = parseFloat(latestHour[1]);
+  }
   
   // 处理 Taker 买卖比
-  if (takerVolume?.data && Array.isArray(takerVolume.data)) {
-    for (const item of takerVolume.data.slice(0, LIMIT_DISPLAY)) {
+  if (takerVolume1D?.data && Array.isArray(takerVolume1D.data)) {
+    for (const item of takerVolume1D.data.slice(0, LIMIT_DISPLAY)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
-      if (idx !== undefined) {
+      if (idx !== undefined && idx > 0) {
         const buyVol = parseFloat(item[1]);
         const sellVol = parseFloat(item[2]);
         history[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
         history[idx].takerBuyVol = buyVol;
         history[idx].takerSellVol = sellVol;
       }
+    }
+  }
+  if (takerVolume1H?.data && Array.isArray(takerVolume1H.data) && takerVolume1H.data.length > 0) {
+    const latestHour = takerVolume1H.data[0];
+    const buyVol = parseFloat(latestHour[1]);
+    const sellVol = parseFloat(latestHour[2]);
+    if (sellVol > 0) {
+      history[0].takerRatio = buyVol / sellVol;
+      history[0].takerBuyVol = buyVol;
+      history[0].takerSellVol = sellVol;
     }
   }
   
@@ -493,12 +518,14 @@ async function get4hDataCLI(proxy) {
   }
   
   // 并行获取其他数据
-  const [fundingData, openInterest, longShortRatio, topTraderRatio, takerVolume] = await Promise.all([
+  // ⭐ longShortRatio 和 takerVolume API 只支持 5m/1H/1D，不支持 4H
+  // 所以用 1H 数据，取对应 4H 周期开始的那一小时填入
+  const [fundingData, openInterest, longShortRatio1H, topTraderRatio4H, takerVolume1H] = await Promise.all([
     okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP}`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=4H`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=4H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=4H`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=4H`, proxy).catch(() => null)
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1H`, proxy).catch(() => null)
   ]);
   
   const result = [];
@@ -543,9 +570,9 @@ async function get4hDataCLI(proxy) {
     }
   }
   
-  // 多空比
-  if (longShortRatio?.data && Array.isArray(longShortRatio.data)) {
-    for (const item of longShortRatio.data.slice(0, LIMIT)) {
+  // 多空比 (API只支持 1H，用 1H 数据匹配 4H K线的时间戳)
+  if (longShortRatio1H?.data && Array.isArray(longShortRatio1H.data)) {
+    for (const item of longShortRatio1H.data.slice(0, LIMIT * 4)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -554,9 +581,9 @@ async function get4hDataCLI(proxy) {
     }
   }
   
-  // 大户多空比
-  if (topTraderRatio?.data && Array.isArray(topTraderRatio.data)) {
-    for (const item of topTraderRatio.data.slice(0, LIMIT)) {
+  // 大户多空比 (API支持 4H)
+  if (topTraderRatio4H?.data && Array.isArray(topTraderRatio4H.data)) {
+    for (const item of topTraderRatio4H.data.slice(0, LIMIT)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -565,9 +592,9 @@ async function get4hDataCLI(proxy) {
     }
   }
   
-  // Taker 买卖比
-  if (takerVolume?.data && Array.isArray(takerVolume.data)) {
-    for (const item of takerVolume.data.slice(0, LIMIT)) {
+  // Taker 买卖比 (API只支持 1H，用 1H 数据匹配 4H K线的时间戳)
+  if (takerVolume1H?.data && Array.isArray(takerVolume1H.data)) {
+    for (const item of takerVolume1H.data.slice(0, LIMIT * 4)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
