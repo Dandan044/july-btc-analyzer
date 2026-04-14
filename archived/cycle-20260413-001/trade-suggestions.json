@@ -1,9 +1,9 @@
 {
   "cycle_id": "cycle-20260413-001",
-  "status": "active",
+  "status": "archived",
   "started_at": "2026-04-13T22:40:00+08:00",
-  "closed_at": null,
-  "closed_reason": null,
+  "closed_at": "2026-04-14T21:13:13+08:00",
+  "closed_reason": "用户止盈平仓",
   "suggestions": [
     {
       "id": "sug-001",
@@ -27,18 +27,20 @@
       "stop_loss": 70500,
       "take_profit": [73500, 75000],
       "position_size": "1x全仓",
-      "status": "open",
-      "entry_actual": 72000,
+      "status": "closed",
+      "entry_actual": 72152,
       "entry_at": "2026-04-14T01:00:00+08:00",
       "entry_confirmed_by": "user",
-      "ordId": null,
-      "algoIds": null,
-      "pos_actual": null,
-      "margin_actual": null,
-      "leverage": null,
-      "notes": "用户自行入场，未等71800回踩。当前价格$74,420，浮盈约+3.4%",
-      "closed_at": null,
-      "close_reason": null,
+      "exit_actual": 74533.2,
+      "exit_at": "2026-04-14T21:13:13+08:00",
+      "pos_actual": 0.18,
+      "leverage": 3,
+      "mgnMode": "isolated",
+      "notes": "用户止盈平仓",
+      "closed_at": "2026-04-14T21:13:13+08:00",
+      "close_reason": "止盈平仓",
+      "pnl_gross": 428.62,
+      "pnl_percent": "+3.31%",
       "updates": [
         {
           "time": "2026-04-14T07:59:00+08:00",
@@ -54,18 +56,26 @@
           "time": "2026-04-14T11:43:00+08:00",
           "type": "take_profit_confirmation",
           "note": "即时分析确认：止盈1($73,500)已触发，建议平仓50%。资金费率从-0.0041%转回+0.0100%，Taker比回升至1.04，多空比降至0.82，存在空头挤压风险。建议执行早间止盈建议，剩余50%博取$75,000突破，止损上移至$72,000。"
+        },
+        {
+          "time": "2026-04-14T21:00:00+08:00",
+          "type": "take_profit_third_confirmation",
+          "note": "晚间日报第三次确认：止盈1($73,500)已触发，建议平仓50%。日线最高$74,920.4远超止盈1目标，距$75,000仅$80。大户持仓比从75.7%骤降至61.39%（降幅14.31%），聪明钱系统性离场。Taker比0.83卖方主动增强，多空比0.76空头持仓占优。三次建议未执行，风险暴露增加。止损建议调整至$72,000保本位。"
+        },
+        {
+          "time": "2026-04-14T21:13:13+08:00",
+          "type": "closed",
+          "note": "用户执行止盈平仓。入场$72,152，平仓$74,533.2，数量0.18 BTC，毛利$428.62 (+3.31%)"
         }
       ]
     }
   ],
   "summary": {
     "total": 1,
-    "open": 1,
-    "closed": 0,
-    "current_price": 74439.60,
-    "pnl_percent": "+3.45%",
-    "take_profit_1_triggered": true,
-    "take_profit_1_note": "建议用户手动平仓50%（早间日报+本次即时分析双重确认）",
-    "stop_loss_recommendation": "$72,000（保本位）"
+    "open": 0,
+    "closed": 1,
+    "final_pnl": "+$428.62 (+3.31%)",
+    "cycle_duration": "~22 hours",
+    "result": "止盈成功"
   }
 }
