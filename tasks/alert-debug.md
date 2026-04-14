@@ -114,18 +114,10 @@ active/cycle-*/reports/alert-report-YYYY-MM-DD-HHMM.md
 
 **必须确认文件已成功保存**。
 
-### 第4步：发送到飞书
-
-### 第4步：发送到飞书
-
-从 `.openclaw/credentials.json` 读取 `feishu.targetOpenId`，将生成的文件发送至飞书
-
-
-### 第5步：确认完成
+### 第4步：确认完成
 
 输出确认信息：
 - ✅ 报告已保存：`active/cycle-*/reports/alert-report-xxx.md`
-- ✅ 飞书发送状态
 
 ---
 
@@ -135,5 +127,4 @@ active/cycle-*/reports/alert-report-YYYY-MM-DD-HHMM.md
 - [ ] 已解析输入数据
 - [ ] 已生成报告内容
 - [ ] 已使用 write 工具保存文件
-- [ ] 已发送到飞书
 - [ ] 已输出确认信息

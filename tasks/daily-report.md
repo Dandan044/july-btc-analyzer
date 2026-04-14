@@ -160,10 +160,6 @@ mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
 - 时间精确到分钟，使用 24 小时制
 - 保存路径：`active/cycle-*/reports/btc-report-YYYY-MM-DD-HHMM.md`
 
-**必须先保存报告文件，再发送到飞书！**
-
----
-
 ### 5. 交易建议管理
 
 #### 5.1 交易建议状态说明
@@ -385,15 +381,7 @@ mv active/cycle-* archived/
 
 ---
 
-### 8. 发送报告到飞书
-
-使用 feishu_doc 工具发送报告内容到飞书：
-1. 读取刚保存的报告文件
-2. 使用 feishu_doc 发送到 Dandan 的私聊
-
----
-
-### 9. 记录日志（必须执行）
+### 8. 记录日志（必须执行）
 
 **⚠️ 无论成功或失败，都必须记录日志！**
 
@@ -571,15 +559,14 @@ mv active/cycle-* archived/
    - 交易建议 → 更新 `trade-suggestions.json`
    - 仓位执行 → 如有新建议，执行 `tasks/execute-trade.md`
    - 归档检查 → 如所有建议关闭，执行归档
-   - 发送记录 → `logs/btc-reports.log`
-   - 发送报告到飞书私聊
-   - 执行警报器管理任务
+   - 日志记录 → `logs/btc-reports.log`
+   - 警报器管理 → 执行 `tasks/alert-management.md`
 
 ⚠️ 报告末尾注明：仅供参考，不构成投资建议。七月-v4.12。
 
 ---
 
-### 10. 警报器管理
+### 9. 警报器管理
 
 **日报任务完成后，立即执行警报器管理任务！**
 

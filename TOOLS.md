@@ -122,59 +122,6 @@ GIT_SSH_COMMAND="ssh -i ~/.openclaw/workspace-july/.ssh/id_ed25519" git push ori
 
 ---
 
-## 飞书机器人
-
-配置存放在 `.openclaw/credentials.json`，运行时读取：
-
-- **App ID**: 从配置文件读取 (`feishu.appId`)
-- **Account ID**: `july`
-- **接收者**: 从配置文件读取 (`feishu.targetOpenId`)
-
-**获取配置示例**：
-```javascript
-const config = require('./.openclaw/credentials.json');
-const appId = config.feishu.appId;
-const targetId = config.feishu.targetOpenId;
-```
-
----
-
-## 报告发送方式
-
-发送完整日报到飞书时，按以下顺序执行：
-
-### 方式一：飞书文档（优先）
-
-1. 创建文档：
-```
-feishu_doc action=create title="比特币技术分析日报 - YYYY-MM-DD HH:MM"
-```
-
-2. 写入内容：
-```
-feishu_doc action=write doc_token=<返回的doc_token> content=<完整Markdown内容>
-```
-
-3. 发送链接：
-```
-从配置读取 targetOpenId，然后：
-message action=send channel=feishu target="<targetOpenId>" message="文档链接: https://feishu.cn/docx/<doc_token>"
-```
-
-### 方式二：分段消息（备选）
-
-若飞书文档失败（如 API 不可用），使用 message 工具分段发送：
-
-- 飞书单条消息限制约 4KB
-- 将报告按章节拆分为 4-5 段
-- 每段独立调用 message 发送
-
-### 接收者
-
-从 `.openclaw/credentials.json` 读取 `feishu.targetOpenId`
-
----
-
 ## ⭐ API数据源选择规则
 
 **核心原则：不要猜测API endpoint，先查看现有代码！**

@@ -163,10 +163,6 @@ node skills/btc-market-lite/scripts/get_instant_data.js --save
 - 使用警报触发时间（不是当前时间）
 - 保存路径：`active/cycle-*/reports/instant-report-YYYY-MM-DD-HHMM.md`
 
-**必须先保存报告文件，再发送到飞书！**
-
----
-
 ### 6. 检查交易建议触发
 
 **如果当前周期有持仓中的建议：**
@@ -344,15 +340,7 @@ mv active/cycle-* archived/
 
 ---
 
-### 9. 发送到飞书
-
-使用 feishu_doc 工具发送报告内容到飞书：
-1. 读取刚保存的报告文件
-2. 使用 feishu_doc 发送到 Dandan 的私聊
-
----
-
-### 10. 记录日志
+### 9. 记录日志
 
 **无论成功或失败，都必须记录日志！**
 
@@ -370,7 +358,7 @@ mv active/cycle-* archived/
 
 ---
 
-### 11. 警报器管理
+### 10. 警报器管理
 
 **即时分析任务完成后，立即执行警报器管理任务！**
 
