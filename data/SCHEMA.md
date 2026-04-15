@@ -1,6 +1,6 @@
 # 数据字段说明
 
-> 最后更新: 2026-04-13
+> 最后更新: 2026-04-15
 
 ---
 
@@ -11,8 +11,11 @@
 | `timestamp` | string | 数据获取时间（北京时间）|
 | `priceHistory` | object | 日线级别价格和交易数据 |
 | `kline4h` | array | 4小时级别K线数据（14根）|
-| `fearGreedIndex` | object | 恐惧贪婪指数 |
+| `options` | array | 期权市场数据（Deribit）|
+| `fibonacci` | object | 多时间框架斐波那契回调分析 |
 | `dataSource` | object | 数据来源信息 |
+
+> **注意**：恐慌贪婪指数已整合到 `priceHistory.history` 每日记录中，不再作为顶层独立字段
 
 ---
 
@@ -54,6 +57,14 @@
 | `ema26` | number | 26日指数移动平均线 |
 
 > **EMA 用途**：判断趋势方向。价格在EMA上方=上升趋势，下方=下降趋势
+
+### 情绪指标
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `fearGreed` | number | **恐慌贪婪指数**（0-100），<25极度恐惧，>75极度贪婪 |
+
+> **用途**：市场情绪判断。极度恐惧可能是抄底机会，极度贪婪可能预示回调。
 
 ### 交易侧数据
 
@@ -122,20 +133,51 @@
 
 ---
 
-## 七、fearGreedIndex（恐惧贪婪指数）
+## 七、options（期权数据）
+
+来自 Deribit 期权市场，返回持仓量最大的两个到期日。
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `current` | number | 当前值（0-100）|
-| `classification` | string | 分类：Extreme Fear / Fear / Neutral / Greed / Extreme Greed |
-| `statistics.avg30d` | number | 30日均值 |
-| `statistics.max30d` | number | 30日最高 |
-| `statistics.min30d` | number | 30日最低 |
-| `statistics.rangePosition` | number | 当前在30日区间的位置（%）|
+| `expiry` | string | 到期日标识（如 24APR26）|
+| `contractCount` | number | 合约数量 |
+| `totalOpenInterest` | number | 总持仓量（BTC）|
+| `callOpenInterest` | number | 看涨期权持仓量（BTC）|
+| `putOpenInterest` | number | 看跌期权持仓量（BTC）|
+| `putCallRatioOI` | number | Put/Call持仓比，>1=看跌情绪占优 |
+| `totalVolume` | number | 当日总交易量（BTC）|
+| `callVolume` | number | 看涨期权交易量（BTC）|
+| `putVolume` | number | 看跌期权交易量（BTC）|
+| `putCallRatioVolume` | number | Put/Call交易量比 |
+| `averageImpliedVolatility` | number | 平均隐含波动率（%）|
+| `maxPainPrice` | number | 最大痛点价格，价格磁吸位 |
+| `topResistance` | array | 主要阻力位（净看涨持仓大的执行价）|
+| `topSupport` | array | 主要支撑位（净看跌持仓大的执行价）|
 
 ---
 
-## 八、指标解读速查
+## 八、fibonacci（斐波那契回调）
+
+多时间框架斐波那契分析（日线、4小时、周线）。
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `currentPrice` | number | 当前价格 |
+| `daily` | object | 日线级别斐波那契分析 |
+| `fourHour` | object | 4小时级别斐波那契分析 |
+| `weekly` | object | 周线级别斐波那契分析 |
+
+每个时间框架包含：
+- `swingHigh`：波段高点
+- `swingLow`：波段低点
+- `swingRange`：波段幅度
+- `fibonacciLevels`：各级回调位（0%、23.6%、38.2%、50%、61.8%、78.6%、100%）
+
+> **用途**：61.8%（黄金分割）是最关键的支撑/阻力参考位。
+
+---
+
+## 九、指标解读速查
 
 | 指标 | 看多信号 | 看空信号 |
 |------|---------|---------|
@@ -148,7 +190,7 @@
 
 ---
 
-## 九、数据源
+## 十、数据源
 
 | 数据 | 来源 | 备注 |
 |------|------|------|
@@ -156,4 +198,5 @@
 | 资金费率 | OKX API | 需要代理 |
 | 持仓量(OI) | OKX API | 需要代理 |
 | 多空比/Taker比 | OKX API | 需要代理 |
-| 恐惧贪婪指数 | alternative.me | 无需代理 |
+| 恐惧贪婪指数 | alternative.me | 无需代理，整合到每日记录 |
+| 期权数据 | Deribit API | 需要代理 |
