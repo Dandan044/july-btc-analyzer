@@ -27,3 +27,5 @@
 2026-04-13T12:10:45: [警报检查错误] this.fetchWithProxy is not a function
 2026-04-14T13:14:07: [警报检查错误] 请求超时
 2026-04-14T13:14:07: [警报检查错误] 请求超时
+2026-04-15T01:35:25: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-15T02:47:00: [警报检查错误] API错误: You are over your rate limit please upgrade your account!

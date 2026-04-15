@@ -227,8 +227,10 @@ function calcRSI(values, period = 14) {
 /**
  * 获取日线数据 (使用 OKX CLI)
  * 输出结构与原 getDailyDataOKX 完全一致
+ * @param {string} proxy - 代理地址
+ * @param {Map} fngMap - 恐慌指数日期映射表 (可选)
  */
-async function getDailyDataCLI(proxy) {
+async function getDailyDataCLI(proxy, fngMap = null) {
   const LIMIT_DISPLAY = 14;
   const LIMIT_STATS = 30;
   
@@ -330,6 +332,12 @@ async function getDailyDataCLI(proxy) {
     if (i < ema12.length) entry.ema12 = parseFloat(ema12[i].toFixed(2));
     if (i < ema20.length) entry.ema20 = parseFloat(ema20[i].toFixed(2));
     if (i < ema26.length) entry.ema26 = parseFloat(ema26[i].toFixed(2));
+    
+    // 添加恐慌指数值
+    if (fngMap) {
+      const fngValue = fngMap.get(d.date);
+      if (fngValue !== undefined) entry.fearGreed = fngValue;
+    }
     
     return entry;
   });
@@ -968,12 +976,26 @@ async function getOptionsDataCLI(proxy) {
 
 // ========== 主数据获取 ==========
 
+/**
+ * 创建恐慌指数日期映射表
+ */
+function createFngMap(fngData) {
+  if (!fngData?.data) return null;
+  
+  const map = new Map();
+  for (const d of fngData.data) {
+    const ts = parseInt(d.timestamp) * 1000;  // API返回的是秒级时间戳
+    const date = toBeijingDate(ts);
+    map.set(date, parseInt(d.value));
+  }
+  return map;
+}
+
 async function getEnhancedAnalysis(proxy = null) {
   const result = {
     timestamp: toBeijingTime(new Date()),
     priceHistory: null,
     kline4h: null,
-    fearGreedIndex: null,
     options: null,
     fibonacci: null,
     dataSource: {
@@ -986,10 +1008,13 @@ async function getEnhancedAnalysis(proxy = null) {
     // ===== 使用 OKX CLI 获取数据 =====
     console.error('使用 OKX CLI 获取数据...');
     
-    const [dailyData, kline4h, fngData, optionsData, fibData] = await Promise.all([
-      getDailyDataCLI(proxy).catch(e => { console.error('日线数据错误:', e.message); return null; }),
+    // 先获取恐慌指数，创建日期映射
+    const fngData = await getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; });
+    const fngMap = createFngMap(fngData);
+    
+    const [dailyData, kline4h, optionsData, fibData] = await Promise.all([
+      getDailyDataCLI(proxy, fngMap).catch(e => { console.error('日线数据错误:', e.message); return null; }),
       get4hDataCLI(proxy).catch(e => { console.error('4小时数据错误:', e.message); return null; }),
-      getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; }),
       getOptionsDataCLI(proxy).catch(e => { console.error('Options error:', e.message); return null; }),
       getFibonacciAnalysisCLI(proxy).catch(e => { console.error('Fibonacci error:', e.message); return null; })
     ]);
@@ -1011,24 +1036,7 @@ async function getEnhancedAnalysis(proxy = null) {
 
     result.kline4h = kline4h;
 
-    if (fngData?.data) {
-      const fngValues = fngData.data.map(d => parseInt(d.value));
-      const current = fngValues[0];
-      const max30d = Math.max(...fngValues);
-      const min30d = Math.min(...fngValues);
-      const avg30d = fngValues.reduce((a, b) => a + b, 0) / fngValues.length;
-      
-      result.fearGreedIndex = {
-        current: current,
-        classification: fngData.data[0].value_classification,
-        statistics: {
-          avg30d: parseFloat(avg30d.toFixed(1)),
-          max30d: max30d,
-          min30d: min30d,
-          rangePosition: parseFloat(((current - min30d) / (max30d - min30d) * 100).toFixed(0))
-        }
-      };
-    }
+    // 恐慌指数已整合到 priceHistory.history 的每日记录中，不再单独输出
 
     if (optionsData && Array.isArray(optionsData)) {
       result.options = optionsData;
