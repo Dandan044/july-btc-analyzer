@@ -41,8 +41,6 @@
 阶段三仓位管理已完成。
 周期状态: [active | archived]
 周期路径: [active/cycle-xxx | archived/cycle-xxx]
-持仓状态: [有持仓 X 个 | 无持仓]
-最近平仓: [有/无]
 请读取 tasks/daily-report-stage4.md 开始阶段四警报管理。
 ```
 
@@ -51,13 +49,13 @@
 | 参数 | 消息中的标记 | 用途 |
 |------|-------------|------|
 | 周期状态 | `周期状态:` | 决定执行逻辑（清零 vs 正常管理） |
-| 周期路径 | `周期路径:` | 定位报告文件和持仓文件 |
-| 持仓状态 | `持仓状态:` | 了解当前持仓情况 |
-| 最近平仓 | `最近平仓:` | 判断是否刚平仓 |
+| 周期路径 | `周期路径:` | 定位报告文件（仅 active 状态需要） |
+
+**说明：** 持仓状态、最近平仓不影响阶段四流程，不传递。
 
 #### 1.2 保底措施：从本地默认路径查找
 
-**如果 spawn 消息解析失败（如消息格式异常、缺少关键参数），执行保底查找：**
+**如果 spawn 消息解析失败，执行保底查找：**
 
 ```bash
 # 尝试查找活跃周期
@@ -66,7 +64,7 @@ CYCLE_ACTIVE=$(ls -td active/cycle-* 2>/dev/null | head -1)
 # 尝试查找归档周期（最新归档的）
 CYCLE_ARCHIVED=$(ls -td archived/cycle-* 2>/dev/null | head -1)
 
-# 判断周期状态
+# 判断周期状态（优先 active）
 if [ -n "$CYCLE_ACTIVE" ]; then
   CYCLE_DIR="$CYCLE_ACTIVE"
   CYCLE_STATUS="active"
@@ -79,20 +77,16 @@ else
   exit
 fi
 
-# 查找日报文件
-REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/btc-report-*.md 2>/dev/null | head -1)
-
-# 查找持仓文件
-POSITIONS_FILE="${CYCLE_DIR}/positions.json"
-
-# 从持仓文件推断持仓状态
-if [ -f "$POSITIONS_FILE" ]; then
-  POS_COUNT=$(cat "$POSITIONS_FILE" | grep -o '"当前持仓数"' | head -1 || echo "0")
-  HAS_POSITION=$(echo "$POS_COUNT" | awk '{if($1>0) print "有持仓"; else print "无持仓"}')
-else
-  HAS_POSITION="无持仓（文件不存在）"
+# 查找日报文件（仅 active 状态需要）
+if [ "$CYCLE_STATUS" = "active" ]; then
+  REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/btc-report-*.md 2>/dev/null | head -1)
 fi
 ```
+
+**保底逻辑说明：**
+- 从周期目录推断周期状态（路径含 active → active，含 archived → archived）
+- 优先找活跃周期，若无则找归档周期
+- archived 状态不需要日报文件
 
 **保底日志记录：**
 ```
@@ -446,19 +440,19 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 
 ## Spawn 消息规范
 
-**阶段三 → 阶段四的 Spawn 消息必须包含：**
+**阶段三 → 阶段四的 Spawn 消息只需：**
 
 | 参数 | 必须性 | 示例 |
 |------|-------|------|
 | 周期状态 | ✅ 必须 | `active` 或 `archived` |
 | 周期路径 | ✅ 必须 | `active/cycle-xxx` 或 `archived/cycle-xxx` |
-| 持仓状态 | ✅ 必须 | `有持仓 X 个` 或 `无持仓` |
-| 最近平仓 | ✅ 必须 | `有` 或 `无` |
+
+**不传递的参数：**
+- 持仓状态、最近平仓 → 不影响阶段四流程
 
 **缺失影响：**
-- 缺少周期状态 → 无法决定清零还是正常管理
-- 缺少周期路径 → 无法定位报告文件
-- 缺少持仓状态 → 无法判断是否需要调整警报数量
+- 缺少周期状态 → 无法决定清零还是正常管理（保底可从路径推断）
+- 缺少周期路径 → 无法定位报告文件（保底可查找周期目录）
 
 ---
 
@@ -467,7 +461,6 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 **保底触发条件：**
 - Spawn 消息格式异常（无法解析）
 - Spawn 消息缺少关键参数
-- Spawn 消息路径不存在
 
 **保底查找规则：**
 
@@ -475,14 +468,12 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 |------|---------|
 | 活跃周期 | `ls -td active/cycle-* 2>/dev/null | head -1` |
 | 归档周期 | `ls -td archived/cycle-* 2>/dev/null | head -1` |
-| 周期状态 | 有活跃周期 → `active`；有归档周期 → `archived`；都无 → ERROR |
-| 日报文件 | `${CYCLE_DIR}/reports/btc-report-*.md`（最新） |
-| 持仓文件 | `${CYCLE_DIR}/positions.json` |
-| 持仓状态 | 从持仓文件读取「当前持仓数」字段 |
+| 周期状态 | 有活跃周期 → `active`；有归档周期 → `archived` |
+| 日报文件 | `${CYCLE_DIR}/reports/btc-report-*.md`（仅 active 状态需要） |
 
 **保底日志记录：**
 - 必须记录 `⚠️ WARN: Spawn 消息解析失败，使用保底路径查找`
-- 必须记录保底路径结果和周期状态
+- 必须记录保底推断的周期状态
 
 ---
 
