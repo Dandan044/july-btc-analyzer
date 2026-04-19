@@ -84,19 +84,23 @@
 
 ### 阶段二 → 阶段三
 
-**只需传递日报路径，阶段三会自行读取日报识别操作意图。**
+**传递周期目录路径，阶段三从中定位日报和持仓文件。**
 
 **模板：**
 
 ```
 阶段二分析已完成。
-日报文件: active/cycle-YYYYMMDD-XXX/reports/btc-report-YYYY-MM-DD-HHMM.md
+周期目录: active/cycle-YYYYMMDD-XXX
 请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
 ```
 
-**说明：**
-- 阶段三本职工作就是读取日报并识别操作意图
-- 无需阶段二预判传递（冗余）
+**阶段三所需参数及来源：**
+
+| 参数 | 来源 | 说明 |
+|------|------|------|
+| 周期目录 | spawn 传入 | 基础定位 |
+| 日报文件 | `${CYCLE_DIR}/reports/btc-report-*.md` | 从周期目录定位（最新） |
+| 持仓文件 | `${CYCLE_DIR}/positions.json` | 从周期目录定位（固定位置） |
 
 ---
 
@@ -142,11 +146,11 @@
 
 ### 保底查找规则
 
-| 阶段 | 保底查找 | 说明 |
-|------|---------|------|
-| **阶段二** | 只需找清单 | 清单内含所有参数（持仓、市场数据、历史报告等） |
-| **阶段三** | 只需找日报 | 持仓文件位置固定（`${CYCLE_DIR}/positions.json`） |
-| **阶段四** | 找周期 + 判断状态 | 优先找 active，备选 archived；从路径推断状态 |
+| 阶段 | 保底查找 | 从保底结果推断其他路径 |
+|------|---------|----------------------|
+| **阶段二** | 找清单 | 清单内含所有参数 |
+| **阶段三** | 找周期目录 | 日报 `${CYCLE_DIR}/reports/`，持仓 `${CYCLE_DIR}/positions.json` |
+| **阶段四** | 找周期目录 | 从路径推断状态（active/archived） |
 
 **保底查找命令：**
 
@@ -155,12 +159,11 @@
 MANIFEST=$(ls -t active/cycle-*/data-context/data-manifest-*.json | head -1)
 
 # 阶段三
-REPORT=$(ls -t active/cycle-*/reports/btc-report-*.md | head -1)
+CYCLE_DIR=$(ls -td active/cycle-* | head -1)
 
 # 阶段四
 CYCLE_ACTIVE=$(ls -td active/cycle-* | head -1)
 CYCLE_ARCHIVED=$(ls -td archived/cycle-* | head -1)
-# 优先 active，若无则用 archived
 ```
 
 ### 保底日志记录规范
@@ -191,8 +194,8 @@ CYCLE_ARCHIVED=$(ls -td archived/cycle-* | head -1)
 
 | 传递方向 | Spawn 消息内容 | 说明 |
 |---------|---------------|------|
-| **一→二** | 只传清单路径 | 清单内含：周期ID、持仓文件、市场数据、数据挖掘报告、历史报告 |
-| **二→三** | 只传日报路径 | 阶段三自行读日报识别操作意图（本职工作） |
+| **一→二** | 只传清单路径 | 清单内含：周期ID、持仓文件、市场数据、历史报告等 |
+| **二→三** | 只传周期目录 | 阶段三从中定位日报和持仓文件 |
 | **三→四** | 周期状态 + 持仓状态 | 决定阶段四执行清零还是正常管理 |
 
 ---
@@ -201,9 +204,9 @@ CYCLE_ARCHIVED=$(ls -td archived/cycle-* | head -1)
 
 | 阶段 | 触发条件 | 保底动作 |
 |------|---------|---------|
-| 阶段二 | 无法解析清单路径 | `ls -t active/cycle-*/data-context/data-manifest-*.json | head -1` |
-| 阶段三 | 无法解析日报路径 | `ls -t active/cycle-*/reports/btc-report-*.md | head -1` |
-| 阶段四 | 无法解析周期状态 | 先找 active，若无找 archived，从路径推断状态 |
+| 阶段二 | 无法解析清单路径 | 找最新清单 |
+| 阶段三 | 无法解析周期目录 | 找最新周期目录，从中定位日报/持仓 |
+| 阶段四 | 无法解析周期状态 | 找周期目录，从路径推断状态 |
 
 ---
 

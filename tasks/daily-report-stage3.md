@@ -41,51 +41,53 @@ echo "[$NOW] [阶段三] 开始执行" >> logs/daily-report-process.log
 
 ### 步骤 2: 解析 Spawn 消息或定位默认路径
 
-**⚠️ 优先从 spawn 消息解析日报路径，若解析失败则从本地默认路径查找（保底措施）。**
+**⚠️ 优先从 spawn 消息解析周期目录路径，从中推断日报和持仓文件路径。**
 
 #### 2.1 从 Spawn 消息解析参数
 
 预期 Spawn 消息格式：
 ```
 阶段二分析已完成。
-日报文件: active/cycle-YYYYMMDD-XXX/reports/btc-report-YYYY-MM-DD-HHMM.md
+周期目录: active/cycle-YYYYMMDD-XXX
 请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
 ```
 
-**只需提取日报路径，其他信息从日报和持仓文件中获取。**
+**提取周期目录路径，从中定位：**
+- 日报文件：`${CYCLE_DIR}/reports/btc-report-*.md`（最新）
+- 持仓文件：`${CYCLE_DIR}/positions.json`（固定位置）
 
 #### 2.2 保底措施：从本地默认路径查找
 
 **如果 spawn 消息解析失败，执行保底查找：**
 
 ```bash
-# 查找最新周期
+# 直接查找最新周期目录
 CYCLE_DIR=$(ls -td active/cycle-* 2>/dev/null | head -1)
 
-# 查找最新日报
+# 从周期目录定位日报和持仓
 REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/btc-report-*.md 2>/dev/null | head -1)
-
-# 持仓文件
 POSITIONS_FILE="${CYCLE_DIR}/positions.json"
 ```
 
 **保底日志记录：**
 ```
 [$NOW] [阶段三] ⚠️ WARN: Spawn 消息解析失败，使用保底路径查找
-[$NOW] [阶段三] 保底路径: 日报=${REPORT_FILE}
+[$NOW] [阶段三] 保底路径: 周期=${CYCLE_DIR}
 ```
 
 #### 2.3 确认路径有效性
 
 | 路径类型 | 来源 | 失败处理 |
 |---------|------|---------|
-| 日报文件 | spawn解析或保底查找 | ⛔ ERROR，无法继续 |
+| 周期目录 | spawn解析或保底查找 | ⛔ ERROR，无法继续 |
+| 日报文件 | `${CYCLE_DIR}/reports/` | ⛔ ERROR，无法继续 |
 | 持仓文件 | `${CYCLE_DIR}/positions.json` | ⚠️ WARN，假设无持仓 |
 
 **日志记录：**
 ```
+[$NOW] [阶段三] 周期目录: cycle-YYYYMMDD-XXX
 [$NOW] [阶段三] 日报文件: reports/btc-report-YYYY-MM-DD-HHMM.md
-[$NOW] [阶段三] 周期ID: cycle-YYYYMMDD-XXX（从日报路径推断）
+[$NOW] [阶段三] 持仓文件: positions.json
 ```
 
 ---
@@ -757,12 +759,13 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-r
 
 ### 阶段二 → 阶段三（接收）
 
-只需日报路径：
 ```
-日报文件: active/cycle-xxx/reports/btc-report-xxx.md
+周期目录: active/cycle-xxx
 ```
 
-阶段三会自行读取日报并识别操作意图，无需预判传递。
+从周期目录推断：
+- 日报：`${CYCLE_DIR}/reports/btc-report-*.md`
+- 持仓：`${CYCLE_DIR}/positions.json`
 
 ### 阶段三 → 阶段四（发送）
 
@@ -780,16 +783,14 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-r
 ## 保底措施说明
 
 **保底触发条件：**
-- Spawn 消息格式异常（无法解析日报路径）
+- Spawn 消息格式异常（无法解析周期目录）
 
 **保底查找规则：**
 ```bash
 CYCLE_DIR=$(ls -td active/cycle-* | head -1)
-REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/btc-report-*.md | head -1)
-POSITIONS_FILE="${CYCLE_DIR}/positions.json"
 ```
 
-只需找到日报，持仓文件位置固定。
+只需找到周期目录，日报和持仓文件位置固定。
 
 ---
 

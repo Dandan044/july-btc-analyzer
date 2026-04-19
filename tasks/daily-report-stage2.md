@@ -318,10 +318,12 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null
 ### 阶段二 → 阶段三（发送）
 
 ```
-日报文件: active/cycle-xxx/reports/btc-report-xxx.md
+周期目录: active/cycle-xxx
 ```
 
-阶段三会自行读日报识别意图，无需预判。
+阶段三从周期目录定位日报和持仓文件：
+- 日报：`${CYCLE_DIR}/reports/btc-report-*.md`
+- 持仓：`${CYCLE_DIR}/positions.json`
 
 ---
 
@@ -362,19 +364,20 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json | head -1)
 
 **根据分析结果，spawn 阶段三执行后续任务：**
 
-**⚠️ Spawn 消息只需传递日报路径，阶段三会自行读取日报识别操作意图：**
+**⚠️ Spawn 消息传递周期目录路径，阶段三从中定位日报和持仓文件：**
 
 构建 Spawn 消息：
 
 ```
 阶段二分析已完成。
-日报文件: active/cycle-YYYYMMDD-XXX/reports/btc-report-YYYY-MM-DD-HHMM.md
+周期目录: active/cycle-YYYYMMDD-XXX
 请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
 ```
 
 **说明：**
-- 阶段三会自行读取日报全文并识别操作意图
-- 无需传递操作预判（冗余）
+- 日报路径：`${CYCLE_DIR}/reports/btc-report-*.md`（最新）
+- 持仓文件：`${CYCLE_DIR}/positions.json`（固定位置）
+- 阶段三从周期目录推断所有所需路径
 
 **Spawn 参数：**
 
