@@ -390,19 +390,13 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 **阶段一完成后，立即 spawn 阶段二：**
 
-**⚠️ Spawn 消息必须包含完整信息，供阶段二使用：**
+**⚠️ Spawn 消息只需传递数据清单路径，其他信息都在清单中：**
 
-构建 Spawn 消息模板：
+构建 Spawn 消息：
 
 ```
 阶段一数据获取已完成。
-周期ID: cycle-YYYYMMDD-XXX
-周期状态: active
 数据清单: active/cycle-YYYYMMDD-XXX/data-context/data-manifest-YYYY-MM-DD-HHMM.json
-持仓文件: active/cycle-YYYYMMDD-XXX/positions.json
-市场数据: data/YYYY-MM-DD.json
-数据挖掘报告: active/cycle-YYYYMMDD-XXX/data-context/data-mining-YYYY-MM-DD-HHMM.md
-历史报告数: X 篇
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
 
@@ -413,10 +407,12 @@ sessions_spawn:
 - agentId: "july"
 - mode: "run"
 - timeoutSeconds: 0
-- task: [上述完整消息]
+- task: [上述消息]
 ```
 
 **执行后立即返回**，不等待阶段二完成。
+
+**说明：** 数据清单 JSON 已包含周期信息、所有文件路径、持仓信息，阶段二读取清单即可获取全部参数。
 
 ---
 
@@ -460,8 +456,8 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-r
 5. **只收集历史报告路径，不读内容**：阶段二自行读取
 6. **数据存放在子文件夹**：`data-context/` 与 `reports/` 分离
 7. **文件命名带时间信息**：便于区分生成时间
-8. **必须生成数据清单 JSON**：固定格式，供阶段二读取
-9. **⭐ Spawn 消息必须完整**：包含周期ID、所有文件路径、状态信息，供阶段二直接使用
+8. **必须生成数据清单 JSON**：固定格式，包含所有必要信息供阶段二读取
+9. **Spawn 消息简洁**：只传递数据清单路径，其他信息都在清单中
 10. **必须 spawn 阶段二**：完成后立即触发下一阶段
 11. **最后记录阶段结束**：Spawn 完成后记录
 12. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
@@ -470,22 +466,22 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-r
 
 ## Spawn 消息规范
 
-**阶段一 → 阶段二的 Spawn 消息必须包含：**
+**阶段一 → 阶段二的 Spawn 消息只需：**
 
-| 参数 | 必须性 | 示例 |
-|------|-------|------|
-| 周期ID | ✅ 必须 | `cycle-20260419-001` |
-| 周期状态 | ✅ 必须 | `active` |
-| 数据清单路径 | ✅ 必须 | `active/cycle-xxx/data-context/data-manifest-xxx.json` |
-| 持仓文件路径 | ✅ 必须 | `active/cycle-xxx/positions.json` |
-| 市场数据路径 | ✅ 必须 | `data/YYYY-MM-DD.json` |
-| 数据挖掘报告路径 | ✅ 必须 | `active/cycle-xxx/data-context/data-mining-xxx.md` |
-| 历史报告数 | ✅ 必须 | `X 篇` |
+```
+阶段一数据获取已完成。
+数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
+请读取 tasks/daily-report-stage2.md 开始阶段二分析。
+```
 
-**缺失影响：**
-- 缺少周期ID → 阶段二无法定位周期
-- 缺少持仓文件路径 → 阶段二需要保底查找
-- 缺少市场数据路径 → 阶段二无法分析
+**数据清单已包含全部信息：**
+- 周期ID、周期状态
+- 持仓文件路径
+- 市场数据路径
+- 数据挖掘报告路径
+- 历史报告路径列表
+
+阶段二只需读取清单即可获取所有参数。
 
 ---
 

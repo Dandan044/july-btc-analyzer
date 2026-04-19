@@ -61,31 +61,24 @@
 
 ### 阶段一 → 阶段二
 
-**必须包含的参数：**
+**只需传递数据清单路径，其他信息都在清单 JSON 中。**
 
-| 参数 | 标记 | 示例 | 用途 |
-|------|------|------|------|
-| 周期ID | `周期ID:` | `cycle-20260419-001` | 定位周期文件夹 |
-| 周期状态 | `周期状态:` | `active` | 判断是否归档 |
-| 数据清单 | `数据清单:` | `active/cycle-xxx/data-context/...` | 读取 manifest |
-| 持仓文件 | `持仓文件:` | `active/cycle-xxx/positions.json` | 读取实盘持仓 |
-| 市场数据 | `市场数据:` | `data/YYYY-MM-DD.json` | 读取市场数据 |
-| 数据挖掘报告 | `数据挖掘报告:` | `active/cycle-xxx/data-context/...` | 读取数据洞察 |
-| 历史报告数 | `历史报告数:` | `X 篇` | 了解历史信息量 |
-
-**完整模板：**
+**模板：**
 
 ```
 阶段一数据获取已完成。
-周期ID: cycle-YYYYMMDD-XXX
-周期状态: active
 数据清单: active/cycle-YYYYMMDD-XXX/data-context/data-manifest-YYYY-MM-DD-HHMM.json
-持仓文件: active/cycle-YYYYMMDD-XXX/positions.json
-市场数据: data/YYYY-MM-DD.json
-数据挖掘报告: active/cycle-YYYYMMDD-XXX/data-context/data-mining-YYYY-MM-DD-HHMM.md
-历史报告数: X 篇
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
+
+**清单已包含：**
+- 周期ID、周期状态
+- 持仓文件路径
+- 市场数据路径
+- 数据挖掘报告路径
+- 历史报告路径列表
+
+阶段二只需读取清单即可获取所有参数，无需冗余传递。
 
 ---
 
@@ -167,11 +160,12 @@
 |------|-------|-------|-------|
 | 周期目录 | `ls -td active/cycle-* | head -1` | 同 | 同（优先active，备选archived） |
 | 数据清单 | `${CYCLE_DIR}/data-context/data-manifest-*.json`（最新） | - | - |
-| 持仓文件 | `${CYCLE_DIR}/positions.json` | 同 | 同 |
-| 市场数据 | `data/YYYY-MM-DD.json`（当天） | - | - |
-| 数据挖掘报告 | `${CYCLE_DIR}/data-context/data-mining-*.md`（最新） | - | - |
-| 日报文件 | - | `${CYCLE_DIR}/reports/btc-report-*.md`（最新） | 同 |
-| 周期状态 | 从周期路径推断（active → active） | 同 | 从路径判断或从持仓推断 |
+| **说明** | **阶段二只需找到清单，清单内含所有参数** | 需逐项查找 | 需逐项查找 |
+
+**阶段二特殊规则：**
+- 保底查找只需定位 data-manifest 文件
+- 读取清单后自动获取持仓文件、市场数据、数据挖掘报告等所有路径
+- 无需逐项保底查找各文件
 
 ### 保底日志记录规范
 

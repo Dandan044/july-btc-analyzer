@@ -43,36 +43,34 @@ echo "[$NOW] [阶段二] 开始执行" >> logs/daily-report-process.log
 
 ### 2. 解析 Spawn 消息或定位默认路径
 
-**⚠️ 优先从 spawn 消息解析参数，若解析失败则从本地默认路径查找（保底措施）。**
+**⚠️ 优先从 spawn 消息解析 data-manifest 路径，若解析失败则从本地默认路径查找（保底措施）。**
 
 #### 2.1 从 Spawn 消息解析参数
 
 预期 Spawn 消息格式：
 ```
 阶段一数据获取已完成。
-周期ID: cycle-YYYYMMDD-XXX
-周期状态: active
 数据清单: active/cycle-YYYYMMDD-XXX/data-context/data-manifest-YYYY-MM-DD-HHMM.json
-持仓文件: active/cycle-YYYYMMDD-XXX/positions.json
-市场数据: data/YYYY-MM-DD.json
-数据挖掘报告: active/cycle-YYYYMMDD-XXX/data-context/data-mining-YYYY-MM-DD-HHMM.md
-历史报告数: X 篇
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
 
-**提取关键参数：**
+**只需提取数据清单路径，其他所有信息都在清单 JSON 中。**
 
-| 参数 | 消息中的标记 | 用途 |
-|------|-------------|------|
-| 周期ID | `周期ID:` | 定位周期文件夹 |
-| 数据清单路径 | `数据清单:` | 读取 manifest |
-| 持仓文件路径 | `持仓文件:` | 读取实盘持仓 |
-| 市场数据路径 | `市场数据:` | 读取市场数据 |
-| 数据挖掘报告路径 | `数据挖掘报告:` | 读取数据洞察 |
+#### 2.2 读取数据清单获取完整参数
 
-#### 2.2 保底措施：从本地默认路径查找
+**从 data-manifest.json 获取所有必要信息：**
 
-**如果 spawn 消息解析失败（如消息格式异常、缺少关键参数），执行保底查找：**
+清单包含的字段：
+- `cycle.id` - 周期ID
+- `cycle.status` - 周期状态
+- `cycle.positions_file` - 持仓文件路径
+- `data_files.market_data.path` - 市场数据路径
+- `data_files.data_mining_report.path` - 数据挖掘报告路径
+- `history_reports` - 历史报告路径列表
+
+#### 2.3 保底措施：从本地默认路径查找
+
+**如果 spawn 消息解析失败（如消息格式异常），执行保底查找：**
 
 ```bash
 # 查找最新周期
@@ -80,40 +78,27 @@ CYCLE_DIR=$(ls -td active/cycle-* 2>/dev/null | head -1)
 
 # 查找最新数据清单
 MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null | head -1)
-
-# 查找最新持仓文件
-POSITIONS_FILE="${CYCLE_DIR}/positions.json"
-
-# 查找最新市场数据（当天）
-DATE=$(date +%Y-%m-%d)
-MARKET_DATA="data/${DATE}.json"
-
-# 查找最新数据挖掘报告
-MINING_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-mining-*.md 2>/dev/null | head -1)
 ```
 
 **保底日志记录：**
 ```
 [$NOW] [阶段二] ⚠️ WARN: Spawn 消息解析失败，使用保底路径查找
-[$NOW] [阶段二] 保底路径: 周期=${CYCLE_DIR}, 清单=${MANIFEST_FILE}
+[$NOW] [阶段二] 保底路径: 清单=${MANIFEST_FILE}
 ```
 
-#### 2.3 确认路径有效性
+#### 2.4 确认路径有效性
 
-**无论从 spawn 解析还是保底查找，都需要确认路径存在：**
+**读取清单后确认关键路径存在：**
 
-| 路径类型 | 确认方式 | 失败处理 |
-|---------|---------|---------|
-| 周期目录 | `ls -d $CYCLE_DIR` | ⛔ ERROR，无法继续 |
-| 数据清单 | `test -f $MANIFEST_FILE` | ⚠️ WARN，跳过清单读取 |
-| 持仓文件 | `test -f $POSITIONS_FILE` | ⚠️ WARN，假设无持仓 |
-| 市场数据 | `test -f $MARKET_DATA` | ⛔ ERROR，无法继续 |
-| 数据挖掘报告 | `test -f $MINING_FILE` | ⚠️ WARN，跳过挖掘报告 |
+| 路径类型 | 来源 | 失败处理 |
+|---------|------|---------|
+| 市场数据 | `data_files.market_data.path` | ⛔ ERROR，无法继续 |
+| 持仓文件 | `cycle.positions_file` | ⚠️ WARN，假设无持仓 |
+| 数据挖掘报告 | `data_files.data_mining_report.path` | ⚠️ WARN，跳过挖掘报告 |
 
 **日志记录：**
 ```
-[$NOW] [阶段二] 参数来源: [spawn解析 | 保底查找]
-[$NOW] [阶段二] 数据清单: data-context/data-manifest-YYYY-MM-DD-HHMM.json
+[$NOW] [阶段二] 数据清单读取: data-context/data-manifest-YYYY-MM-DD-HHMM.json
 [$NOW] [阶段二] 周期ID: cycle-YYYYMMDD-XXX
 ```
 
@@ -306,15 +291,15 @@ MINING_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-mining-*.md 2>/dev/null | hea
 
 ## 核心要求
 
-1. **⭐ 优先解析 spawn 消息**：从阶段一传递的消息中获取参数
-2. **保底措施必须执行**：spawn 解析失败时，从本地默认路径查找
+1. **⭐ 优先解析 spawn 消息获取清单路径**：从阶段一传递的消息中获取 data-manifest 路径
+2. **保底措施必须执行**：spawn 解析失败时，从本地默认路径查找清单
 3. **必须先读历史报告**：分析前必须回顾当前周期的历史报告
 4. **必须读持仓文件**：了解实盘持仓状态（positions.json）
 5. **数据说什么，你就说什么**：基于数据给出判断
 6. **分析要有逻辑**：引用具体数据支撑判断
 7. **操作建议必须具体**：基于实盘持仓状态给出明确指令
 8. **专注撰写报告**：只保存报告文件，不修改其他文件
-9. **⭐ Spawn 消息必须完整**：包含周期信息、报告路径、持仓路径、操作预判
+9. **⭐ Spawn 消息传递预判信息**：操作类型、入场条件，帮助阶段三决策
 10. **必须 spawn 阶段三**：完成后立即触发下一阶段
 11. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 
@@ -322,41 +307,41 @@ MINING_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-mining-*.md 2>/dev/null | hea
 
 ## Spawn 消息规范
 
-**阶段二 → 阶段三的 Spawn 消息必须包含：**
+### 阶段一 → 阶段二（接收）
 
-| 参数 | 必须性 | 示例 |
-|------|-------|------|
-| 周期ID | ✅ 必须 | `cycle-20260419-001` |
-| 周期状态 | ✅ 必须 | `active` |
-| 日报文件路径 | ✅ 必须 | `active/cycle-xxx/reports/btc-report-xxx.md` |
-| 持仓文件路径 | ✅ 必须 | `active/cycle-xxx/positions.json` |
-| 操作建议类型 | ✅ 必须 | `开仓/加仓/减仓/平仓/调整止盈止损/观望` |
-| 入场条件 | ✅ 必须 | `立即入场/等待触发` |
+只需清单路径：
+```
+数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
+```
 
-**缺失影响：**
-- 缺少持仓文件路径 → 阶段三需要保底查找
-- 缺少操作建议类型 → 阶段三需要读日报后自行判断
-- 缺少入场条件 → 阶段三无法预判是否执行
+清单已包含所有参数，无需冗余传递。
+
+### 阶段二 → 阶段三（发送）
+
+**必须包含：**
+
+| 参数 | 说明 | 用途 |
+|------|------|------|
+| 周期ID | 清单中的 `cycle.id` | 定位周期 |
+| 日报文件 | 本阶段生成的报告路径 | 阶段三读取分析 |
+| 持仓文件 | 清单中的 `cycle.positions_file` | 阶段三验证持仓 |
+| 操作建议类型 | 日报中提炼的类型 | 预判执行逻辑 |
+| 入场条件 | 日报中提炼的条件 | 判断是否立即执行 |
 
 ---
 
 ## 保底措施说明
 
 **保底触发条件：**
-- Spawn 消息格式异常（无法解析）
-- Spawn 消息缺少关键参数
-- Spawn 消息路径不存在
+- Spawn 消息格式异常（无法解析清单路径）
 
 **保底查找规则：**
-- 周期：`ls -td active/cycle-* | head -1`
-- 数据清单：`${CYCLE_DIR}/data-context/data-manifest-*.json`（最新）
-- 持仓文件：`${CYCLE_DIR}/positions.json`
-- 市场数据：`data/YYYY-MM-DD.json`（当天）
-- 数据挖掘报告：`${CYCLE_DIR}/data-context/data-mining-*.md`（最新）
+```bash
+CYCLE_DIR=$(ls -td active/cycle-* | head -1)
+MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json | head -1)
+```
 
-**保底日志记录：**
-- 必须记录 `⚠️ WARN: Spawn 消息解析失败，使用保底路径查找`
-- 必须记录保底路径结果
+读取清单后获取所有参数，无需逐项保底查找。
 
 ⚠️ 报告末尾注明：仅供参考，不构成投资建议。七月-v4.18。
 
