@@ -1,19 +1,19 @@
 /**
  * 多空比反转警报
  * 监控多空比从低位反转，捕捉空头撤退信号
- * 当前多空比0.77，若回升至>1.2，可能预示空头退场
+ * 当前多空比0.91，若回升至>1.0，可能预示空头退场
  *
  * ========== 当前状态 ==========
  * 无持仓 | 观望等待方向确认
- * 监控: 多空比从<0.9反转为>1.2
+ * 监控: 多空比从<0.85反转为>1.0
  * ==============================
  */
 
 const { spawn, execSync } = require('child_process');
 
 const CREATED_DATE = '2026-04-14';
-const LOW_THRESHOLD = 0.9;   // 当前空头占优阈值
-const HIGH_THRESHOLD = 1.2;  // 多头反转阈值
+const LOW_THRESHOLD = 0.85;   // 当前空头占优阈值（已更新，因当前多空比0.91）
+const HIGH_THRESHOLD = 1.0;  // 多头反转阈值（调整为1.0，更敏感）
 const COOLDOWN_MS = 60 * 60 * 1000;
 const PROXY_URL = 'http://127.0.0.1:7890';
 const OKX_LS_API = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H';
@@ -30,8 +30,8 @@ function fetchLongShortRatio() {
     if (json.code !== '0' || !json.data || json.data.length < 1) {
       throw new Error(`OKX API错误: ${json.msg || '数据不足'}`);
     }
-    // data格式: [timestamp, longRatio, shortRatio, longShortRatio]
-    const ratio = parseFloat(json.data[0][3]);
+    // data格式: [timestamp, longShortRatio]
+    const ratio = parseFloat(json.data[0][1]);
     return ratio;
   } catch (error) {
     throw new Error(`获取多空比失败: ${error.message}`);

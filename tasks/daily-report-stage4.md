@@ -39,8 +39,8 @@
 预期 Spawn 消息格式：
 ```
 阶段三仓位管理已完成。
-周期状态: [active | archived]
-周期路径: [active/cycle-xxx | archived/cycle-xxx]
+周期状态: [所有仓位平仓，已完成归档/周期活跃中]
+周期路径: [已归档 | active/cycle-xxx]
 请读取 tasks/daily-report-stage4.md 开始阶段四警报管理。
 ```
 
@@ -60,33 +60,7 @@
 ```bash
 # 尝试查找活跃周期
 CYCLE_ACTIVE=$(ls -td active/cycle-* 2>/dev/null | head -1)
-
-# 尝试查找归档周期（最新归档的）
-CYCLE_ARCHIVED=$(ls -td archived/cycle-* 2>/dev/null | head -1)
-
-# 判断周期状态（优先 active）
-if [ -n "$CYCLE_ACTIVE" ]; then
-  CYCLE_DIR="$CYCLE_ACTIVE"
-  CYCLE_STATUS="active"
-elif [ -n "$CYCLE_ARCHIVED" ]; then
-  CYCLE_DIR="$CYCLE_ARCHIVED"
-  CYCLE_STATUS="archived"
-else
-  # 无周期，无法继续
-  echo "[$NOW] [阶段四] ⛔ ERROR: 无法定位周期文件夹" >> logs/daily-report-process.log
-  exit
-fi
-
-# 查找日报文件（仅 active 状态需要）
-if [ "$CYCLE_STATUS" = "active" ]; then
-  REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/btc-report-*.md 2>/dev/null | head -1)
-fi
 ```
-
-**保底逻辑说明：**
-- 从周期目录推断周期状态（路径含 active → active，含 archived → archived）
-- 优先找活跃周期，若无则找归档周期
-- archived 状态不需要日报文件
 
 **保底日志记录：**
 ```
@@ -110,6 +84,11 @@ fi
 [$NOW] [阶段四] 周期路径: [active/cycle-xxx | archived/cycle-xxx]
 ```
 
+**日志记录（确认解析结果）：**
+```
+[$NOW] [阶段四] Spawn解析: 成功 / ⚠️ 使用保底
+```
+
 ---
 
 ### 步骤2: 记录阶段开始
@@ -127,7 +106,7 @@ echo "[$NOW] [阶段四] 开始执行 | 周期状态: [active | archived]" >> lo
 
 ## 【分支A：周期已归档 → 警报清零】
 
-**如果周期状态为 `archived`，执行警报清零流程。**
+**如果周期状态为 `所有仓位平仓，已完成归档`，执行警报清零流程。**
 
 ### A.1 读取所有活跃警报规则
 
@@ -153,6 +132,11 @@ NOW=$(date '+%Y-%m-%d %H:%M:%S')
 echo "[$NOW] [阶段四] 周期归档，警报全部清零 | 归档规则数: X | 归档规则: [规则列表]" >> logs/daily-report-process.log
 ```
 
+**清零完成确认日志：**
+```
+[$NOW] [阶段四] 警报清零完成: 归档规则 X 个 → rules-archive/
+```
+
 ### A.4 记录阶段结束并退出
 
 ```bash
@@ -167,7 +151,7 @@ echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/daily-r
 
 ## 【分支B：周期活跃 → 正常警报管理】
 
-**如果周期状态为 `active`，执行完整警报管理流程。**
+**如果周期状态为 `周期活跃中`，执行完整警报管理流程。**
 
 ---
 
@@ -387,6 +371,11 @@ set-alert.md 提供完整的警报规范：
 [$NOW] [阶段四] 保持规则: xxx.js
 [$NOW] [阶段四] 归档规则: xxx.js | 原因: 不在最终列表
 [$NOW] [阶段四] 创建规则: xxx.js | 目标: xxx
+```
+
+**警报管理完成汇总日志：**
+```
+[$NOW] [阶段四] 警报管理完成 | 活跃规则: X 个 | 归档规则: X 个 | 本次创建: X 个
 ```
 
 ---

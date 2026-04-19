@@ -1,0 +1,131 @@
+{
+  "cycle_id": "cycle-20260416-001",
+  "status": "archived",
+  "started_at": "2026-04-16T18:07:49+08:00",
+  "closed_at": "2026-04-16T23:15:00+08:00",
+  "closed_reason": "用户手动归档",
+  "suggestions": [
+    {
+      "id": "sug-001",
+      "created_at": "2026-04-16T21:00:00+08:00",
+      "triggered_by": "btc-report-2026-04-16-2100",
+      "direction": "short",
+      "entry_zone": [74400, 74600],
+      "entry_condition": {
+        "type": "immediate",
+        "description": "立即入场",
+        "trigger_price": null,
+        "trigger_criteria": null,
+        "delay_hours": null
+      },
+      "alert_config": {
+        "should_create": false,
+        "alert_type": null,
+        "alert_name": null,
+        "alert_file": null
+      },
+      "stop_loss": 76500,
+      "take_profit": [72500, 70000],
+      "position_size": "150%",
+      "status": "closed",
+      "entry_actual": 74600.1,
+      "entry_at": "2026-04-16T21:03:00+08:00",
+      "entry_ordId": "3484366750418132992",
+      "entry_sz": 1,
+      "entry_margin": 248.67,
+      "closed_at": "2026-04-16T23:15:00+08:00",
+      "close_reason": "用户手动平仓后归档",
+      "notes": "阻力验证有效，Taker比恶化，立即入场做空",
+      "status_check_2305": {
+        "timestamp": "2026-04-16T23:05:00+08:00",
+        "current_price": 73986.4,
+        "unrealized_pnl": 613.7,
+        "unrealized_pnl_pct": 0.82,
+        "daily_high": 75391.9,
+        "daily_low": 73220.2,
+        "stop_loss_triggered": false,
+        "take_profit_triggered": false,
+        "distance_to_tp": 258.2,
+        "note": "持仓盈利+0.82%，等待止盈触发"
+      },
+      "report_instructions": [
+        {
+          "timestamp": "2026-04-16T21:00:00+08:00",
+          "report_id": "btc-report-2026-04-16-2100",
+          "instruction_type": "open",
+          "instruction_detail": {
+            "direction": "short",
+            "entry_zone": [74400, 74600],
+            "entry_condition": {
+              "type": "immediate",
+              "description": "立即入场",
+              "trigger_price": null,
+              "trigger_criteria": null,
+              "delay_hours": null
+            },
+            "stop_loss": 76500,
+            "take_profit": [72500, 70000],
+            "position_size": "150%",
+            "notes": "阻力验证有效，Taker比恶化，立即入场做空"
+          }
+        }
+      ],
+      "execution_records": [
+        {
+          "timestamp": "2026-04-16T21:03:00+08:00",
+          "execution_type": "open",
+          "instId": "BTC-USDT-SWAP",
+          "instType": "SWAP",
+          "side": "sell",
+          "posSide": "short",
+          "tdMode": "isolated",
+          "lever": 3,
+          "sz": 1,
+          "ctVal": 0.01,
+          "avgPx": 74600.1,
+          "fillPx": [74600.1],
+          "ordId": "3484366750418132992",
+          "ordType": "market",
+          "fee": -0.2238,
+          "feeCcy": "USDT",
+          "margin": 248.67,
+          "marginCcy": "USDT",
+          "algo_records": [
+            {
+              "algoId": "3484367787723042816",
+              "algoType": "oco",
+              "triggerPx": 72478,
+              "triggerPxAdjusted": 72478,
+              "sz": 1,
+              "side": "buy",
+              "ordPx": -1,
+              "status": "live",
+              "note": "止盈触发价$72,478（原$72,500减整数位偏移22）"
+            },
+            {
+              "algoId": "3484367787723042816",
+              "algoType": "oco",
+              "triggerPx": 76522,
+              "triggerPxAdjusted": 76522,
+              "sz": 1,
+              "side": "buy",
+              "ordPx": -1,
+              "status": "live",
+              "note": "止损触发价$76,522（原$76,500加整数位偏移22）"
+            }
+          ],
+          "verified_at": "2026-04-16T21:04:00+08:00",
+          "verified_by": "execute-trade",
+          "note": "因仓位仅1张，止盈止损合并为单档OCO订单，止盈$72,500覆盖全部仓位"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 1,
+    "open": 0,
+    "closed": 1,
+    "pnl_total": null,
+    "note": "用户手动平仓，盈亏未记录"
+  }
+}

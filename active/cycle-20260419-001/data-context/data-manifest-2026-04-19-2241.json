@@ -1,0 +1,63 @@
+{
+  "manifest_version": "1.0",
+  "stage": "data-collection",
+  "generated_at": "2026-04-19T22:41:00+08:00",
+
+  "cycle": {
+    "id": "cycle-20260419-001",
+    "status": "active",
+    "started_at": "2026-04-19T16:32:00+08:00",
+    "positions_file": "active/cycle-20260419-001/positions.json",
+    "is_new_cycle": false
+  },
+
+  "持仓信息": {
+    "文件": "active/cycle-20260419-001/positions.json",
+    "同步时间": "2026-04-19T22:38:00+08:00",
+    "当前持仓数": 1,
+    "有BTC逐仓持仓": true,
+    "数据来源": "OKX实盘账户"
+  },
+
+  "data_files": {
+    "market_data": {
+      "path": "data/2026-04-19.json",
+      "generated_at": "2026-04-19T22:40:23+08:00",
+      "source": "OKX + CryptoCompare + alternative.me",
+      "status": "success"
+    },
+    "data_mining_report": {
+      "path": "active/cycle-20260419-001/data-context/data-mining-2026-04-19-2241.md",
+      "generated_at": "2026-04-19T22:41:00+08:00"
+    }
+  },
+
+  "history_reports": {
+    "daily_reports": [
+      {
+        "path": "active/cycle-20260419-001/reports/btc-report-2026-04-19-2113.md",
+        "date": "2026-04-19",
+        "type": "daily"
+      },
+      {
+        "path": "active/cycle-20260419-001/reports/btc-report-2026-04-19-1636.md",
+        "date": "2026-04-19",
+        "type": "daily"
+      }
+    ],
+    "instant_reports": [
+      {
+        "path": "active/cycle-20260419-001/reports/instant-report-2026-04-19-2119.md",
+        "date": "2026-04-19",
+        "type": "instant"
+      }
+    ],
+    "total_count": 3,
+    "note": null
+  },
+
+  "next_stage": {
+    "task_file": "tasks/daily-report-stage2.md",
+    "spawn_instruction": "阶段一已完成，请读取 data-manifest 开始阶段二分析"
+  }
+}

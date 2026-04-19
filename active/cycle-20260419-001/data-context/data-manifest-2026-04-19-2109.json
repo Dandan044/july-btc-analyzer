@@ -1,0 +1,65 @@
+{
+  "manifest_version": "1.0",
+  "stage": "data-collection",
+  "generated_at": "2026-04-19T21:09:00+08:00",
+
+  "cycle": {
+    "id": "cycle-20260419-001",
+    "status": "active",
+    "started_at": "2026-04-19T16:33:00+08:00",
+    "positions_file": "active/cycle-20260419-001/positions.json",
+    "is_new_cycle": false
+  },
+
+  "持仓信息": {
+    "文件": "active/cycle-20260419-001/positions.json",
+    "同步时间": "2026-04-19T21:09:00+08:00",
+    "当前持仓数": 1,
+    "有BTC逐仓持仓": true,
+    "数据来源": "OKX实盘账户",
+    "持仓详情": {
+      "持仓ID": "3429443563167604736",
+      "合约": "BTC-USDT-SWAP",
+      "保证金模式": "isolated",
+      "持仓方向": "long",
+      "持仓张数": 0.66,
+      "平均入场价": 75011.1,
+      "当前价格": 75688.1,
+      "未实现盈亏": 4.46,
+      "盈亏比例": "2.70%",
+      "止盈位": [77000, 78488],
+      "止损位": 74500
+    }
+  },
+
+  "data_files": {
+    "market_data": {
+      "path": "data/2026-04-19.json",
+      "generated_at": "2026-04-19T21:11:17+08:00",
+      "source": "OKX CLI + CryptoCompare + alternative.me + Deribit",
+      "status": "success"
+    },
+    "data_mining_report": {
+      "path": "active/cycle-20260419-001/data-context/data-mining-2026-04-19-2109.md",
+      "generated_at": "2026-04-19T21:09:00+08:00"
+    }
+  },
+
+  "history_reports": {
+    "daily_reports": [
+      {
+        "path": "active/cycle-20260419-001/reports/btc-report-2026-04-19-1636.md",
+        "date": "2026-04-19",
+        "type": "daily"
+      }
+    ],
+    "instant_reports": [],
+    "total_count": 1,
+    "note": "当前周期已有1篇早间日报"
+  },
+
+  "next_stage": {
+    "task_file": "tasks/daily-report-stage2.md",
+    "spawn_instruction": "阶段一已完成，请读取 data-manifest 开始阶段二分析"
+  }
+}

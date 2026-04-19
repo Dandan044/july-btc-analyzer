@@ -152,6 +152,11 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null
 
 如果没有历史报告（新周期），说明"新周期开始，无历史报告"。
 
+**日志记录：**
+```
+[$NOW] [阶段二] 历史回顾完成: 参考报告 X 篇 / 新周期无历史
+```
+
 ---
 
 ### 5. 分析数据并生成报告
@@ -281,6 +286,17 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null
 ### 六、数据来源
 
 使用的本地数据路径：
+
+---
+
+**日志记录：**
+```
+[$NOW] [阶段二] 报告撰写完成
+```
+
+---
+
+### 6. 保存报告文件
 
 
 说明本次分析是否额外获取了数据：

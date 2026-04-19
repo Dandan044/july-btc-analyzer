@@ -245,11 +245,13 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   }
   
   // 2. 获取 24小时 ticker
+  // OKX ticker API: vol24h 是合约张数，volCcy24h 是 BTC 单位
+  // 交易量(USDT) = volCcy24h(BTC) * last(价格)
   const tickerData = await okxCLIJson(`market ticker ${OKX_INST_ID_SWAP}`, proxy);
   // tickerData 可能是数组或 { data: [...] }
   const tickerArr = Array.isArray(tickerData) ? tickerData : tickerData?.data;
-  const volume24h = tickerArr?.[0]?.vol24h ? 
-    parseFloat(tickerArr[0].vol24h) * parseFloat(tickerArr[0].last || 70000) : null;
+  const volume24h = tickerArr?.[0]?.volCcy24h ? 
+    parseFloat(tickerArr[0].volCcy24h) * parseFloat(tickerArr[0].last || 70000) : null;
   
   // 3. 获取技术指标 (OKX CLI 服务端计算)
   const [emaData, rsiData] = await Promise.all([
@@ -273,6 +275,7 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   ]);
   
   // 解析 K线数据 (OKX 格式: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm])
+  // volume 使用 USDT 为单位 (k[7] = volCcyQuote)，不再保留 BTC 为单位的交易量
   const allDataDesc = [];
   for (let i = 0; i < klinesArray.length; i++) {
     const k = klinesArray[i];
@@ -284,10 +287,18 @@ async function getDailyDataCLI(proxy, fngMap = null) {
       high: parseFloat(k[2]),
       low: parseFloat(k[3]),
       close: parseFloat(k[4]),
-      volume: parseFloat(k[5]),
-      quoteVolume: parseFloat(k[7])
+      volume: parseFloat(k[7])  // USDT为单位的交易量
     });
   }
+  
+  // 交易量格式化函数（用于添加易读的单位）
+  const formatVol = (val) => {
+    if (!val) return null;
+    if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
+    if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
+    if (val >= 1e3) return `$${(val / 1e3).toFixed(2)}K`;
+    return `$${val.toFixed(0)}`;
+  };
   
   // 展示数据：取前14条
   const displayData = allDataDesc.slice(0, LIMIT_DISPLAY);
@@ -324,8 +335,8 @@ async function getDailyDataCLI(proxy, fngMap = null) {
       high: d.high,
       low: d.low,
       close: d.close,
-      volume: i === 0 ? null : d.volume,
-      quoteVolume: i === 0 ? null : d.quoteVolume
+      volume: i === 0 ? null : d.volume,  // USDT为单位的交易量
+      volumeFormatted: i === 0 ? null : formatVol(d.volume)  // 格式化的交易量
     };
     
     if (i < ema7.length) entry.ema7 = parseFloat(ema7[i].toFixed(2));
@@ -416,7 +427,9 @@ async function getDailyDataCLI(proxy, fngMap = null) {
         const sellVol = parseFloat(item[2]);
         history[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
         history[idx].takerBuyVol = buyVol;
+        history[idx].takerBuyVolFormatted = formatVol(buyVol);
         history[idx].takerSellVol = sellVol;
+        history[idx].takerSellVolFormatted = formatVol(sellVol);
       }
     }
   }
@@ -427,7 +440,9 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     if (sellVol > 0) {
       history[0].takerRatio = buyVol / sellVol;
       history[0].takerBuyVol = buyVol;
+      history[0].takerBuyVolFormatted = formatVol(buyVol);
       history[0].takerSellVol = sellVol;
+      history[0].takerSellVolFormatted = formatVol(sellVol);
     }
   }
   
@@ -438,7 +453,7 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   const minPrice14d = Math.min(...prices14d);
   const avgPrice14d = prices14d.reduce((a, b) => a + b, 0) / prices14d.length;
   
-  const volumes14d = displayData.slice(1).map(d => d.quoteVolume).filter(v => v);
+  const volumes14d = displayData.slice(1).map(d => d.volume).filter(v => v);
   const maxVolume14d = volumes14d.length > 0 ? Math.max(...volumes14d) : null;
   const minVolume14d = volumes14d.length > 0 ? Math.min(...volumes14d) : null;
   const avgVolume14d = volumes14d.length > 0 ? volumes14d.reduce((a, b) => a + b, 0) / volumes14d.length : null;
@@ -448,7 +463,7 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   const minPrice30d = Math.min(...prices30d);
   const avgPrice30d = prices30d.reduce((a, b) => a + b, 0) / prices30d.length;
   
-  const volumes30d = allDataAsc.slice(-30).slice(0, 29).map(d => d.quoteVolume).filter(v => v);
+  const volumes30d = allDataAsc.slice(-30).slice(0, 29).map(d => d.volume).filter(v => v);
   const maxVolume30d = volumes30d.length > 0 ? Math.max(...volumes30d) : null;
   const minVolume30d = volumes30d.length > 0 ? Math.min(...volumes30d) : null;
   const avgVolume30d = volumes30d.length > 0 ? volumes30d.reduce((a, b) => a + b, 0) / volumes30d.length : null;
@@ -474,6 +489,7 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     history: history,
     current: currentPrice,
     volume24h: volume24h,
+    volume24hFormatted: formatVol(volume24h),
     statistics: {
       days14: {
         price: {
@@ -484,8 +500,11 @@ async function getDailyDataCLI(proxy, fngMap = null) {
         },
         volume: {
           max: maxVolume14d ? parseFloat(maxVolume14d.toFixed(0)) : null,
+          maxFormatted: formatVol(maxVolume14d),
           min: minVolume14d ? parseFloat(minVolume14d.toFixed(0)) : null,
+          minFormatted: formatVol(minVolume14d),
           avg: avgVolume14d ? parseFloat(avgVolume14d.toFixed(0)) : null,
+          avgFormatted: formatVol(avgVolume14d),
           volumeRatio: (volume24h && avgVolume14d) ? parseFloat((volume24h / avgVolume14d).toFixed(2)) : null
         }
       },
@@ -498,8 +517,11 @@ async function getDailyDataCLI(proxy, fngMap = null) {
         },
         volume: {
           max: maxVolume30d ? parseFloat(maxVolume30d.toFixed(0)) : null,
+          maxFormatted: formatVol(maxVolume30d),
           min: minVolume30d ? parseFloat(minVolume30d.toFixed(0)) : null,
+          minFormatted: formatVol(minVolume30d),
           avg: avgVolume30d ? parseFloat(avgVolume30d.toFixed(0)) : null,
+          avgFormatted: formatVol(avgVolume30d),
           volumeRatio: (volume24h && avgVolume30d) ? parseFloat((volume24h / avgVolume30d).toFixed(2)) : null
         }
       }
@@ -538,9 +560,19 @@ async function get4hDataCLI(proxy) {
   
   const result = [];
   
+  // 交易量格式化函数
+  const formatVol = (val) => {
+    if (!val) return null;
+    if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
+    if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
+    if (val >= 1e3) return `$${(val / 1e3).toFixed(2)}K`;
+    return `$${val.toFixed(0)}`;
+  };
+  
   for (let i = 0; i < klinesArray.length; i++) {
     const k = klinesArray[i];
     const ts = parseInt(k[0]);
+    const vol = parseFloat(k[7]);  // USDT为单位的交易量
     const entry = {
       time: toBeijingDatetime(ts),
       timestamp: ts,
@@ -548,8 +580,8 @@ async function get4hDataCLI(proxy) {
       high: parseFloat(k[2]),
       low: parseFloat(k[3]),
       close: parseFloat(k[4]),
-      volume: parseFloat(k[5]),
-      quoteVolume: parseFloat(k[7])
+      volume: vol,
+      volumeFormatted: formatVol(vol)
     };
     result.push(entry);
   }
@@ -610,7 +642,9 @@ async function get4hDataCLI(proxy) {
         const sellVol = parseFloat(item[2]);
         result[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
         result[idx].takerBuyVol = buyVol;
+        result[idx].takerBuyVolFormatted = formatVol(buyVol);
         result[idx].takerSellVol = sellVol;
+        result[idx].takerSellVolFormatted = formatVol(sellVol);
       }
     }
   }
@@ -649,7 +683,7 @@ async function getOKXCandles(bar, limit, proxy) {
 }
 
 /**
- * 分析时间框架（返回完整的斐波那契位信息）
+ * 分析时间框架（返回压缩后的斐波那契位信息）
  */
 function analyzeTimeframeRaw(timeframe, candles) {
   if (!candles || candles.length < 10) return null;
@@ -668,55 +702,18 @@ function analyzeTimeframeRaw(timeframe, candles) {
   
   return {
     timeframe: timeframe,
-    timeframeNote: `${timeframe}级别斐波那契回调分析`,
-    currentPrice: parseFloat(currentPrice.toFixed(2)),
-    
-    swingHigh: parseFloat(swingHigh.toFixed(2)),
-    swingHighNote: '波段高点(分析区间内的最高价)',
-    swingLow: parseFloat(swingLow.toFixed(2)),
-    swingLowNote: '波段低点(分析区间内的最低价)',
-    swingRange: parseFloat(diff.toFixed(2)),
-    swingRangeNote: `波段幅度 $${diff.toFixed(0)} (${rangePercent}% 波动)`,
-    
-    fibonacciLevels: {
-      level_0_percent: {
-        price: parseFloat(swingHigh.toFixed(2)),
-        label: '波段高点',
-        note: '0%回调位, 等于波段高点价格'
-      },
-      level_23_6_percent: {
-        price: parseFloat((swingHigh - diff * 0.236).toFixed(2)),
-        label: '23.6%回调',
-        note: '23.6%回调位, 计算方式: 波段高点 - 波段幅度×0.236'
-      },
-      level_38_2_percent: {
-        price: parseFloat((swingHigh - diff * 0.382).toFixed(2)),
-        label: '38.2%回调',
-        note: '38.2%回调位, 计算方式: 波段高点 - 波段幅度×0.382'
-      },
-      level_50_percent: {
-        price: parseFloat((swingHigh - diff * 0.5).toFixed(2)),
-        label: '50%回调',
-        note: '50%回调位, 波段高低点的中位价, 不属于斐波那契数列'
-      },
-      level_61_8_percent: {
-        price: parseFloat((swingHigh - diff * 0.618).toFixed(2)),
-        label: '61.8%回调',
-        note: '61.8%回调位(黄金分割), 计算方式: 波段高点 - 波段幅度×0.618'
-      },
-      level_78_6_percent: {
-        price: parseFloat((swingHigh - diff * 0.786).toFixed(2)),
-        label: '78.6%回调',
-        note: '78.6%回调位, 计算方式: 波段高点 - 波段幅度×0.786'
-      },
-      level_100_percent: {
-        price: parseFloat(swingLow.toFixed(2)),
-        label: '波段低点',
-        note: '100%回调位, 等于波段低点价格'
-      }
-    },
-    
-    usageNote: '斐波那契回调位基于斐波那契数列计算, 常用回调位包括23.6%、38.2%、50%、61.8%、78.6%'
+    high: parseFloat(swingHigh.toFixed(2)),
+    low: parseFloat(swingLow.toFixed(2)),
+    range: parseFloat(diff.toFixed(2)),
+    levels: [
+      parseFloat(swingHigh.toFixed(2)),                     // 0%
+      parseFloat((swingHigh - diff * 0.236).toFixed(2)),    // 23.6%
+      parseFloat((swingHigh - diff * 0.382).toFixed(2)),    // 38.2%
+      parseFloat((swingHigh - diff * 0.5).toFixed(2)),      // 50%
+      parseFloat((swingHigh - diff * 0.618).toFixed(2)),    // 61.8%
+      parseFloat((swingHigh - diff * 0.786).toFixed(2)),    // 78.6%
+      parseFloat(swingLow.toFixed(2))                       // 100%
+    ]
   };
 }
 
@@ -734,6 +731,7 @@ async function getFibonacciAnalysisCLI(proxy) {
     
     const result = {
       currentPrice: null,
+      note: 'high/low为波段高低点, range为波动幅度, levels数组依次对应0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%斐波那契回调位价格',
       daily: null,
       fourHour: null,
       weekly: null
@@ -741,9 +739,8 @@ async function getFibonacciAnalysisCLI(proxy) {
     
     // 解析日线
     if (dailyCandles && dailyCandles.length >= 10) {
-      const analysis = analyzeTimeframeRaw('日线', dailyCandles);
-      result.currentPrice = analysis.currentPrice;
-      result.daily = analysis;
+      result.currentPrice = dailyCandles[dailyCandles.length - 1].close;
+      result.daily = analyzeTimeframeRaw('日线', dailyCandles);
     }
     
     // 解析4小时
@@ -913,58 +910,40 @@ function analyzeOptionsData(options) {
     resistance.sort((a, b) => b.netOI - a.netOI);
     support.sort((a, b) => b.netOI - a.netOI);
     
+    // 压缩后的数据结构
     result[expiry] = {
-      // 基本信息
-      expiryDate: expiry,
-      expiryNote: `期权到期日 (${expiry})`,
-      contractCount: data.contracts,
-      
-      // 持仓量数据
-      totalOpenInterest: parseFloat(totalOI.toFixed(0)),
-      totalOpenInterestNote: '总持仓量(未平仓合约数), 单位: BTC',
-      callOpenInterest: parseFloat(data.callOI.toFixed(0)),
-      callOpenInterestNote: '看涨期权持仓量, 单位: BTC',
-      putOpenInterest: parseFloat(data.putOI.toFixed(0)),
-      putOpenInterestNote: '看跌期权持仓量, 单位: BTC',
-      putCallRatioOI: data.callOI > 0 ? parseFloat((data.putOI / data.callOI).toFixed(3)) : null,
-      putCallRatioOINote: '看跌/看涨持仓量比值, 计算方式: 看跌期权持仓量 / 看涨期权持仓量',
-      
-      // 交易量数据
-      totalVolume: parseFloat(totalVol.toFixed(0)),
-      totalVolumeNote: '总交易量, 单位: BTC',
-      callVolume: parseFloat(data.callVol.toFixed(0)),
-      callVolumeNote: '看涨期权交易量, 单位: BTC',
-      putVolume: parseFloat(data.putVol.toFixed(0)),
-      putVolumeNote: '看跌期权交易量, 单位: BTC',
-      putCallRatioVolume: data.callVol > 0 ? parseFloat((data.putVol / data.callVol).toFixed(3)) : null,
-      putCallRatioVolumeNote: '看跌/看跌交易量比值, 计算方式: 看跌期权交易量 / 看涨期权交易量',
-      
-      // 隐含波动率
-      averageImpliedVolatility: data.ivs.length > 0 ? parseFloat((data.ivs.reduce((a,b) => a+b, 0) / data.ivs.length).toFixed(1)) : null,
-      averageImpliedVolatilityNote: '平均隐含波动率(%), 所有期权合约隐含波动率的算术平均值',
-      
-      // 最大痛点
-      maxPainPrice: maxPain,
-      maxPainPriceNote: '期权最大痛点价格, 到期时期权买方总收益最大(卖方损失最大)的价格点位',
-      
-      // 关键价位
-      topResistance: resistance.slice(0, 3).map(r => ({ strikePrice: r.strike, netCallOI: parseFloat(r.netOI.toFixed(0)) })),
-      topResistanceNote: '主要阻力位, 看涨期权净持仓(看涨OI - 看跌OI)为正且较大的执行价',
-      topSupport: support.slice(0, 3).map(s => ({ strikePrice: s.strike, netPutOI: parseFloat(s.netOI.toFixed(0)) })),
-      topSupportNote: '主要支撑位, 看跌期权净持仓(看跌OI - 看涨OI)为正且较大的执行价'
+      expiry: expiry,
+      contracts: data.contracts,
+      oi: {
+        total: parseFloat(totalOI.toFixed(0)),
+        call: parseFloat(data.callOI.toFixed(0)),
+        put: parseFloat(data.putOI.toFixed(0)),
+        pcr: data.callOI > 0 ? parseFloat((data.putOI / data.callOI).toFixed(3)) : null
+      },
+      vol: {
+        total: parseFloat(totalVol.toFixed(0)),
+        call: parseFloat(data.callVol.toFixed(0)),
+        put: parseFloat(data.putVol.toFixed(0)),
+        pcr: data.callVol > 0 ? parseFloat((data.putVol / data.callVol).toFixed(3)) : null
+      },
+      iv: data.ivs.length > 0 ? parseFloat((data.ivs.reduce((a,b) => a+b, 0) / data.ivs.length).toFixed(1)) : null,
+      maxPain: maxPain,
+      resistance: resistance.slice(0, 3).map(r => [r.strike, parseFloat(r.netOI.toFixed(0))]),
+      support: support.slice(0, 3).map(s => [s.strike, parseFloat(s.netOI.toFixed(0))])
     };
   }
   
   // 找出最大的两个到期日
   const sorted = Object.entries(result)
-    .sort((a, b) => b[1].totalOpenInterest - a[1].totalOpenInterest);
+    .sort((a, b) => b[1].oi.total - a[1].oi.total);
   
-  const top2 = sorted.slice(0, 2).map(([expiry, data]) => ({
-    expiry,
-    ...data
-  }));
+  const top2 = sorted.slice(0, 2).map(([expiry, data]) => data);
   
-  return top2;
+  // 外层note
+  return {
+    note: 'expiry为到期日, oi/vol为持仓量/交易量(单位BTC), pcr为Put/Call Ratio, iv为平均隐含波动率(%), maxPain为最大痛点价格, resistance/support为[执行价,净持仓]',
+    data: top2
+  };
 }
 
 /**
@@ -1028,6 +1007,7 @@ async function getEnhancedAnalysis(proxy = null) {
         current: dailyData.current,
         days: dailyData.history.length,
         volume24h: dailyData.volume24h,
+        volume24hFormatted: dailyData.volume24hFormatted,
         history: dailyData.history,
         statistics: dailyData.statistics,
         indicators: dailyData.indicators
@@ -1038,7 +1018,7 @@ async function getEnhancedAnalysis(proxy = null) {
 
     // 恐慌指数已整合到 priceHistory.history 的每日记录中，不再单独输出
 
-    if (optionsData && Array.isArray(optionsData)) {
+    if (optionsData && optionsData.data) {
       result.options = optionsData;
     }
 
@@ -1119,36 +1099,36 @@ function formatAnalysis(data) {
   }
   
   // 期权数据
-  if (data.options && data.options.length > 0) {
+  if (data.options && data.options.data && data.options.data.length > 0) {
     out += '\n── 🔮 期权市场 (Deribit) ──\n';
     
-    for (let i = 0; i < data.options.length; i++) {
-      const opt = data.options[i];
+    for (let i = 0; i < data.options.data.length; i++) {
+      const opt = data.options.data[i];
       const label = i === 0 ? '近期主力' : '远期主力';
       
-      out += `\n   【${opt.expiryDate} - ${label}】\n`;
-      out += `   总持仓: ${opt.totalOpenInterest} BTC | 合约数: ${opt.contractCount}个\n`;
-      out += `   看涨持仓: ${opt.callOpenInterest} BTC | 看跌持仓: ${opt.putOpenInterest} BTC\n`;
-      out += `   Put/Call持仓比: ${opt.putCallRatioOI} (${opt.putCallRatioOI > 1 ? '看跌情绪占优' : '看涨情绪占优'})\n`;
-      out += `   Put/Call交易比: ${opt.putCallRatioVolume} (当日交易情绪)\n`;
+      out += `\n   【${opt.expiry} - ${label}】\n`;
+      out += `   总持仓: ${opt.oi.total} BTC | 合约数: ${opt.contracts}个\n`;
+      out += `   看涨持仓: ${opt.oi.call} BTC | 看跌持仓: ${opt.oi.put} BTC\n`;
+      out += `   Put/Call持仓比: ${opt.oi.pcr} (${opt.oi.pcr > 1 ? '看跌情绪占优' : '看涨情绪占优'})\n`;
+      out += `   Put/Call交易比: ${opt.vol.pcr} (当日交易情绪)\n`;
       
-      if (opt.averageImpliedVolatility) {
-        out += `   平均隐含波动率: ${opt.averageImpliedVolatility}% (市场对未来波动的预期)\n`;
+      if (opt.iv) {
+        out += `   平均隐含波动率: ${opt.iv}% (市场对未来波动的预期)\n`;
       }
       
-      out += `   最大痛点: $${opt.maxPainPrice.toLocaleString()}`;
+      out += `   最大痛点: $${opt.maxPain.toLocaleString()}`;
       if (data.priceHistory?.current) {
-        const diff = ((opt.maxPainPrice - data.priceHistory.current) / data.priceHistory.current * 100).toFixed(1);
+        const diff = ((opt.maxPain - data.priceHistory.current) / data.priceHistory.current * 100).toFixed(1);
         out += ` (${diff > 0 ? '+' : ''}${diff}%距现价)\n`;
       } else {
         out += '\n';
       }
       
-      if (opt.topResistance && opt.topResistance.length > 0) {
-        out += `   阻力位: ${opt.topResistance.map(r => `$${r.strikePrice/1000}K(净看涨${r.netCallOI})`).join(', ')}\n`;
+      if (opt.resistance && opt.resistance.length > 0) {
+        out += `   阻力位: ${opt.resistance.map(r => `$${r[0]/1000}K(净看涨${r[1]})`).join(', ')}\n`;
       }
-      if (opt.topSupport && opt.topSupport.length > 0) {
-        out += `   支撑位: ${opt.topSupport.map(s => `$${s.strikePrice/1000}K(净看跌${s.netPutOI})`).join(', ')}\n`;
+      if (opt.support && opt.support.length > 0) {
+        out += `   支撑位: ${opt.support.map(s => `$${s[0]/1000}K(净看跌${s[1]})`).join(', ')}\n`;
       }
     }
     
@@ -1167,10 +1147,10 @@ function formatAnalysis(data) {
       const tfData = data.fibonacci[tf];
       if (tfData) {
         out += `   【${timeframeNames[tf]}】 `;
-        out += `高点 $${tfData.swingHigh?.toLocaleString() || 'N/A'} ~ `;
-        out += `低点 $${tfData.swingLow?.toLocaleString() || 'N/A'}`;
-        if (tfData.swingRange) {
-          out += ` (幅度 $${tfData.swingRange?.toLocaleString()})`;
+        out += `高点 $${tfData.high?.toLocaleString() || 'N/A'} ~ `;
+        out += `低点 $${tfData.low?.toLocaleString() || 'N/A'}`;
+        if (tfData.range) {
+          out += ` (幅度 $${tfData.range?.toLocaleString()})`;
         }
         out += '\n';
       }
@@ -1181,24 +1161,14 @@ function formatAnalysis(data) {
     out += '   级别          日线            4小时           周线\n';
     out += '   ─────────────────────────────────────────────────────\n';
     
-    const levelKeys = [
-      'level_0_percent', 
-      'level_23_6_percent', 
-      'level_38_2_percent', 
-      'level_50_percent',
-      'level_61_8_percent', 
-      'level_78_6_percent', 
-      'level_100_percent'
-    ];
     const levelLabels = ['0%', '23.6%', '38.2%', '50%', '61.8%', '78.6%', '100%'];
     
-    for (let i = 0; i < levelKeys.length; i++) {
-      const levelKey = levelKeys[i];
+    for (let i = 0; i < levelLabels.length; i++) {
       const levelLabel = levelLabels[i];
       
-      const dPrice = data.fibonacci.daily?.fibonacciLevels?.[levelKey]?.price;
-      const h4Price = data.fibonacci.fourHour?.fibonacciLevels?.[levelKey]?.price;
-      const wPrice = data.fibonacci.weekly?.fibonacciLevels?.[levelKey]?.price;
+      const dPrice = data.fibonacci.daily?.levels?.[i];
+      const h4Price = data.fibonacci.fourHour?.levels?.[i];
+      const wPrice = data.fibonacci.weekly?.levels?.[i];
       
       out += `   ${levelLabel.padEnd(8)}  `;
       out += dPrice ? `$${dPrice.toLocaleString().padStart(12)}  ` : '            N/A  ';

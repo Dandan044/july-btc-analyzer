@@ -4,6 +4,10 @@
  */
 
 const https = require('https');
+const { execSync } = require('child_process');
+
+// OKX API 代理配置
+const PROXY_URL = 'http://127.0.0.1:7890';
 
 // ========== 工具函数 ==========
 
@@ -195,6 +199,128 @@ async function getFearGreedIndex(days = 30) {
   };
 }
 
+// ========== OKX API（需要代理） ==========
+
+/**
+ * 获取 OKX 持仓量数据
+ * @returns {Promise<Object>} 持仓量数据
+ */
+async function getOKXOpenInterest() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 20000
+  });
+  
+  const data = JSON.parse(result);
+  if (data.code !== '0') {
+    throw new Error(`OKX API错误: ${data.msg}`);
+  }
+  
+  // 返回最近2天的数据（最新和前一天）
+  const latest = data.data[0];
+  const prev = data.data[1];
+  
+  const oiLatest = parseFloat(latest.openInterest);
+  const oiPrev = parseFloat(prev.openInterest);
+  const changePercent = ((oiLatest - oiPrev) / oiPrev * 100).toFixed(2);
+  
+  return {
+    currentOI: oiLatest,
+    prevOI: oiPrev,
+    change24h: parseFloat(changePercent),
+    volume: parseFloat(latest.volume),
+    timestamp: new Date().toISOString(),
+    history: data.data.slice(0, 7).map(d => ({
+      date: new Date(d.ts).toISOString().split('T')[0],
+      openInterest: parseFloat(d.openInterest),
+      volume: parseFloat(d.volume)
+    }))
+  };
+}
+
+/**
+ * 获取 OKX Taker 买卖比数据
+ * @returns {Promise<Object>} Taker买卖比数据
+ */
+async function getOKXTakerRatio() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/taker-volume?instId=BTC-USDT-SWAP&instType=CONTRACTS&ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 20000
+  });
+  
+  const data = JSON.parse(result);
+  if (data.code !== '0') {
+    throw new Error(`OKX API错误: ${data.msg}`);
+  }
+  
+  // 返回最近2天的数据（最新和前一天）
+  const latest = data.data[0];
+  const prev = data.data[1];
+  
+  const buyVol = parseFloat(latest.buyVol);
+  const sellVol = parseFloat(latest.sellVol);
+  const ratio = buyVol / sellVol;
+  
+  const prevBuyVol = parseFloat(prev.buyVol);
+  const prevSellVol = parseFloat(prev.sellVol);
+  const prevRatio = prevBuyVol / prevSellVol;
+  
+  return {
+    currentRatio: parseFloat(ratio.toFixed(2)),
+    prevRatio: parseFloat(prevRatio.toFixed(2)),
+    buyVolume: buyVol,
+    sellVolume: sellVol,
+    change: parseFloat(((ratio - prevRatio) / prevRatio * 100).toFixed(2)),
+    timestamp: new Date().toISOString(),
+    history: data.data.slice(0, 7).map(d => ({
+      date: new Date(d.ts).toISOString().split('T')[0],
+      buyVol: parseFloat(d.buyVol),
+      sellVol: parseFloat(d.sellVol),
+      ratio: parseFloat((parseFloat(d.buyVol) / parseFloat(d.sellVol)).toFixed(2))
+    }))
+  };
+}
+
+/**
+ * 获取 OKX 多空比数据
+ * @returns {Promise<Object>} 多空比数据
+ */
+async function getOKXLongShortRatio() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 20000
+  });
+  
+  const data = JSON.parse(result);
+  if (data.code !== '0') {
+    throw new Error(`OKX API错误: ${data.msg}`);
+  }
+  
+  // 返回最近2天的数据
+  const latest = data.data[0];
+  const prev = data.data[1];
+  
+  const longAccount = parseFloat(latest.longAccount);
+  const shortAccount = parseFloat(latest.shortAccount);
+  const ratio = longAccount / shortAccount;
+  
+  return {
+    currentRatio: parseFloat(ratio.toFixed(2)),
+    longAccount: longAccount,
+    shortAccount: shortAccount,
+    timestamp: new Date().toISOString(),
+    history: data.data.slice(0, 7).map(d => ({
+      date: new Date(d.ts).toISOString().split('T')[0],
+      longAccount: parseFloat(d.longAccount),
+      shortAccount: parseFloat(d.shortAccount),
+      ratio: parseFloat((parseFloat(d.longAccount) / parseFloat(d.shortAccount)).toFixed(2))
+    }))
+  };
+}
+
 // ========== 导出 ==========
 
 module.exports = {
@@ -203,5 +329,9 @@ module.exports = {
   get24hVolume,
   getPriceHistory,
   getFearGreedIndex,
-  fetch
+  fetch,
+  // OKX API（需要代理）
+  getOKXOpenInterest,
+  getOKXTakerRatio,
+  getOKXLongShortRatio
 };

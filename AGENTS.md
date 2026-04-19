@@ -44,6 +44,70 @@
 
 ---
 
+## ⚠️ 子会话 Spawn 限制
+
+**系统限制：子会话无法直接 spawn 另一个子会话**
+
+这是 OpenClaw 的安全设计，防止 spawn 链无限嵌套。
+
+### 日报流程中的处理方式
+
+日报分四个阶段（阶段一 → 阶段二 → 阶段三 → 阶段四），每个阶段都是独立的子会话：
+
+| 场景 | spawn 执行者 | 说明 |
+|------|-------------|------|
+| 主会话 → 阶段一 | 主会话 | 正常 spawn |
+| 阶段一 → 阶段二 | 主会话（间接） | 阶段一完成后返回消息，主会话 spawn 阶段二 |
+| 阶段二 → 阶段三 | 主会话（间接） | 阶段二完成后返回消息，主会话 spawn 阶段三 |
+| 阶段三 → 阶段四 | 主会话（间接） | 阶段三完成后返回消息，主会话 spawn 阶段四 |
+
+### 子会话返回消息格式
+
+每个任务文件的底部都有「Spawn 消息规范」，规定了该阶段返回时必须包含的 spawn 请求格式。
+
+**关键原则：子会话返回时，必须严格遵循任务文件规定的格式，不得省略、不得添加额外文本。**
+
+各阶段 Spawn 消息规范：
+
+**阶段一 → 阶段二**（严格按 `tasks/daily-report-stage1.md` 底部规范）：
+```
+阶段一数据获取已完成。
+数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
+请读取 tasks/daily-report-stage2.md 开始阶段二分析。
+```
+
+**阶段二 → 阶段三**（严格按 `tasks/daily-report-stage2.md` 底部规范）：
+```
+周期目录: active/cycle-xxx
+```
+
+**阶段三 → 阶段四**（严格按 `tasks/daily-report-stage3.md` 底部规范，必须同时包含）：
+```
+阶段三仓位管理已完成。
+周期状态: [周期活跃中 | 所有仓位平仓，已完成归档]
+周期路径: [active/cycle-xxx | archived/cycle-xxx]
+请读取 tasks/daily-report-stage4.md 开始阶段四警报管理。
+```
+
+**⚠️ 常见错误：** 子会话在返回消息中额外添加执行结果摘要（如"已完成事项、持仓同步状态"等），导致 spawn 请求被稀释，主会话 spawn 下一阶段时无法正确解析结构化字段，触发保底查找。
+
+**正确做法：** spawn 请求单独成段，作为子会话返回消息的固定结尾部分，格式与任务文件规范完全一致。
+
+### 日志警告说明
+
+日志中可能出现：
+```
+[阶段X] ⚠️ WARN: 无法直接 spawn 阶段Y（子会话环境限制），将返回消息给主会话
+[阶段Y] ⚠️ WARN: Spawn 消息解析失败，使用保底路径查找
+[阶段Y] ⚠️ 使用保底
+```
+
+Spawn 消息解析失败的**根本原因**是：上一阶段返回的 spawn 请求格式与任务文件「Spawn 消息规范」不符（字段遗漏或被执行结果稀释），而不是系统限制。
+
+**主会话会接手 spawn 操作**，任务流程没有中断，但下一阶段会触发保底查找，日志会出现警告。修复方法是确保子会话返回时严格遵循任务文件规定的格式。
+
+---
+
 ## 同事
 
 - **一月（上司）**：`~/.openclaw/workspace/` — 管理七月和十四月的上司
@@ -68,11 +132,8 @@
 july-btc-analyzer/
 ├── active/                      # 活跃交易周期（最多1个）
 │   └── cycle-YYYYMMDD-XXX/      # 当前周期文件夹
-│       ├── trade-suggestions.json  # 交易建议文件
+│       ├── positions.json  # 实盘仓位文件
 │       └── reports/             # 本周期报告
-│           ├── btc-report-YYYY-MM-DD-HHMM.md
-│           └── instant-report-YYYY-MM-DD-HHMM.md
-│
 ├── archived/                    # 已归档周期
 │   └── cycle-YYYYMMDD-XXX/      # 历史周期（结构同 active）
 │
@@ -109,79 +170,8 @@ july-btc-analyzer/
 [下一周期在下一篇报告时开启]
 ```
 
-### 交易建议文件结构 (`trade-suggestions.json`)
-
-```json
-{
-  "cycle_id": "cycle-20260319-001",
-  "status": "active",
-  "started_at": "2026-03-19T09:00:00+08:00",
-  "closed_at": null,
-  "closed_reason": null,
-  
-  "suggestions": [
-    {
-      "id": "sug-001",
-      "created_at": "2026-03-19T09:00:00+08:00",
-      "triggered_by": "report-2026-03-19-morning",
-      "direction": "long",
-      "entry_zone": [69500, 70000],
-      "stop_loss": 68000,
-      "take_profit": [72000, 74000],
-      "position_size": "仓位%",
-      "status": "open",
-      "closed_at": null,
-      "close_reason": null,
-      "notes": "突破阻力位后的回踩确认"
-    }
-  ],
-  
-  "summary": {
-    "total": 1,
-    "open": 1,
-    "closed": 0
-  }
-}
 ```
 
-### 周期管理规则
-
-| 场景 | 操作 |
-|------|------|
-| `active/` 为空 | 下一篇报告开启新周期 |
-| `active/` 有周期，建议文件为空 | 观望期，报告正常保存 |
-| `active/` 有周期，有建议 | 持仓期，监控止盈止损 |
-| 所有建议关闭 | 归档周期（移动到 `archived/`） |
-
-### 归档规则
-
-归档周期时，必须在 `trade-suggestions.json` 中记录以下信息：
-
-1. **周期级别字段**：
-   - `status`: 更新为 `"archived"`
-   - `closed_at`: 记录归档时间（ISO 8601格式）
-   - `closed_reason`: 归档原因（如 "所有建议已关闭"、"手动归档" 等）
-
-2. **建议级别字段**（如果尚未关闭）：
-   - `status`: 更新为 `"closed"`
-   - `closed_at`: 记录关闭时间
-   - `close_reason`: 关闭原因（如 "周期归档"）
-
-3. **归档时机**：
-   - 所有建议状态为 `closed` 或 `partial_closed` 且无剩余持仓
-   - 或用户手动要求归档
-
-### 读取当前周期状态
-
-在每次报告生成前，检查周期状态：
-
-```bash
-# 检查是否有活跃周期
-ls -d active/cycle-* 2>/dev/null
-
-# 如果有，读取交易建议文件
-cat active/cycle-*/trade-suggestions.json
-```
 
 ### 不读取历史周期
 
@@ -195,9 +185,8 @@ cat active/cycle-*/trade-suggestions.json
 
 | 任务 | 规则文件 |
 |------|---------|
-| 执行日报任务 | `tasks/daily-report.md` |
+| 执行日报任务 | `tasks/daily-report-stage1.md` |
 | 设定市场警报 | `tasks/set-alert.md` |
-| 警报调试报告 | `tasks/alert-debug.md` |
 | 即时分析任务 | `tasks/instant-analysis.md` |
 | 正常聊天 | 可以参考以往报告和调用你的获取市场数据技能来进行常规的问答 |
 

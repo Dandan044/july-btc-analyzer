@@ -15,7 +15,6 @@
 | `fibonacci` | object | 多时间框架斐波那契回调分析 |
 | `dataSource` | object | 数据来源信息 |
 
-> **注意**：恐慌贪婪指数已整合到 `priceHistory.history` 每日记录中，不再作为顶层独立字段
 
 ---
 
