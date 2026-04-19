@@ -309,24 +309,19 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null
 
 ### 阶段一 → 阶段二（接收）
 
-只需清单路径：
 ```
 数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
 ```
 
-清单已包含所有参数，无需冗余传递。
+清单已含所有参数，无需冗余传递。
 
 ### 阶段二 → 阶段三（发送）
 
-**必须包含：**
+```
+日报文件: active/cycle-xxx/reports/btc-report-xxx.md
+```
 
-| 参数 | 说明 | 用途 |
-|------|------|------|
-| 周期ID | 清单中的 `cycle.id` | 定位周期 |
-| 日报文件 | 本阶段生成的报告路径 | 阶段三读取分析 |
-| 持仓文件 | 清单中的 `cycle.positions_file` | 阶段三验证持仓 |
-| 操作建议类型 | 日报中提炼的类型 | 预判执行逻辑 |
-| 入场条件 | 日报中提炼的条件 | 判断是否立即执行 |
+阶段三会自行读日报识别意图，无需预判。
 
 ---
 
@@ -367,24 +362,19 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json | head -1)
 
 **根据分析结果，spawn 阶段三执行后续任务：**
 
-**⚠️ Spawn 消息必须包含完整信息，供阶段三使用：**
+**⚠️ Spawn 消息只需传递日报路径，阶段三会自行读取日报识别操作意图：**
 
-构建 Spawn 消息模板：
+构建 Spawn 消息：
 
 ```
 阶段二分析已完成。
-周期ID: cycle-YYYYMMDD-XXX
-周期状态: active
 日报文件: active/cycle-YYYYMMDD-XXX/reports/btc-report-YYYY-MM-DD-HHMM.md
-持仓文件: active/cycle-YYYYMMDD-XXX/positions.json
-操作建议类型: [开仓/加仓/减仓/平仓/调整止盈止损/观望]
-入场条件: [立即入场/等待触发]
 请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
 ```
 
-**注意：**
-- `操作建议类型`：从日报建议表格中提取
-- `入场条件`：帮助阶段三判断是否需要立即执行
+**说明：**
+- 阶段三会自行读取日报全文并识别操作意图
+- 无需传递操作预判（冗余）
 
 **Spawn 参数：**
 
@@ -393,7 +383,7 @@ sessions_spawn:
 - agentId: "july"
 - mode: "run"
 - timeoutSeconds: 0
-- task: [上述完整消息]
+- task: [上述消息]
 ```
 
 **执行后立即返回**，不等待阶段三完成。
