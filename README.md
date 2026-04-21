@@ -324,6 +324,33 @@ env: {
 
 ## 更新日志
 
+### 2026-04-22
+> 📝 日志规范化 + 逐仓参数强制化 + 新周期开启
+
+**变更内容：**
+
+**① tasks/daily-report-stage3.md — 操作日志强制规范**
+- 新增「日志强制要求」表格：开仓/加仓/减仓/平仓/调整/设置止盈止损/跳过执行 全部要求记录
+- 明确每种操作的日志格式原则（操作类型 + 结果 + 关键参数）
+- 所有 OKX 持仓查询命令强制添加 `--tdMode isolated`（逐仓）
+- 新增多处执行日志格式规范（加仓成功、减仓成功、止盈止损更新等）
+
+**② tasks/sync-positions.md — 逐仓参数统一**
+- 所有 OKX API 命令强制添加 `--tdMode isolated` 参数
+- 涵盖：positions、orders、algo orders、bills、positions-history
+
+**③ active/ — 周期归档与新建**
+- 归档 cycle-20260420-001（已结束）
+- 新建 cycle-20260421-001（当前活跃周期，当前无持仓）
+
+**④ rules/ — 警报规则归档**
+- 归档 8 个过期规则到 rules-archive/：
+  - oi-decline-10pct、lsr-taker-divergence、oi-break-3350m、oi-break-3450m
+  - resistance-76500-delayed、resistance-77000-delayed
+  - support-75550、support-76500
+
+---
+
 ### 2026-04-21
 > 🔧 修复阶段三最小仓位判断逻辑错误 + 新增即时分析阶段一任务
 
