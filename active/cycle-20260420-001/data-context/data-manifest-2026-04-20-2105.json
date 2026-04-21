@@ -1,0 +1,46 @@
+{
+  "manifest_version": "1.0",
+  "stage": "data-collection",
+  "generated_at": "2026-04-20T21:07:17+08:00",
+  
+  "cycle": {
+    "id": "cycle-20260420-001",
+    "status": "active",
+    "started_at": "2026-04-20T21:00:00+08:00",
+    "positions_file": "active/cycle-20260420-001/positions.json",
+    "is_new_cycle": true
+  },
+  
+  "持仓信息": {
+    "文件": "active/cycle-20260420-001/positions.json",
+    "同步时间": "2026-04-20T21:00:00+08:00",
+    "当前持仓数": 0,
+    "有BTC逐仓持仓": false,
+    "数据来源": "OKX实盘账户"
+  },
+  
+  "data_files": {
+    "market_data": {
+      "path": "data/2026-04-20.json",
+      "generated_at": "2026-04-20T21:05:33+08:00",
+      "source": "OKX + CryptoCompare + alternative.me",
+      "status": "success"
+    },
+    "data_mining_report": {
+      "path": "active/cycle-20260420-001/data-context/data-mining-2026-04-20-2105.md",
+      "generated_at": "2026-04-20T21:05:33+08:00"
+    }
+  },
+  
+  "history_reports": {
+    "daily_reports": [],
+    "instant_reports": [],
+    "total_count": 0,
+    "note": "新周期开始，无历史报告"
+  },
+  
+  "next_stage": {
+    "task_file": "tasks/daily-report-stage2.md",
+    "spawn_instruction": "阶段一已完成，请读取 data-manifest 开始阶段二分析"
+  }
+}

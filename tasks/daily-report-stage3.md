@@ -286,9 +286,12 @@ equity = 500 USDT
 - 300% = 名义价值为余额的 3倍（最大，需要全部可用余额作为保证金）
 
 **最小仓位检查：**
-- 如果计算张数 < minSz，**终止下单**，记录日志：
+- BTC-USDT-SWAP 合约信息：`ctVal = 0.01 BTC`，`minSz = 0.01张`，`lotSz = 0.01张`
+- 计算张数 `sz = equity × position_size / (价格 × ctVal)`，向下取整到 `lotSz`
+- 如果 `sz < minSz`（即 `sz < 0.01张`），**终止下单**，记录日志：
   ```
-  [$NOW] [阶段三] ⚠️ WARN: 计算仓位低于最小张数，需要 equity ≥ xxx USDT
+  [$NOW] [阶段三] ⛔ ERROR: 账户权益不足以开立最小仓位（equity × position_size < 价格 × minSz × ctVal）
+  需要 equity ≥ xxx USDT，当前 equity = xxx USDT
   ```
 
 ##### 7.1.4 执行下单

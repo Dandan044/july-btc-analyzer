@@ -221,20 +221,20 @@ async function getOKXOpenInterest() {
   const latest = data.data[0];
   const prev = data.data[1];
   
-  const oiLatest = parseFloat(latest.openInterest);
-  const oiPrev = parseFloat(prev.openInterest);
+  const oiLatest = parseFloat(latest[1]); // API 返回数组：[ts, OI, volume]
+  const oiPrev = parseFloat(prev[1]);
   const changePercent = ((oiLatest - oiPrev) / oiPrev * 100).toFixed(2);
   
   return {
     currentOI: oiLatest,
     prevOI: oiPrev,
     change24h: parseFloat(changePercent),
-    volume: parseFloat(latest.volume),
+    volume: parseFloat(latest[2]),
     timestamp: new Date().toISOString(),
     history: data.data.slice(0, 7).map(d => ({
-      date: new Date(d.ts).toISOString().split('T')[0],
-      openInterest: parseFloat(d.openInterest),
-      volume: parseFloat(d.volume)
+      date: new Date(parseInt(d[0])).toISOString().split("T")[0],
+      openInterest: parseFloat(d[1]),
+      volume: parseFloat(d[2])
     }))
   };
 }
@@ -259,12 +259,12 @@ async function getOKXTakerRatio() {
   const latest = data.data[0];
   const prev = data.data[1];
   
-  const buyVol = parseFloat(latest.buyVol);
-  const sellVol = parseFloat(latest.sellVol);
+  const buyVol = parseFloat(latest[1]); // API 返回数组：[ts, buyVol, sellVol]
+  const sellVol = parseFloat(latest[2]);
   const ratio = buyVol / sellVol;
   
-  const prevBuyVol = parseFloat(prev.buyVol);
-  const prevSellVol = parseFloat(prev.sellVol);
+  const prevBuyVol = parseFloat(prev[1]);
+  const prevSellVol = parseFloat(prev[2]);
   const prevRatio = prevBuyVol / prevSellVol;
   
   return {
@@ -275,10 +275,10 @@ async function getOKXTakerRatio() {
     change: parseFloat(((ratio - prevRatio) / prevRatio * 100).toFixed(2)),
     timestamp: new Date().toISOString(),
     history: data.data.slice(0, 7).map(d => ({
-      date: new Date(d.ts).toISOString().split('T')[0],
-      buyVol: parseFloat(d.buyVol),
-      sellVol: parseFloat(d.sellVol),
-      ratio: parseFloat((parseFloat(d.buyVol) / parseFloat(d.sellVol)).toFixed(2))
+      date: new Date(parseInt(d[0])).toISOString().split("T")[0],
+      buyVol: parseFloat(d[1]),
+      sellVol: parseFloat(d[2]),
+      ratio: parseFloat((parseFloat(d[1]) / parseFloat(d[2])).toFixed(2))
     }))
   };
 }
@@ -303,8 +303,8 @@ async function getOKXLongShortRatio() {
   const latest = data.data[0];
   const prev = data.data[1];
   
-  const longAccount = parseFloat(latest.longAccount);
-  const shortAccount = parseFloat(latest.shortAccount);
+  const longAccount = parseFloat(latest[1]); // API 返回数组：[ts, longAccount, shortAccount]
+  const shortAccount = parseFloat(latest[2]);
   const ratio = longAccount / shortAccount;
   
   return {
@@ -313,10 +313,10 @@ async function getOKXLongShortRatio() {
     shortAccount: shortAccount,
     timestamp: new Date().toISOString(),
     history: data.data.slice(0, 7).map(d => ({
-      date: new Date(d.ts).toISOString().split('T')[0],
-      longAccount: parseFloat(d.longAccount),
-      shortAccount: parseFloat(d.shortAccount),
-      ratio: parseFloat((parseFloat(d.longAccount) / parseFloat(d.shortAccount)).toFixed(2))
+      date: new Date(parseInt(d[0])).toISOString().split("T")[0],
+      longAccount: parseFloat(d[1]),
+      shortAccount: parseFloat(d[2]),
+      ratio: parseFloat((parseFloat(d[1]) / parseFloat(d[2])).toFixed(2))
     }))
   };
 }

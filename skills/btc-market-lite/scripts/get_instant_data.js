@@ -224,9 +224,10 @@ async function getKlineData(bar, limit, proxy) {
       const ts = parseInt(d[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
-        result[idx].longShortRatio = parseFloat(d[1]);
-        result[idx].longAccount = parseFloat(d[1]) / (1 + parseFloat(d[1]));
-        result[idx].shortAccount = 1 / (1 + parseFloat(d[1]));
+        const ratio = parseFloat(d[1]);
+        result[idx].longShortRatio = ratio;
+        result[idx].longAccount = ratio / (1 + ratio);
+        result[idx].shortAccount = 1 / (1 + ratio);
       }
     }
   }
@@ -258,6 +259,103 @@ async function getKlineData(bar, limit, proxy) {
   }
   
   return result;
+}
+
+// ========== 斐波那契分析 (使用 OKX CLI K线数据) ==========
+
+/**
+ * 获取 OKX K线数据用于斐波那契分析
+ */
+async function getOKXCandles(bar, limit, proxy) {
+  const data = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar ${bar} --limit ${limit}`, proxy);
+  const arr = Array.isArray(data) ? data : data?.data;
+  if (!arr || arr.length === 0) return null;
+  return arr.map(k => ({
+    time: parseInt(k[0]),
+    open: parseFloat(k[1]),
+    high: parseFloat(k[2]),
+    low: parseFloat(k[3]),
+    close: parseFloat(k[4])
+  }));
+}
+
+/**
+ * 分析时间框架（返回压缩后的斐波那契位信息）
+ */
+function analyzeTimeframeRaw(timeframe, candles) {
+  if (!candles || candles.length < 10) return null;
+  let swingHigh = candles[0].high;
+  let swingLow = candles[0].low;
+  for (const c of candles) {
+    if (c.high > swingHigh) swingHigh = c.high;
+    if (c.low < swingLow) swingLow = c.low;
+  }
+  const currentPrice = candles[candles.length - 1].close;
+  const diff = swingHigh - swingLow;
+  return {
+    timeframe: timeframe,
+    high: parseFloat(swingHigh.toFixed(2)),
+    low: parseFloat(swingLow.toFixed(2)),
+    range: parseFloat(diff.toFixed(2)),
+    levels: [
+      parseFloat(swingHigh.toFixed(2)),
+      parseFloat((swingHigh - diff * 0.236).toFixed(2)),
+      parseFloat((swingHigh - diff * 0.382).toFixed(2)),
+      parseFloat((swingHigh - diff * 0.5).toFixed(2)),
+      parseFloat((swingHigh - diff * 0.618).toFixed(2)),
+      parseFloat((swingHigh - diff * 0.786).toFixed(2)),
+      parseFloat(swingLow.toFixed(2))
+    ]
+  };
+}
+
+/**
+ * 获取多时间框架斐波那契分析 (使用 OKX CLI)
+ */
+async function getFibonacciAnalysisCLI(proxy) {
+  try {
+    const [dailyCandles, h4Candles, weeklyCandlesRaw] = await Promise.all([
+      getOKXCandles('1D', 100, proxy),
+      getOKXCandles('4H', 100, proxy),
+      getOKXCandles('1D', 200, proxy)
+    ]);
+    const result = {
+      currentPrice: null,
+      note: 'high/low为波段高低点, range为波动幅度, levels数组依次对应0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%斐波那契回调位价格',
+      daily: null,
+      fourHour: null,
+      weekly: null
+    };
+    if (dailyCandles && dailyCandles.length >= 10) {
+      result.currentPrice = dailyCandles[dailyCandles.length - 1].close;
+      result.daily = analyzeTimeframeRaw('日线', dailyCandles);
+    }
+    if (h4Candles && h4Candles.length >= 10) {
+      result.fourHour = analyzeTimeframeRaw('4小时', h4Candles);
+    }
+    if (weeklyCandlesRaw && weeklyCandlesRaw.length >= 7) {
+      const weeklyCandles = [];
+      for (let i = 0; i < weeklyCandlesRaw.length; i += 7) {
+        const week = weeklyCandlesRaw.slice(i, i + 7);
+        if (week.length > 0) {
+          weeklyCandles.push({
+            time: week[0].time,
+            open: week[0].open,
+            high: Math.max(...week.map(w => w.high)),
+            low: Math.min(...week.map(w => w.low)),
+            close: week[week.length - 1].close
+          });
+        }
+      }
+      if (weeklyCandles.length >= 10) {
+        result.weekly = analyzeTimeframeRaw('周线', weeklyCandles);
+      }
+    }
+    return result;
+  } catch (e) {
+    console.error('斐波那契分析错误:', e.message);
+    return null;
+  }
 }
 
 /**
@@ -294,6 +392,7 @@ async function getInstantData(proxy = null) {
     kline4h: null,
     kline1h: null,
     kline15m: null,
+    fibonacci: null,
     dataSource: {
       price: 'OKX CLI',
       proxy: proxy ? 'via proxy' : 'no proxy'
@@ -304,17 +403,19 @@ async function getInstantData(proxy = null) {
     console.error('使用 OKX CLI 获取即时数据...');
     
     // 并行获取所有数据
-    const [ticker, kline4h, kline1h, kline15m] = await Promise.all([
+    const [ticker, kline4h, kline1h, kline15m, fibData] = await Promise.all([
       getTicker24h(proxy).catch(e => { console.error('Ticker error:', e.message); return null; }),
       getKlineData('4H', 12, proxy).catch(e => { console.error('4h error:', e.message); return null; }),
       getKlineData('1H', 4, proxy).catch(e => { console.error('1h error:', e.message); return null; }),
-      getKlineData('15m', 8, proxy).catch(e => { console.error('15m error:', e.message); return null; })
+      getKlineData('15m', 8, proxy).catch(e => { console.error('15m error:', e.message); return null; }),
+      getFibonacciAnalysisCLI(proxy).catch(e => { console.error('Fibonacci error:', e.message); return null; })
     ]);
 
     result.ticker = ticker;
     result.kline4h = kline4h;
     result.kline1h = kline1h;
     result.kline15m = kline15m;
+    if (fibData) result.fibonacci = fibData;
 
   } catch (e) {
     console.error('数据获取错误:', e.message);
@@ -397,6 +498,50 @@ function formatInstantData(data) {
       if (k.quoteVolume !== undefined) {
         out += ` | 成交${(k.quoteVolume/1e6).toFixed(1)}M`;
       }
+      out += '\n';
+    }
+    out += '\n';
+  }
+  
+  // 斐波那契回调位
+  if (data.fibonacci) {
+    out += '── 📐 斐波那契回调位 ──\n';
+    out += `   当前价格: $${data.fibonacci.currentPrice?.toLocaleString() || 'N/A'}\n\n`;
+    
+    const timeframes = ['daily', 'fourHour', 'weekly'];
+    const timeframeNames = { daily: '日线', fourHour: '4小时', weekly: '周线' };
+    
+    for (const tf of timeframes) {
+      const tfData = data.fibonacci[tf];
+      if (tfData) {
+        out += `   【${timeframeNames[tf]}】 `;
+        out += `高点 $${tfData.high?.toLocaleString() || 'N/A'} ~ `;
+        out += `低点 $${tfData.low?.toLocaleString() || 'N/A'}`;
+        if (tfData.range) {
+          out += ` (幅度 $${tfData.range?.toLocaleString()})`;
+        }
+        out += '\n';
+      }
+    }
+    
+    out += '\n';
+    
+    out += '   级别          日线            4小时           周线\n';
+    out += '   ─────────────────────────────────────────────────────\n';
+    
+    const levelLabels = ['0%', '23.6%', '38.2%', '50%', '61.8%', '78.6%', '100%'];
+    
+    for (let i = 0; i < levelLabels.length; i++) {
+      const levelLabel = levelLabels[i];
+      
+      const dPrice = data.fibonacci.daily?.levels?.[i];
+      const h4Price = data.fibonacci.fourHour?.levels?.[i];
+      const wPrice = data.fibonacci.weekly?.levels?.[i];
+      
+      out += `   ${levelLabel.padEnd(12)}`;
+      out += dPrice ? `$${dPrice.toLocaleString().padEnd(15)}` : 'N/A'.padEnd(15);
+      out += h4Price ? `$${h4Price.toLocaleString().padEnd(15)}` : 'N/A'.padEnd(15);
+      out += wPrice ? `$${wPrice.toLocaleString()}` : 'N/A';
       out += '\n';
     }
     out += '\n';

@@ -933,3 +933,20 @@
 2026-04-19T23:12:22: [数据收集错误] Invalid time value
 2026-04-19T23:15:15: [数据收集错误] Invalid time value
 2026-04-19T23:18:11: [数据收集错误] Invalid time value
+2026-04-20T00:15:34: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T05:53:05: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T09:18:49: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T09:21:49: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T09:24:47: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T09:27:48: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T09:30:47: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T09:33:48: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T10:39:47: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T10:42:47: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T10:45:47: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T10:48:47: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T10:48:48: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T10:51:48: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T22:20:51: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T22:23:42: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-20T23:58:15: [警报检查错误] Command failed: curl -s --max-time 15 --proxy "http://127.0.0.1:7890" "https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D"

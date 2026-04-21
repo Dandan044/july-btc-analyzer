@@ -19,10 +19,10 @@
 - agentId: "july"
 - mode: "run"
 - timeoutSeconds: 0 （不等待完成）
-- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的完整内容
+- task: 读取 tasks/instant-analysis-stage1.md 并执行
 ```
 
-**执行后立即返回**，不要等待子会话完成。子会话会独立执行即时分析任务。
+**执行后立即返回**，不要等待子会话完成。子会话会执行阶段一数据获取，然后 spawn 到日报阶段二继续分析。
 
 ### [SPAWN_DAILY_REPORT] - 日报任务
 
@@ -187,7 +187,7 @@ july-btc-analyzer/
 |------|---------|
 | 执行日报任务 | `tasks/daily-report-stage1.md` |
 | 设定市场警报 | `tasks/set-alert.md` |
-| 即时分析任务 | `tasks/instant-analysis.md` |
+| 即时分析任务 | `tasks/instant-analysis-stage1.md` |
 | 正常聊天 | 可以参考以往报告和调用你的获取市场数据技能来进行常规的问答 |
 
 ### 触发方式

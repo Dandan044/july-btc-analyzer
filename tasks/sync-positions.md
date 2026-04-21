@@ -34,10 +34,16 @@
 
 ### 1. 获取实盘持仓数据
 
+**⚠️ 严格约束：只能获取 BTC-USDT-SWAP 逐仓仓位，绝对不能同步全仓仓位**
+
+- 即使 API 返回了 BTC 全仓持仓，也必须忽略
+- 如果没有 BTC 逐仓持仓，`当前持仓` 直接置为空数组 `[]`
+- 不能将全仓数据（无论是 BTC 还是其他币种）写入 positions.json
+
 **使用 okx 工具获取当前持仓、止盈止损订单和账单记录：**
 
 ```bash
-# 获取当前持仓
+# 获取当前持仓（必须筛选 BTC-USDT-SWAP 逐仓）
 okx-proxy.sh --profile live account positions --instId SWAP --json
 
 # 获取委托订单（止盈止损）
@@ -48,12 +54,15 @@ okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --json
 okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100 --json
 ```
 
-**筛选条件：只保留 BTC 逐仓仓位**
+**⚠️ 数据筛选规则（执行时必须应用）：**
 
-| 筛选字段 | 筛选值 | 原因 |
-|---------|-------|------|
-| `instId` | `BTC-USDT-SWAP` | 专注 BTC 交易 |
-| `tdMode` | `isolated` | 环境分离，逐仓独立 |
+| 步骤 | 筛选条件 | 说明 |
+|------|---------|------|
+| 1 | `instId` = `BTC-USDT-SWAP` | 只保留 BTC 合约 |
+| 2 | `tdMode` 或 `mgnMode` = `isolated` | 只保留逐仓模式 |
+| 3 | 忽略全仓数据 | 即使有全仓仓位也忽略 |
+
+**⚠️ 绝对禁止：将全仓数据写入 positions.json**
 
 ---
 
