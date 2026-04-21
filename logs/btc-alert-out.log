@@ -28222,3 +28222,1492 @@
 2026-04-21T12:01:22: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
 2026-04-21T12:01:22: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
 2026-04-21T12:02:20: [Alert Engine] [支撑位跌破警报-75550] COOLDOWN_ACTIVE
+2026-04-21T12:04:18: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:04:18: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:05:16: [Alert Engine] [支撑位跌破警报-75550] COOLDOWN_ACTIVE
+2026-04-21T12:07:10: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T12:07:10: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T12:07:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:07:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:08:13: [Alert Engine] [支撑位跌破警报-75550] COOLDOWN_ACTIVE
+2026-04-21T12:08:13: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T12:08:13: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T12:10:10: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:10:10: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:11:09: [Alert Engine] [支撑位跌破警报-75550] COOLDOWN_ACTIVE
+2026-04-21T12:13:07: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:13:07: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:14:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:14:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:15:07: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T12:15:07: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T12:16:05: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:16:05: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:17:04: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:17:04: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:19:02: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:19:02: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:20:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:20:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:21:55: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T12:21:55: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T12:21:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:21:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:22:58: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:22:58: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:22:58: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T12:22:58: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T12:24:55: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:24:55: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:25:54: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:25:54: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:27:52: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:27:52: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:28:50: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:28:50: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:29:50: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T12:29:50: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T12:30:48: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:30:48: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:31:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:31:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:33:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:33:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:34:42: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:34:42: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:36:36: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T12:36:36: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T12:36:40: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:36:40: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:37:39: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:37:39: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:37:39: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T12:37:39: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T12:39:36: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:39:36: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:40:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:40:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:42:34: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:42:35: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:43:33: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:43:33: [警报检查] 当前价格: $75706.98, 目标支撑: $75550
+2026-04-21T12:43:33: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:44:33: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T12:44:34: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T12:44:34: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T12:45:31: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:45:32: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:46:30: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:46:32: [警报检查] 当前价格: $75761.23, 目标支撑: $75550
+2026-04-21T12:46:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:48:28: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:48:30: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:49:27: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:49:28: [警报检查] 当前价格: $75755.46, 目标支撑: $75550
+2026-04-21T12:49:28: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:51:22: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T12:51:23: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T12:51:23: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T12:51:26: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:51:27: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:52:25: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:52:25: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T12:52:27: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T12:52:27: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T12:52:28: [警报检查] 当前价格: $75821.33, 目标支撑: $75550
+2026-04-21T12:52:28: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:54:23: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:54:24: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:55:21: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:55:23: [警报检查] 当前价格: $75786.91, 目标支撑: $75550
+2026-04-21T12:55:23: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:57:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T12:57:21: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T12:58:18: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T12:58:20: [警报检查] 当前价格: $75830.12, 目标支撑: $75550
+2026-04-21T12:58:20: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T12:59:19: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T12:59:20: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T12:59:20: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T13:00:17: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:00:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:01:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:01:17: [警报检查] 当前价格: $75876.66, 目标支撑: $75550
+2026-04-21T13:01:17: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:03:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:03:15: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:04:13: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:04:15: [警报检查] 当前价格: $75873.52, 目标支撑: $75550
+2026-04-21T13:04:15: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:06:06: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T13:06:08: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T13:06:08: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T13:06:11: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:06:12: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:07:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:07:09: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T13:07:12: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T13:07:12: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T13:07:13: [警报检查] 当前价格: $75893.62, 目标支撑: $75550
+2026-04-21T13:07:13: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:09:07: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:09:09: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:10:05: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:10:09: [警报检查] 当前价格: $75953.23, 目标支撑: $75550
+2026-04-21T13:10:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:12:03: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:12:04: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:13:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:13:02: [警报检查] 当前价格: $75926.72, 目标支撑: $75550
+2026-04-21T13:13:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:14:01: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T13:14:03: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T13:14:03: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T13:14:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:15:00: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:15:57: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:15:58: [警报检查] 当前价格: $75947.72, 目标支撑: $75550
+2026-04-21T13:15:58: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:17:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:17:56: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:18:53: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:18:54: [警报检查] 当前价格: $75911.18, 目标支撑: $75550
+2026-04-21T13:18:54: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:20:46: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T13:20:47: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T13:20:47: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T13:20:49: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:20:50: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:21:49: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:21:49: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T13:21:50: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T13:21:50: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T13:21:51: [警报检查] 当前价格: $75962.33, 目标支撑: $75550
+2026-04-21T13:21:51: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:23:45: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:23:47: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:24:44: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:24:45: [警报检查] 当前价格: $76000.96, 目标支撑: $75550
+2026-04-21T13:24:45: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:26:41: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:26:43: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:27:39: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:27:40: [警报检查] 当前价格: $75948.99, 目标支撑: $75550
+2026-04-21T13:27:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:28:39: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T13:28:40: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T13:28:40: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T13:29:37: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:29:39: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:30:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:30:37: [警报检查] 当前价格: $75924.29, 目标支撑: $75550
+2026-04-21T13:30:37: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:32:33: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:32:33: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:33:31: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:33:32: [警报检查] 当前价格: $75885.1, 目标支撑: $75550
+2026-04-21T13:33:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:35:23: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T13:35:25: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T13:35:25: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T13:35:28: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:35:29: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:36:26: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:36:26: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T13:36:28: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T13:36:28: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T13:36:29: [警报检查] 当前价格: $75904.54, 目标支撑: $75550
+2026-04-21T13:36:29: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:38:23: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:38:24: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:39:21: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:39:22: [警报检查] 当前价格: $75897.63, 目标支撑: $75550
+2026-04-21T13:39:22: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:41:18: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:41:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:42:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:42:17: [警报检查] 当前价格: $75889.21, 目标支撑: $75550
+2026-04-21T13:42:17: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:43:16: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T13:43:17: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T13:43:17: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T13:44:13: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:44:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:45:11: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:45:12: [警报检查] 当前价格: $75869.03, 目标支撑: $75550
+2026-04-21T13:45:12: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:47:08: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:47:09: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:48:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:48:08: [警报检查] 当前价格: $75837.94, 目标支撑: $75550
+2026-04-21T13:48:08: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:49:59: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T13:50:00: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T13:50:00: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T13:50:03: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:50:04: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:51:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:51:01: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T13:51:04: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T13:51:04: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T13:51:05: [警报检查] 当前价格: $75829.82, 目标支撑: $75550
+2026-04-21T13:51:05: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:52:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:53:00: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:53:56: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:53:57: [警报检查] 当前价格: $75847.67, 目标支撑: $75550
+2026-04-21T13:53:57: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:55:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:55:55: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:56:51: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:56:53: [警报检查] 当前价格: $75863.71, 目标支撑: $75550
+2026-04-21T13:56:53: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T13:57:51: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T13:57:52: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T13:57:52: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T13:58:49: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T13:58:50: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T13:59:47: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T13:59:48: [警报检查] 当前价格: $75844.85, 目标支撑: $75550
+2026-04-21T13:59:48: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:01:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:01:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:02:42: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:02:43: [警报检查] 当前价格: $75809.07, 目标支撑: $75550
+2026-04-21T14:02:43: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:04:35: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T14:04:36: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T14:04:36: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T14:04:38: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:04:39: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:05:37: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:05:37: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T14:05:40: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T14:05:40: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T14:05:40: [警报检查] 当前价格: $75800.94, 目标支撑: $75550
+2026-04-21T14:05:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:07:34: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:07:35: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:08:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:08:33: [警报检查] 当前价格: $75804.94, 目标支撑: $75550
+2026-04-21T14:08:33: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:10:29: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:10:30: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:11:28: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:11:29: [警报检查] 当前价格: $75805.6, 目标支撑: $75550
+2026-04-21T14:11:29: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:12:27: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T14:12:28: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T14:12:28: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T14:13:24: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:13:25: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:14:22: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:14:23: [警报检查] 当前价格: $75801.4, 目标支撑: $75550
+2026-04-21T14:14:23: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:16:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:16:20: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:17:17: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:17:19: [警报检查] 当前价格: $75822.42, 目标支撑: $75550
+2026-04-21T14:17:19: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:19:10: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T14:19:11: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T14:19:11: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T14:19:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:19:16: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:20:12: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:20:12: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T14:20:15: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T14:20:15: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T14:20:15: [警报检查] 当前价格: $75769.35, 目标支撑: $75550
+2026-04-21T14:20:15: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:22:09: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:22:10: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:23:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:23:08: [警报检查] 当前价格: $75764.92, 目标支撑: $75550
+2026-04-21T14:23:08: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:25:03: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:25:05: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:26:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:26:02: [警报检查] 当前价格: $75762.97, 目标支撑: $75550
+2026-04-21T14:26:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:27:00: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T14:27:02: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T14:27:02: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T14:27:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:28:01: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:28:56: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:28:57: [警报检查] 当前价格: $75786.22, 目标支撑: $75550
+2026-04-21T14:28:57: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:30:53: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:30:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:31:51: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:31:52: [警报检查] 当前价格: $75945.05, 目标支撑: $75550
+2026-04-21T14:31:52: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:33:43: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T14:33:44: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T14:33:44: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T14:33:48: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:33:48: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:34:45: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:34:45: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T14:34:48: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T14:34:48: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T14:34:49: [警报检查] 当前价格: $76058.69, 目标支撑: $75550
+2026-04-21T14:34:49: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:36:42: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:36:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:37:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:37:41: [警报检查] 当前价格: $76040.48, 目标支撑: $75550
+2026-04-21T14:37:41: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:39:37: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:39:38: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:40:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:40:35: [警报检查] 当前价格: $76070.81, 目标支撑: $75550
+2026-04-21T14:40:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:41:36: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T14:41:37: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T14:41:37: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T14:42:34: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:42:35: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:43:33: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:43:35: [警报检查] 当前价格: $76030.21, 目标支撑: $75550
+2026-04-21T14:43:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:45:31: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:45:32: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:46:29: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:46:30: [警报检查] 当前价格: $76032.17, 目标支撑: $75550
+2026-04-21T14:46:30: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:48:23: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T14:48:24: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T14:48:24: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T14:48:27: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:48:28: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:49:26: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T14:49:27: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T14:49:27: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T14:49:27: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:49:30: [警报检查] 当前价格: $76065.91, 目标支撑: $75550
+2026-04-21T14:49:30: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:51:23: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:51:26: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:52:23: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:52:24: [警报检查] 当前价格: $76015.79, 目标支撑: $75550
+2026-04-21T14:52:24: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:54:18: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:54:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:55:18: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:55:19: [警报检查] 当前价格: $76001.9, 目标支撑: $75550
+2026-04-21T14:55:20: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T14:56:16: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T14:56:17: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T14:56:17: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T14:57:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T14:57:15: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T14:58:14: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T14:58:15: [警报检查] 当前价格: $76027.43, 目标支撑: $75550
+2026-04-21T14:58:15: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:00:09: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:00:10: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:01:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:01:09: [警报检查] 当前价格: $75932.67, 目标支撑: $75550
+2026-04-21T15:01:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:03:00: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T15:03:01: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T15:03:01: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T15:03:04: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:03:05: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:04:03: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T15:04:05: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T15:04:05: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T15:04:05: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:04:06: [警报检查] 当前价格: $75901.86, 目标支撑: $75550
+2026-04-21T15:04:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:05:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:06:01: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:07:00: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:07:01: [警报检查] 当前价格: $75924.71, 目标支撑: $75550
+2026-04-21T15:07:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:08:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:08:55: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:09:55: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:09:56: [警报检查] 当前价格: $75924.55, 目标支撑: $75550
+2026-04-21T15:09:56: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:10:52: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T15:10:53: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T15:10:53: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T15:11:49: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:11:51: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:12:51: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:12:53: [警报检查] 当前价格: $75947.42, 目标支撑: $75550
+2026-04-21T15:12:53: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:14:46: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:14:48: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:15:47: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:15:50: [警报检查] 当前价格: $76003.88, 目标支撑: $75550
+2026-04-21T15:15:50: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:17:38: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T15:17:39: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T15:17:39: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T15:17:42: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:17:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:18:40: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T15:18:44: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T15:18:44: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T15:18:44: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:18:44: [警报检查] 当前价格: $76031.35, 目标支撑: $75550
+2026-04-21T15:18:44: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:20:38: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:20:39: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:21:39: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:21:40: [警报检查] 当前价格: $76116.55, 目标支撑: $75550
+2026-04-21T15:21:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:23:32: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:23:34: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:24:33: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:24:35: [警报检查] 当前价格: $76143.86, 目标支撑: $75550
+2026-04-21T15:24:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:25:29: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T15:25:33: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T15:25:33: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T15:26:27: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:26:29: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:27:29: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:27:29: [警报检查] 当前价格: $76202.65, 目标支撑: $75550
+2026-04-21T15:27:29: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:29:22: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:29:23: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:30:23: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:30:28: [警报检查] 当前价格: $76256.75, 目标支撑: $75550
+2026-04-21T15:30:28: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:32:11: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T15:32:13: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T15:32:13: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T15:32:16: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:32:17: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:33:14: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T15:33:16: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T15:33:16: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T15:33:17: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:33:18: [警报检查] 当前价格: $76066.21, 目标支撑: $75550
+2026-04-21T15:33:18: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:35:11: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:35:13: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:36:12: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:36:12: [警报检查] 当前价格: $76167.58, 目标支撑: $75550
+2026-04-21T15:36:12: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:38:05: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:38:06: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:39:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:39:07: [警报检查] 当前价格: $76206.04, 目标支撑: $75550
+2026-04-21T15:39:07: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:40:02: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T15:40:03: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T15:40:03: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T15:41:00: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:41:01: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:42:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:42:02: [警报检查] 当前价格: $76310.69, 目标支撑: $75550
+2026-04-21T15:42:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:43:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:43:56: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:44:55: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:44:56: [警报检查] 当前价格: $76241.82, 目标支撑: $75550
+2026-04-21T15:44:56: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:46:44: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T15:46:45: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T15:46:45: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T15:46:49: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:46:49: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:47:46: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T15:47:48: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T15:47:48: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T15:47:49: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:47:50: [警报检查] 当前价格: $76167.26, 目标支撑: $75550
+2026-04-21T15:47:50: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:49:45: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:49:46: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:50:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:50:47: [警报检查] 当前价格: $76308.38, 目标支撑: $75550
+2026-04-21T15:50:47: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:52:40: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:52:41: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:53:41: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:53:43: [警报检查] 当前价格: $76186.84, 目标支撑: $75550
+2026-04-21T15:53:43: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:54:38: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T15:54:39: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T15:54:39: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T15:55:36: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:55:37: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:56:38: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:56:40: [警报检查] 当前价格: $76121.5, 目标支撑: $75550
+2026-04-21T15:56:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T15:58:32: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T15:58:33: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T15:59:34: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T15:59:35: [警报检查] 当前价格: $76133.41, 目标支撑: $75550
+2026-04-21T15:59:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:01:24: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T16:01:26: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T16:01:26: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T16:01:28: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:01:29: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:02:26: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T16:02:29: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T16:02:29: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T16:02:30: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:02:32: [警报检查] 当前价格: $76180.64, 目标支撑: $75550
+2026-04-21T16:02:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:04:24: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:04:25: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:05:25: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:05:26: [警报检查] 当前价格: $76170.54, 目标支撑: $75550
+2026-04-21T16:05:26: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:07:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:07:20: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:08:21: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:08:23: [警报检查] 当前价格: $76176.66, 目标支撑: $75550
+2026-04-21T16:08:23: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:09:17: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T16:09:19: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T16:09:19: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T16:10:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:10:16: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:11:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:11:16: [警报检查] 当前价格: $76198.48, 目标支撑: $75550
+2026-04-21T16:11:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:13:09: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:13:10: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:14:11: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:14:12: [警报检查] 当前价格: $76146.72, 目标支撑: $75550
+2026-04-21T16:14:12: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:15:58: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T16:16:00: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T16:16:00: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T16:16:03: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:16:04: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:17:01: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T16:17:03: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T16:17:03: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T16:17:04: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:17:09: [警报检查] 当前价格: $76202.94, 目标支撑: $75550
+2026-04-21T16:17:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:18:57: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:19:00: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:19:59: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:20:00: [警报检查] 当前价格: $76240.43, 目标支撑: $75550
+2026-04-21T16:20:00: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:21:51: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:21:52: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:22:52: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:22:53: [警报检查] 当前价格: $76367.11, 目标支撑: $75550
+2026-04-21T16:22:53: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:23:47: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T16:23:48: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T16:23:48: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T16:24:45: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:24:46: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:25:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:25:48: [警报检查] 当前价格: $76342.75, 目标支撑: $75550
+2026-04-21T16:25:48: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:27:39: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:27:40: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:28:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:28:41: [警报检查] 当前价格: $76390.47, 目标支撑: $75550
+2026-04-21T16:28:41: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:30:28: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T16:30:30: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T16:30:30: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T16:30:33: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:30:34: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:31:30: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T16:31:34: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T16:31:34: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T16:31:34: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:31:35: [警报检查] 当前价格: $76385.45, 目标支撑: $75550
+2026-04-21T16:31:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:33:25: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:33:26: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:34:27: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:34:28: [警报检查] 当前价格: $76332.22, 目标支撑: $75550
+2026-04-21T16:34:28: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:36:20: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:36:21: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:37:20: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:37:22: [警报检查] 当前价格: $76314.83, 目标支撑: $75550
+2026-04-21T16:37:22: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:38:16: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T16:38:17: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T16:38:17: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T16:39:12: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:39:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:40:13: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:40:14: [警报检查] 当前价格: $76375.01, 目标支撑: $75550
+2026-04-21T16:40:14: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:42:06: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:42:08: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:43:07: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:43:09: [警报检查] 当前价格: $76484.97, 目标支撑: $75550
+2026-04-21T16:43:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:44:55: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T16:44:56: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T16:44:56: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T16:44:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:45:01: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:45:58: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T16:45:59: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T16:45:59: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T16:46:00: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:46:02: [警报检查] 当前价格: $76479.35, 目标支撑: $75550
+2026-04-21T16:46:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:47:53: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:47:55: [突破检测] 价格已突破 76500，开始计时...
+2026-04-21T16:47:55: [等待确认] 突破已持续 0 分钟，等待 30 分钟
+2026-04-21T16:47:55: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:48:54: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:48:55: [警报检查] 当前价格: $76773.71, 目标支撑: $75550
+2026-04-21T16:48:55: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:50:47: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:50:50: [等待确认] 突破已持续 2 分钟，等待 30 分钟
+2026-04-21T16:50:50: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:51:47: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:51:48: [警报检查] 当前价格: $76651.68, 目标支撑: $75550
+2026-04-21T16:51:48: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:52:42: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T16:52:43: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T16:52:43: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T16:53:39: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:53:40: [等待确认] 突破已持续 5 分钟，等待 30 分钟
+2026-04-21T16:53:40: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:54:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:54:41: [警报检查] 当前价格: $76616, 目标支撑: $75550
+2026-04-21T16:54:41: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:56:33: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:56:34: [突破失效] 价格回落至 76497.77，重置计时
+2026-04-21T16:56:34: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T16:57:34: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T16:57:35: [警报检查] 当前价格: $76565.9, 目标支撑: $75550
+2026-04-21T16:57:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T16:59:21: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T16:59:22: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T16:59:22: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T16:59:25: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T16:59:26: [突破检测] 价格已突破 76500，开始计时...
+2026-04-21T16:59:26: [等待确认] 突破已持续 0 分钟，等待 30 分钟
+2026-04-21T16:59:26: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:00:23: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T17:00:25: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T17:00:25: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T17:00:26: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:00:27: [警报检查] 当前价格: $76561.36, 目标支撑: $75550
+2026-04-21T17:00:27: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:02:19: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:02:20: [等待确认] 突破已持续 2 分钟，等待 30 分钟
+2026-04-21T17:02:20: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:03:20: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:03:20: [警报检查] 当前价格: $76479.27, 目标支撑: $75550
+2026-04-21T17:03:20: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:05:11: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:05:12: [突破失效] 价格回落至 76449.43，重置计时
+2026-04-21T17:05:12: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:06:13: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:06:13: [警报检查] 当前价格: $76442.03, 目标支撑: $75550
+2026-04-21T17:06:13: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:07:08: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T17:07:09: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T17:07:09: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T17:08:04: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:08:06: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:09:05: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:09:06: [警报检查] 当前价格: $76456.6, 目标支撑: $75550
+2026-04-21T17:09:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:10:58: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:10:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:11:59: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:12:00: [警报检查] 当前价格: $76505.6, 目标支撑: $75550
+2026-04-21T17:12:00: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:13:46: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T17:13:47: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T17:13:47: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T17:13:50: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:13:51: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:14:48: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T17:14:51: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T17:14:51: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T17:14:51: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:14:52: [警报检查] 当前价格: $76508.28, 目标支撑: $75550
+2026-04-21T17:14:52: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:16:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:16:45: [突破检测] 价格已突破 76500，开始计时...
+2026-04-21T17:16:45: [等待确认] 突破已持续 0 分钟，等待 30 分钟
+2026-04-21T17:16:45: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:17:45: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:17:46: [警报检查] 当前价格: $76529.06, 目标支撑: $75550
+2026-04-21T17:17:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:19:36: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:19:37: [等待确认] 突破已持续 2 分钟，等待 30 分钟
+2026-04-21T17:19:37: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:20:37: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:20:38: [警报检查] 当前价格: $76546.45, 目标支撑: $75550
+2026-04-21T17:20:38: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:21:33: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T17:21:33: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T17:21:33: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T17:22:30: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:22:31: [等待确认] 突破已持续 5 分钟，等待 30 分钟
+2026-04-21T17:22:31: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:23:31: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:23:32: [警报检查] 当前价格: $76516.69, 目标支撑: $75550
+2026-04-21T17:23:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:25:22: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:25:25: [突破失效] 价格回落至 76451.47，重置计时
+2026-04-21T17:25:25: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:26:23: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:26:24: [警报检查] 当前价格: $76398.75, 目标支撑: $75550
+2026-04-21T17:26:24: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:28:11: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T17:28:12: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T17:28:12: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T17:28:15: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:28:17: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:29:12: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T17:29:15: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T17:29:15: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T17:29:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:29:17: [警报检查] 当前价格: $76340.34, 目标支撑: $75550
+2026-04-21T17:29:17: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:31:07: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:31:08: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:32:08: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:32:09: [警报检查] 当前价格: $76308.07, 目标支撑: $75550
+2026-04-21T17:32:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:34:01: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:34:02: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:35:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:35:02: [警报检查] 当前价格: $76266.54, 目标支撑: $75550
+2026-04-21T17:35:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:35:56: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T17:35:57: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T17:35:57: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T17:36:52: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:36:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:37:53: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:37:54: [警报检查] 当前价格: $76252.34, 目标支撑: $75550
+2026-04-21T17:37:54: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:39:45: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:39:46: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:40:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:40:47: [警报检查] 当前价格: $76324.81, 目标支撑: $75550
+2026-04-21T17:40:47: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:42:34: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T17:42:34: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T17:42:34: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T17:42:37: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:42:38: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:43:35: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T17:43:37: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T17:43:37: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T17:43:38: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:43:40: [警报检查] 当前价格: $76330.71, 目标支撑: $75550
+2026-04-21T17:43:40: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:45:30: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:45:32: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:46:31: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:46:32: [警报检查] 当前价格: $76316.69, 目标支撑: $75550
+2026-04-21T17:46:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:48:23: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:48:25: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:49:24: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:49:25: [警报检查] 当前价格: $76316.68, 目标支撑: $75550
+2026-04-21T17:49:25: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:50:19: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T17:50:20: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T17:50:20: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T17:51:15: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:51:16: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:52:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:52:17: [警报检查] 当前价格: $76351.36, 目标支撑: $75550
+2026-04-21T17:52:17: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:54:08: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:54:09: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:55:09: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:55:10: [警报检查] 当前价格: $76348.21, 目标支撑: $75550
+2026-04-21T17:55:10: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:56:55: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T17:56:57: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T17:56:57: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T17:57:00: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:57:01: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T17:57:57: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T17:58:00: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T17:58:00: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T17:58:01: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T17:58:02: [警报检查] 当前价格: $76397.21, 目标支撑: $75550
+2026-04-21T17:58:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T17:59:53: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T17:59:54: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:00:54: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:00:55: [警报检查] 当前价格: $76387.39, 目标支撑: $75550
+2026-04-21T18:00:55: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:02:45: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:02:46: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:03:45: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:03:46: [警报检查] 当前价格: $76445.33, 目标支撑: $75550
+2026-04-21T18:03:46: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:04:40: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T18:04:41: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T18:04:41: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T18:05:38: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:05:38: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:06:38: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:06:39: [警报检查] 当前价格: $76474.23, 目标支撑: $75550
+2026-04-21T18:06:39: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:08:30: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:08:32: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:09:30: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:09:31: [警报检查] 当前价格: $76538.02, 目标支撑: $75550
+2026-04-21T18:09:31: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:11:18: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T18:11:20: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T18:11:20: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T18:11:21: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:11:22: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:12:20: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T18:12:22: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T18:12:22: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T18:12:22: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:12:24: [警报检查] 当前价格: $76444.77, 目标支撑: $75550
+2026-04-21T18:12:24: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:14:14: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:14:15: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:15:15: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:15:16: [警报检查] 当前价格: $76459.01, 目标支撑: $75550
+2026-04-21T18:15:16: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:17:06: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:17:07: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:18:06: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:18:07: [警报检查] 当前价格: $76544.79, 目标支撑: $75550
+2026-04-21T18:18:07: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:19:02: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T18:19:04: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T18:19:04: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T18:19:59: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:20:00: [突破检测] 价格已突破 76500，开始计时...
+2026-04-21T18:20:00: [等待确认] 突破已持续 0 分钟，等待 30 分钟
+2026-04-21T18:20:00: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:20:59: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:21:02: [警报检查] 当前价格: $76517.11, 目标支撑: $75550
+2026-04-21T18:21:02: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:22:50: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:22:51: [等待确认] 突破已持续 2 分钟，等待 30 分钟
+2026-04-21T18:22:51: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:23:52: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:23:53: [警报检查] 当前价格: $76585.33, 目标支撑: $75550
+2026-04-21T18:23:53: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:25:38: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T18:25:39: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T18:25:39: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T18:25:42: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:25:44: [等待确认] 突破已持续 5 分钟，等待 30 分钟
+2026-04-21T18:25:44: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:26:39: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T18:26:41: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T18:26:41: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T18:26:43: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:26:44: [警报检查] 当前价格: $76598.46, 目标支撑: $75550
+2026-04-21T18:26:44: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:28:35: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:28:37: [等待确认] 突破已持续 8 分钟，等待 30 分钟
+2026-04-21T18:28:37: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:29:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:29:37: [警报检查] 当前价格: $76550.44, 目标支撑: $75550
+2026-04-21T18:29:37: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:31:28: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:31:30: [等待确认] 突破已持续 11 分钟，等待 30 分钟
+2026-04-21T18:31:30: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:32:28: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:32:29: [警报检查] 当前价格: $76566.59, 目标支撑: $75550
+2026-04-21T18:32:29: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:33:22: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T18:33:23: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T18:33:23: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T18:34:20: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:34:21: [等待确认] 突破已持续 14 分钟，等待 30 分钟
+2026-04-21T18:34:21: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:35:21: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:35:21: [警报检查] 当前价格: $76564.55, 目标支撑: $75550
+2026-04-21T18:35:21: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:37:12: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:37:13: [等待确认] 突破已持续 17 分钟，等待 30 分钟
+2026-04-21T18:37:13: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:38:12: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:38:14: [警报检查] 当前价格: $76573.83, 目标支撑: $75550
+2026-04-21T18:38:14: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:40:00: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T18:40:01: [警报检查] OI当前: 3319811082.4809, 24h变化: -1.96%
+2026-04-21T18:40:01: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T18:40:03: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:40:04: [等待确认] 突破已持续 20 分钟，等待 30 分钟
+2026-04-21T18:40:04: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:41:01: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T18:41:03: [警报检查] 多空比: NaN, Taker: 0.99
+2026-04-21T18:41:03: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T18:41:04: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:41:05: [警报检查] 当前价格: $76554.41, 目标支撑: $75550
+2026-04-21T18:41:05: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:42:56: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:42:57: [等待确认] 突破已持续 22 分钟，等待 30 分钟
+2026-04-21T18:42:57: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:43:57: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:43:58: [警报检查] 当前价格: $76565.85, 目标支撑: $75550
+2026-04-21T18:43:58: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:45:47: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:45:48: [等待确认] 突破已持续 25 分钟，等待 30 分钟
+2026-04-21T18:45:48: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:46:48: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:46:49: [警报检查] 当前价格: $76648.87, 目标支撑: $75550
+2026-04-21T18:46:49: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:47:44: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T18:47:45: [警报检查] OI当前: 33.20亿, 阈值: 33.50亿
+2026-04-21T18:47:45: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T18:48:40: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:48:41: [等待确认] 突破已持续 28 分钟，等待 30 分钟
+2026-04-21T18:48:41: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_PASSED
+2026-04-21T18:49:41: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:49:41: [警报检查] 当前价格: $76760.98, 目标支撑: $75550
+2026-04-21T18:49:41: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:51:31: [Alert Engine] [阻力位突破-延迟确认-76500] CHECK_START
+2026-04-21T18:51:33: [延迟确认] 突破已稳定 30 分钟，触发警报
+2026-04-21T18:51:33: [Alert Engine] [阻力位突破-延迟确认-76500] TRIGGERED
+2026-04-21T18:51:37: [Alert Engine] [阻力位突破-延迟确认-76500] DATA_COLLECTED
+2026-04-21T18:51:37: [警报触发] 已创建即时分析任务: alert-resistance-76500-1776768697291
+2026-04-21T18:51:37: [Alert Engine] [阻力位突破-延迟确认-76500] TRIGGER_COMPLETED
+2026-04-21T18:51:37: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_SET
+2026-04-21T18:52:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:52:32: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:54:19: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T18:54:19: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T18:54:24: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T18:55:20: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T18:55:20: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T18:55:24: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:55:24: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T18:57:15: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T18:58:15: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T18:58:15: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T19:00:07: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T19:01:08: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T19:01:08: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T19:02:02: [Alert Engine] [OI趋势突破警报-335亿] CHECK_START
+2026-04-21T19:02:02: [Alert Engine] [OI趋势突破警报-335亿] CHECK_PASSED
+2026-04-21T19:03:00: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T19:04:00: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T19:04:00: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T19:05:52: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T19:06:52: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T19:06:52: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T19:08:39: [Alert Engine] [OI多空平仓加速警报] CHECK_START
+2026-04-21T19:08:39: [Alert Engine] [OI多空平仓加速警报] CHECK_PASSED
+2026-04-21T19:08:42: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T19:09:41: [Alert Engine] [多空比背离警报] CHECK_START
+2026-04-21T19:09:41: [Alert Engine] [多空比背离警报] CHECK_PASSED
+2026-04-21T19:09:43: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T19:09:43: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T19:11:35: [Alert Engine] [阻力位突破-延迟确认-76500] COOLDOWN_ACTIVE
+2026-04-21T19:12:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_START
+2026-04-21T19:12:35: [Alert Engine] [支撑位跌破警报-75550] CHECK_PASSED
+2026-04-21T19:13:36: [Alert Engine] [OI多空平仓加速警报] 检测到规则文件已不存在
+2026-04-21T19:13:36: [Alert Engine] [OI多空平仓加速警报] RULE_UNLOADED
+2026-04-21T19:13:36: [Alert Engine] Unloaded rule "OI多空平仓加速警报" (file_removed)
+2026-04-21T19:13:36: [Alert Engine] [支撑位跌破警报-75550] 检测到规则文件已不存在
+2026-04-21T19:13:36: [Alert Engine] [支撑位跌破警报-75550] RULE_UNLOADED
+2026-04-21T19:13:36: [Alert Engine] Unloaded rule "支撑位跌破警报-75550" (file_removed)
+2026-04-21T19:13:36: [Alert Engine] [OI趋势突破警报-335亿] 检测到规则文件已不存在
+2026-04-21T19:13:36: [Alert Engine] [OI趋势突破警报-335亿] RULE_UNLOADED
+2026-04-21T19:13:36: [Alert Engine] Unloaded rule "OI趋势突破警报-335亿" (file_removed)
+2026-04-21T19:13:36: [Alert Engine] [阻力位突破-延迟确认-76500] 检测到规则文件已不存在
+2026-04-21T19:13:36: [Alert Engine] [阻力位突破-延迟确认-76500] RULE_UNLOADED
+2026-04-21T19:13:36: [Alert Engine] Unloaded rule "阻力位突破-延迟确认-76500" (file_removed)
+2026-04-21T19:13:36: [Alert Engine] [多空比背离警报] 检测到规则文件已不存在
+2026-04-21T19:13:36: [Alert Engine] [多空比背离警报] RULE_UNLOADED
+2026-04-21T19:13:36: [Alert Engine] Unloaded rule "多空比背离警报" (file_removed)
+2026-04-21T19:13:36: [Alert Engine] [阻力位突破-延迟确认-77000] TIMER_STARTED
+2026-04-21T19:13:36: [Alert Engine] Starting timer for rule "阻力位突破-延迟确认-77000" (interval: 180000ms)
+2026-04-21T19:13:36: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:13:36: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T19:13:36: [Alert Engine] Hot-loaded new rule: 阻力位突破-延迟确认-77000
+2026-04-21T19:13:36: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:14:32: [Alert Engine] [OI趋势突破警报-345亿] TIMER_STARTED
+2026-04-21T19:14:32: [Alert Engine] Starting timer for rule "OI趋势突破警报-345亿" (interval: 900000ms)
+2026-04-21T19:14:32: [Alert Engine] [OI趋势突破警报-345亿] CHECK_START
+2026-04-21T19:14:32: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T19:14:32: [Alert Engine] Hot-loaded new rule: OI趋势突破警报-345亿
+2026-04-21T19:14:32: [Alert Engine] [支撑位跌破警报-76500] TIMER_STARTED
+2026-04-21T19:14:32: [Alert Engine] Starting timer for rule "支撑位跌破警报-76500" (interval: 180000ms)
+2026-04-21T19:14:32: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:14:32: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T19:14:32: [Alert Engine] Hot-loaded new rule: 支撑位跌破警报-76500
+2026-04-21T19:14:32: [Alert Engine] [Taker买方动能衰竭警报] TIMER_STARTED
+2026-04-21T19:14:32: [Alert Engine] Starting timer for rule "Taker买方动能衰竭警报" (interval: 900000ms)
+2026-04-21T19:14:32: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T19:14:32: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T19:14:32: [Alert Engine] Hot-loaded new rule: Taker买方动能衰竭警报
+2026-04-21T19:14:32: [Alert Engine] [OI趋势突破警报-345亿] CHECK_PASSED
+2026-04-21T19:14:32: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:14:32: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T19:16:26: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:16:26: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:17:25: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:17:25: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:19:19: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:19:19: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:20:16: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:20:16: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:22:10: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:22:10: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:23:09: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:23:09: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:25:02: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:25:02: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:26:02: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:26:02: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:28:00: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:28:00: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:28:58: [Alert Engine] [OI趋势突破警报-345亿] CHECK_START
+2026-04-21T19:28:58: [Alert Engine] [OI趋势突破警报-345亿] CHECK_PASSED
+2026-04-21T19:28:58: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T19:28:58: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T19:28:58: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:28:58: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:30:53: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:30:53: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:31:51: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:31:51: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:33:48: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:33:48: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:34:45: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:34:45: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:36:42: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:36:42: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:37:39: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:37:39: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:39:34: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:39:34: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:40:33: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:40:33: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:42:27: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:42:27: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:43:24: [Alert Engine] [OI趋势突破警报-345亿] CHECK_START
+2026-04-21T19:43:24: [Alert Engine] [OI趋势突破警报-345亿] CHECK_PASSED
+2026-04-21T19:43:24: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T19:43:24: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T19:43:24: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:43:24: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:45:19: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:45:19: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:46:17: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:46:17: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:48:11: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:48:11: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:49:09: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:49:09: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:51:03: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:51:03: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:52:00: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:52:01: [警报检查] 当前价格: $76521.4, 目标支撑: $76500
+2026-04-21T19:52:01: [Alert Engine] [支撑位跌破警报-76500] CHECK_PASSED
+2026-04-21T19:53:57: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:53:59: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:54:52: [Alert Engine] [支撑位跌破警报-76500] CHECK_START
+2026-04-21T19:54:54: [警报检查] 当前价格: $76473.65, 目标支撑: $76500
+2026-04-21T19:54:54: [Alert Engine] [支撑位跌破警报-76500] TRIGGERED
+2026-04-21T19:55:01: [Alert Engine] [支撑位跌破警报-76500] DATA_COLLECTED
+2026-04-21T19:55:01: [警报触发] 已创建即时分析任务: alert-support-76500-1776772501021
+2026-04-21T19:55:01: [Alert Engine] [支撑位跌破警报-76500] TRIGGER_COMPLETED
+2026-04-21T19:55:01: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_SET
+2026-04-21T19:56:47: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:56:47: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T19:57:44: [Alert Engine] [OI趋势突破警报-345亿] CHECK_START
+2026-04-21T19:57:44: [Alert Engine] [OI趋势突破警报-345亿] CHECK_PASSED
+2026-04-21T19:57:44: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T19:57:44: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T19:57:44: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T19:59:39: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T19:59:39: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:00:36: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:02:30: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:02:30: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:03:27: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:05:23: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:05:23: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:06:20: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:08:14: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:08:14: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:09:11: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:11:07: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:11:07: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:12:03: [Alert Engine] [OI趋势突破警报-345亿] CHECK_START
+2026-04-21T20:12:03: [Alert Engine] [OI趋势突破警报-345亿] CHECK_PASSED
+2026-04-21T20:12:03: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T20:12:03: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T20:12:03: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:13:57: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:13:57: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:14:55: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:16:49: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:16:49: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:17:46: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:19:40: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:19:40: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:20:38: [Alert Engine] [支撑位跌破警报-76500] COOLDOWN_ACTIVE
+2026-04-21T20:22:33: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_START
+2026-04-21T20:22:33: [Alert Engine] [阻力位突破-延迟确认-77000] CHECK_PASSED
+2026-04-21T20:22:33: [Alert Engine] [阻力位突破-延迟确认-77000] 检测到规则文件已不存在
+2026-04-21T20:22:33: [Alert Engine] [阻力位突破-延迟确认-77000] RULE_UNLOADED
+2026-04-21T20:22:33: [Alert Engine] Unloaded rule "阻力位突破-延迟确认-77000" (file_removed)
+2026-04-21T20:22:33: [Alert Engine] [支撑位跌破警报-76500] 检测到规则文件已不存在
+2026-04-21T20:22:33: [Alert Engine] [支撑位跌破警报-76500] RULE_UNLOADED
+2026-04-21T20:22:33: [Alert Engine] Unloaded rule "支撑位跌破警报-76500" (file_removed)
+2026-04-21T20:26:20: [Alert Engine] [OI趋势突破警报-345亿] CHECK_START
+2026-04-21T20:26:20: [Alert Engine] [OI趋势突破警报-345亿] CHECK_PASSED
+2026-04-21T20:26:20: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T20:26:20: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T20:26:20: [Alert Engine] [OI派发模式检测] TIMER_STARTED
+2026-04-21T20:26:20: [Alert Engine] Starting timer for rule "OI派发模式检测" (interval: 900000ms)
+2026-04-21T20:26:20: [Alert Engine] [OI派发模式检测] CHECK_START
+2026-04-21T20:26:20: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T20:26:20: [Alert Engine] Hot-loaded new rule: OI派发模式检测
+2026-04-21T20:26:20: [Alert Engine] [OI派发模式检测] CHECK_PASSED
+2026-04-21T20:27:19: [Alert Engine] [OI趋势突破警报-345亿] 检测到规则文件已不存在
+2026-04-21T20:27:19: [Alert Engine] [OI趋势突破警报-345亿] RULE_UNLOADED
+2026-04-21T20:27:19: [Alert Engine] Unloaded rule "OI趋势突破警报-345亿" (file_removed)
+2026-04-21T20:40:38: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T20:40:38: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T20:40:38: [Alert Engine] [OI派发模式检测] CHECK_START
+2026-04-21T20:40:38: [Alert Engine] [OI派发模式检测] CHECK_PASSED
+2026-04-21T20:42:13: [Alert Engine] [Engine] 引擎关闭 (SIGINT)
+2026-04-21T20:42:13: 
+2026-04-21T20:42:13: [Alert Engine] Shutting down...
+2026-04-21T20:42:13: [Alert Engine] Stopped timer for 2026-04-21-taker-energy-loss.js
+2026-04-21T20:42:13: [Alert Engine] Stopped timer for 2026-04-21-oi-distribution.js
+2026-04-21T22:00:36: [Alert Engine] [Engine] 引擎启动
+2026-04-21T22:00:36: [Alert Engine] Starting...
+2026-04-21T22:00:36: [Alert Engine] Rules directory: /home/administrator/.openclaw/july-btc-analyzer/skills/btc-alert/rules
+2026-04-21T22:00:36: [Alert Engine] Archive directory: /home/administrator/.openclaw/july-btc-analyzer/skills/btc-alert/rules-archive
+2026-04-21T22:00:36: [Alert Engine] Log file: /home/administrator/.openclaw/july-btc-analyzer/logs/alert-engine.log
+2026-04-21T22:00:36: [Alert Engine] Loaded rule: OI派发模式检测 (interval: 900000ms)
+2026-04-21T22:00:36: [Alert Engine] Loaded rule: Taker买方动能衰竭警报 (interval: 900000ms)
+2026-04-21T22:00:36: [Alert Engine] [OI派发模式检测] TIMER_STARTED
+2026-04-21T22:00:36: [Alert Engine] Starting timer for rule "OI派发模式检测" (interval: 900000ms)
+2026-04-21T22:00:36: [Alert Engine] [OI派发模式检测] CHECK_START
+2026-04-21T22:00:36: [Alert Engine] [Taker买方动能衰竭警报] TIMER_STARTED
+2026-04-21T22:00:36: [Alert Engine] Starting timer for rule "Taker买方动能衰竭警报" (interval: 900000ms)
+2026-04-21T22:00:36: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T22:00:39: [Alert Engine] [Engine] 规则加载完成
+2026-04-21T22:00:39: [Alert Engine] Started 2 rule(s)
+2026-04-21T22:00:39: [Alert Engine] Started file scanner (interval: 60s)
+2026-04-21T22:00:39: [警报检查] Taker: 0.99, 阈值: 1
+2026-04-21T22:00:39: [Alert Engine] [Taker买方动能衰竭警报] TRIGGERED
+2026-04-21T22:00:44: [警报检查] OI变化(估算1h): -0.082%, 价格1h变化: 0.010%
+2026-04-21T22:00:44: [Alert Engine] [OI派发模式检测] CHECK_PASSED
+2026-04-21T22:00:55: [Alert Engine] [Taker买方动能衰竭警报] DATA_COLLECTED
+2026-04-21T22:00:55: [警报触发] 已创建即时分析任务: alert-taker-energy-loss-1776780055084
+2026-04-21T22:00:55: [Alert Engine] [Taker买方动能衰竭警报] TRIGGER_COMPLETED
+2026-04-21T22:00:55: [Alert Engine] [Taker买方动能衰竭警报] COOLDOWN_SET
+2026-04-21T22:16:01: [Alert Engine] [OI派发模式检测] CHECK_START
+2026-04-21T22:16:01: [Alert Engine] [OI派发模式检测] CHECK_PASSED
+2026-04-21T22:16:05: [Alert Engine] [Taker买方动能衰竭警报] COOLDOWN_ACTIVE
+2026-04-21T22:22:17: [Alert Engine] [阻力位突破警报-76500] TIMER_STARTED
+2026-04-21T22:22:17: [Alert Engine] Starting timer for rule "阻力位突破警报-76500" (interval: 180000ms)
+2026-04-21T22:22:17: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:22:17: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T22:22:17: [Alert Engine] Hot-loaded new rule: 阻力位突破警报-76500
+2026-04-21T22:22:17: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:25:23: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:25:23: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:28:29: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:28:29: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:31:30: [Alert Engine] [OI派发模式检测] CHECK_START
+2026-04-21T22:31:30: [Alert Engine] [OI派发模式检测] CHECK_PASSED
+2026-04-21T22:31:34: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T22:31:34: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T22:31:34: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:31:34: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:34:42: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:34:42: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:37:45: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:37:45: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:40:50: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:40:50: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:43:53: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:43:53: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:46:53: [Alert Engine] [OI派发模式检测] CHECK_START
+2026-04-21T22:46:53: [Alert Engine] [OI派发模式检测] CHECK_PASSED
+2026-04-21T22:46:57: [Alert Engine] [Taker买方动能衰竭警报] CHECK_START
+2026-04-21T22:46:57: [Alert Engine] [Taker买方动能衰竭警报] CHECK_PASSED
+2026-04-21T22:46:57: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:46:57: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:50:02: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:50:02: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:53:07: [Alert Engine] [阻力位突破警报-76500] CHECK_START
+2026-04-21T22:53:07: [Alert Engine] [阻力位突破警报-76500] CHECK_PASSED
+2026-04-21T22:54:09: [Alert Engine] [OI派发模式检测] 检测到规则文件已不存在
+2026-04-21T22:54:09: [Alert Engine] [OI派发模式检测] RULE_UNLOADED
+2026-04-21T22:54:09: [Alert Engine] Unloaded rule "OI派发模式检测" (file_removed)
+2026-04-21T22:54:09: [Alert Engine] [Taker买方动能衰竭警报] 检测到规则文件已不存在
+2026-04-21T22:54:09: [Alert Engine] [Taker买方动能衰竭警报] RULE_UNLOADED
+2026-04-21T22:54:09: [Alert Engine] Unloaded rule "Taker买方动能衰竭警报" (file_removed)
+2026-04-21T22:54:09: [Alert Engine] [阻力位突破警报-76500] 检测到规则文件已不存在
+2026-04-21T22:54:09: [Alert Engine] [阻力位突破警报-76500] RULE_UNLOADED
+2026-04-21T22:54:09: [Alert Engine] Unloaded rule "阻力位突破警报-76500" (file_removed)
+2026-04-21T23:26:00: [Alert Engine] [上方入场触发-76500] TIMER_STARTED
+2026-04-21T23:26:00: [Alert Engine] Starting timer for rule "上方入场触发-76500" (interval: 180000ms)
+2026-04-21T23:26:00: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:26:00: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T23:26:00: [Alert Engine] Hot-loaded new rule: 上方入场触发-76500
+2026-04-21T23:26:00: [Alert Engine] [下方入场触发-75000] TIMER_STARTED
+2026-04-21T23:26:00: [Alert Engine] Starting timer for rule "下方入场触发-75000" (interval: 180000ms)
+2026-04-21T23:26:00: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:26:00: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T23:26:00: [Alert Engine] Hot-loaded new rule: 下方入场触发-75000
+2026-04-21T23:26:00: [Alert Engine] [波动率收窄警报] TIMER_STARTED
+2026-04-21T23:26:00: [Alert Engine] Starting timer for rule "波动率收窄警报" (interval: 300000ms)
+2026-04-21T23:26:00: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:26:00: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T23:26:00: [Alert Engine] Hot-loaded new rule: 波动率收窄警报
+2026-04-21T23:26:00: [Alert Engine] [交易量异动警报] TIMER_STARTED
+2026-04-21T23:26:00: [Alert Engine] Starting timer for rule "交易量异动警报" (interval: 300000ms)
+2026-04-21T23:26:00: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:26:00: [Alert Engine] [Engine] 热加载新规则
+2026-04-21T23:26:00: [Alert Engine] Hot-loaded new rule: 交易量异动警报
+2026-04-21T23:26:01: [警报检查] 当前价格: 75749.4, 目标: 75000
+2026-04-21T23:26:01: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:26:02: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:26:02: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:26:02: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:26:02: [Alert Engine] [交易量异动警报] 规则执行失败
+2026-04-21T23:26:03: [警报检查] 当前价格: 75740.44, 目标: 76500
+2026-04-21T23:26:03: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:29:05: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:29:05: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:29:06: [警报检查] 当前价格: 75630.21, 目标: 75000
+2026-04-21T23:29:06: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:29:06: [警报检查] 当前价格: 75672.74, 目标: 76500
+2026-04-21T23:29:06: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:31:09: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:31:09: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:31:11: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:31:11: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:31:11: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:31:12: [Alert Engine] [交易量异动警报] 规则执行失败
+2026-04-21T23:32:11: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:32:11: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:32:12: [警报检查] 当前价格: 75692.39, 目标: 75000
+2026-04-21T23:32:12: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:32:13: [警报检查] 当前价格: 75676.96, 目标: 76500
+2026-04-21T23:32:13: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:35:17: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:35:17: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:35:20: [警报检查] 当前价格: 75643.23, 目标: 76500
+2026-04-21T23:35:20: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:35:21: [警报检查] 当前价格: 75653.71, 目标: 75000
+2026-04-21T23:35:21: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:36:19: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:36:19: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:36:20: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:36:20: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:36:20: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:36:23: [警报检查] 当前交易量: $1.82B, 14日均值: $1.91B, 比率: 0.95x
+2026-04-21T23:36:23: [Alert Engine] [交易量异动警报] 规则恢复正常
+2026-04-21T23:36:23: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-21T23:38:24: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:38:24: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:38:25: [警报检查] 当前价格: 75622.27, 目标: 75000
+2026-04-21T23:38:25: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:38:26: [警报检查] 当前价格: 75631.6, 目标: 76500
+2026-04-21T23:38:26: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:41:30: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:41:30: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:41:30: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:41:30: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:41:31: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:41:31: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:41:31: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:41:31: [警报检查] 当前价格: 75716.4, 目标: 75000
+2026-04-21T23:41:31: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:41:31: [警报检查] 当前交易量: $1.83B, 14日均值: $1.91B, 比率: 0.96x
+2026-04-21T23:41:31: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-21T23:41:36: [Alert Engine] [上方入场触发-76500] 规则执行失败
+2026-04-21T23:44:34: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:44:34: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:44:35: [警报检查] 当前价格: 75751.63, 目标: 76500
+2026-04-21T23:44:35: [Alert Engine] [上方入场触发-76500] 规则恢复正常
+2026-04-21T23:44:35: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:44:35: [警报检查] 当前价格: 75762.2, 目标: 75000
+2026-04-21T23:44:35: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:46:36: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:46:36: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:46:37: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:46:37: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:46:37: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:46:38: [警报检查] 当前交易量: $1.83B, 14日均值: $1.91B, 比率: 0.96x
+2026-04-21T23:46:38: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-21T23:47:37: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:47:37: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:47:38: [警报检查] 当前价格: 75768.39, 目标: 76500
+2026-04-21T23:47:38: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:47:38: [警报检查] 当前价格: 75782.48, 目标: 75000
+2026-04-21T23:47:38: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:50:41: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:50:41: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:50:42: [警报检查] 当前价格: 75724.89, 目标: 75000
+2026-04-21T23:50:42: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:50:43: [警报检查] 当前价格: 75724.89, 目标: 76500
+2026-04-21T23:50:43: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:51:44: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:51:44: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:51:45: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:51:45: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:51:45: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:51:45: [警报检查] 当前交易量: $1.84B, 14日均值: $1.91B, 比率: 0.96x
+2026-04-21T23:51:45: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-21T23:53:46: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:53:46: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:53:48: [警报检查] 当前价格: 75761.38, 目标: 75000
+2026-04-21T23:53:48: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:53:49: [警报检查] 当前价格: 75761.38, 目标: 76500
+2026-04-21T23:53:49: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:56:50: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:56:50: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:56:50: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:56:50: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:56:52: [警报检查] 近3小时振幅: 1.07% / 0.59% / 1.28% / 0.71%
+2026-04-21T23:56:52: [警报检查] 均值: 0.91%, 阈值: 1%
+2026-04-21T23:56:52: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:56:52: [警报检查] 当前价格: 75761.05, 目标: 76500
+2026-04-21T23:56:52: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:56:53: [Alert Engine] [交易量异动警报] 规则执行失败
+2026-04-21T23:56:53: [Alert Engine] [下方入场触发-75000] 规则执行失败
+2026-04-21T23:59:11: [Alert Engine] [Engine] 引擎关闭 (SIGINT)
+2026-04-21T23:59:11: 
+2026-04-21T23:59:11: [Alert Engine] Shutting down...
+2026-04-21T23:59:11: [Alert Engine] Stopped timer for 2026-04-21-resistance-76500.js
+2026-04-21T23:59:11: [Alert Engine] Stopped timer for 2026-04-21-support-75000.js
+2026-04-21T23:59:11: [Alert Engine] Stopped timer for 2026-04-21-volatility-squeeze.js
+2026-04-21T23:59:11: [Alert Engine] Stopped timer for 2026-04-21-volume-surge.js
+2026-04-21T23:59:11: [Alert Engine] [Engine] 引擎启动
+2026-04-21T23:59:11: [Alert Engine] Starting...
+2026-04-21T23:59:11: [Alert Engine] Rules directory: /home/administrator/.openclaw/july-btc-analyzer/skills/btc-alert/rules
+2026-04-21T23:59:11: [Alert Engine] Archive directory: /home/administrator/.openclaw/july-btc-analyzer/skills/btc-alert/rules-archive
+2026-04-21T23:59:11: [Alert Engine] Log file: /home/administrator/.openclaw/july-btc-analyzer/logs/alert-engine.log
+2026-04-21T23:59:11: [Alert Engine] Loaded rule: 上方入场触发-76500 (interval: 180000ms)
+2026-04-21T23:59:11: [Alert Engine] Loaded rule: 下方入场触发-75000 (interval: 180000ms)
+2026-04-21T23:59:11: [Alert Engine] Loaded rule: 波动率收窄警报 (interval: 300000ms)
+2026-04-21T23:59:11: [Alert Engine] Loaded rule: 交易量异动警报 (interval: 300000ms)
+2026-04-21T23:59:11: [Alert Engine] [上方入场触发-76500] TIMER_STARTED
+2026-04-21T23:59:11: [Alert Engine] Starting timer for rule "上方入场触发-76500" (interval: 180000ms)
+2026-04-21T23:59:11: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-21T23:59:18: [Alert Engine] [下方入场触发-75000] TIMER_STARTED
+2026-04-21T23:59:18: [Alert Engine] Starting timer for rule "下方入场触发-75000" (interval: 180000ms)
+2026-04-21T23:59:18: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-21T23:59:25: [Alert Engine] [波动率收窄警报] TIMER_STARTED
+2026-04-21T23:59:25: [Alert Engine] Starting timer for rule "波动率收窄警报" (interval: 300000ms)
+2026-04-21T23:59:25: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-21T23:59:28: [Alert Engine] [交易量异动警报] TIMER_STARTED
+2026-04-21T23:59:28: [Alert Engine] Starting timer for rule "交易量异动警报" (interval: 300000ms)
+2026-04-21T23:59:28: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-21T23:59:35: [Alert Engine] [Engine] 规则加载完成
+2026-04-21T23:59:35: [Alert Engine] Started 4 rule(s)
+2026-04-21T23:59:35: [Alert Engine] Started file scanner (interval: 60s)
+2026-04-21T23:59:35: [警报检查] 当前价格: 75800.1, 目标: 76500
+2026-04-21T23:59:35: [警报检查] 当前价格: 75801.8, 目标: 75000
+2026-04-21T23:59:35: [警报检查] 近3小时振幅: 0.75% / 1.28% / 0.59%
+2026-04-21T23:59:35: [警报检查] 均值: 0.87%, 阈值: 1%
+2026-04-21T23:59:35: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-21T23:59:35: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-21T23:59:35: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-21T23:59:40: [警报检查] 当前交易量: $0.00B, 14日均值: $0.00B, 比率: 0.70x
+2026-04-21T23:59:40: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-22T00:02:22: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-22T00:02:31: [警报检查] 当前价格: 75947.8, 目标: 76500
+2026-04-22T00:02:31: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-22T00:02:31: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-22T00:02:37: [警报检查] 当前价格: 75943.7, 目标: 75000
+2026-04-22T00:02:37: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-22T00:04:35: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-22T00:04:38: [警报检查] 近3小时振幅: 0.25% / 0.75% / 1.28%
+2026-04-22T00:04:38: [警报检查] 均值: 0.76%, 阈值: 1%
+2026-04-22T00:04:38: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-22T00:04:43: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-22T00:04:48: [警报检查] 当前交易量: $0.00B, 14日均值: $0.00B, 比率: 0.79x
+2026-04-22T00:04:48: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-22T00:05:27: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-22T00:05:36: [警报检查] 当前价格: 75828.1, 目标: 76500
+2026-04-22T00:05:36: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-22T00:05:36: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-22T00:05:44: [警报检查] 当前价格: 75845.5, 目标: 75000
+2026-04-22T00:05:44: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-22T00:08:32: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-22T00:08:37: [Alert Engine] [上方入场触发-76500] 规则执行失败
+2026-04-22T00:08:40: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-22T00:08:46: [警报检查] 当前价格: 75934.6, 目标: 75000
+2026-04-22T00:08:46: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-22T00:09:20: [Alert Engine] [Engine] 引擎关闭 (SIGINT)
+2026-04-22T00:09:20: 
+2026-04-22T00:09:20: [Alert Engine] Shutting down...
+2026-04-22T00:09:20: [Alert Engine] Stopped timer for 2026-04-21-resistance-76500.js
+2026-04-22T00:09:20: [Alert Engine] Stopped timer for 2026-04-21-support-75000.js
+2026-04-22T00:09:20: [Alert Engine] Stopped timer for 2026-04-21-volatility-squeeze.js
+2026-04-22T00:09:20: [Alert Engine] Stopped timer for 2026-04-21-volume-surge.js
+2026-04-22T00:09:20: [Alert Engine] [Engine] 引擎启动
+2026-04-22T00:09:20: [Alert Engine] Starting...
+2026-04-22T00:09:20: [Alert Engine] Rules directory: /home/administrator/.openclaw/july-btc-analyzer/skills/btc-alert/rules
+2026-04-22T00:09:20: [Alert Engine] Archive directory: /home/administrator/.openclaw/july-btc-analyzer/skills/btc-alert/rules-archive
+2026-04-22T00:09:20: [Alert Engine] Log file: /home/administrator/.openclaw/july-btc-analyzer/logs/alert-engine.log
+2026-04-22T00:09:20: [Alert Engine] Loaded rule: 上方入场触发-76500 (interval: 180000ms)
+2026-04-22T00:09:20: [Alert Engine] Loaded rule: 下方入场触发-75000 (interval: 180000ms)
+2026-04-22T00:09:20: [Alert Engine] Loaded rule: 波动率收窄警报 (interval: 300000ms)
+2026-04-22T00:09:20: [Alert Engine] Loaded rule: 交易量异动警报 (interval: 300000ms)
+2026-04-22T00:09:20: [Alert Engine] [上方入场触发-76500] TIMER_STARTED
+2026-04-22T00:09:20: [Alert Engine] Starting timer for rule "上方入场触发-76500" (interval: 180000ms)
+2026-04-22T00:09:20: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-22T00:09:29: [Alert Engine] [下方入场触发-75000] TIMER_STARTED
+2026-04-22T00:09:29: [Alert Engine] Starting timer for rule "下方入场触发-75000" (interval: 180000ms)
+2026-04-22T00:09:29: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-22T00:09:37: [Alert Engine] [波动率收窄警报] TIMER_STARTED
+2026-04-22T00:09:37: [Alert Engine] Starting timer for rule "波动率收窄警报" (interval: 300000ms)
+2026-04-22T00:09:37: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-22T00:09:41: [Alert Engine] [交易量异动警报] TIMER_STARTED
+2026-04-22T00:09:41: [Alert Engine] Starting timer for rule "交易量异动警报" (interval: 300000ms)
+2026-04-22T00:09:41: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-22T00:09:47: [Alert Engine] [Engine] 规则加载完成
+2026-04-22T00:09:47: [Alert Engine] Started 4 rule(s)
+2026-04-22T00:09:47: [Alert Engine] Started file scanner (interval: 60s)
+2026-04-22T00:09:47: [警报检查] 当前价格: 75920.3, 目标: 76500
+2026-04-22T00:09:47: [警报检查] 当前价格: 75924.3, 目标: 75000
+2026-04-22T00:09:47: [警报检查] 近3小时振幅: 0.26% / 0.75% / 1.28%
+2026-04-22T00:09:47: [警报检查] 均值: 0.76%, 阈值: 1%
+2026-04-22T00:09:51: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-22T00:09:51: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-22T00:09:51: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-22T00:09:51: [警报检查] 当前24h成交额: $350.26M, 日均: $421.02M, 比率: 0.83x
+2026-04-22T00:09:51: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-22T00:12:34: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-22T00:12:39: [警报检查] 当前价格: 75872.1, 目标: 76500
+2026-04-22T00:12:39: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-22T00:12:43: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-22T00:12:48: [警报检查] 当前价格: 75889.2, 目标: 75000
+2026-04-22T00:12:48: [Alert Engine] [下方入场触发-75000] CHECK_PASSED
+2026-04-22T00:14:51: [Alert Engine] [波动率收窄警报] CHECK_START
+2026-04-22T00:14:53: [警报检查] 近3小时振幅: 0.26% / 0.75% / 1.28%
+2026-04-22T00:14:53: [警报检查] 均值: 0.76%, 阈值: 1%
+2026-04-22T00:14:53: [Alert Engine] [波动率收窄警报] CHECK_PASSED
+2026-04-22T00:14:56: [Alert Engine] [交易量异动警报] CHECK_START
+2026-04-22T00:15:04: [警报检查] 当前24h成交额: $349.77M, 日均: $421.05M, 比率: 0.83x
+2026-04-22T00:15:04: [Alert Engine] [交易量异动警报] CHECK_PASSED
+2026-04-22T00:15:40: [Alert Engine] [上方入场触发-76500] CHECK_START
+2026-04-22T00:15:50: [警报检查] 当前价格: 75888.9, 目标: 76500
+2026-04-22T00:15:50: [Alert Engine] [上方入场触发-76500] CHECK_PASSED
+2026-04-22T00:15:50: [Alert Engine] [下方入场触发-75000] CHECK_START
+2026-04-22T00:15:56: [警报检查] 当前价格: 75893.7, 目标: 75000
+2026-04-22T00:15:56: [Alert Engine] [下方入场触发-75000] CHECK_PASSED

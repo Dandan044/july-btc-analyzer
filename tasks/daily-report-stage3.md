@@ -4,6 +4,23 @@
 
 ---
 
+## ⚠️ 日志强制要求
+
+**任何涉及 OKX 实盘的仓位操作（下单/平仓/改单/取消）必须记录执行日志。**
+
+| 操作 | 日志要求 | 缺失后果 |
+|------|---------|---------|
+| 开仓 | 成交后立即记录 | ❌ 无法追溯是否成交 |
+| 加仓 | 成交后立即记录 | ❌ 无法确认加仓结果 |
+| 减仓 | 成交后立即记录 | ❌ 无法确认减仓结果 |
+| 平仓 | 成交后立即记录 | ❌ 无法确认平仓结果 |
+| 设置/修改止盈止损 | 完成后立即记录 | ❌ 无法确认订单状态 |
+| 跳过执行（等待触发） | 跳过时记录 | ❌ 无法追溯决策原因 |
+
+**日志格式原则：每条操作日志必须包含「操作类型 + 结果 + 关键参数」，便于事后追溯。**
+
+---
+
 ## 触发方式
 
 - 由阶段二 spawn 触发
@@ -187,12 +204,23 @@ cat active/cycle-*/positions.json
 | 观望 | - | 跳过执行 |
 | 开仓/加仓/减仓/平仓/调整 | 等待触发 | 跳过执行，记录等待条件 |
 | 开仓/加仓/减仓/平仓/调整 | 立即入场 | 执行仓位操作 |
-| 设置止盈止损 | - | 执行（无需入场条件） |
+
+**立即执行时记录日志：**
+
+```
+[$NOW] [阶段三] 操作决策: [操作类型] | 条件: 立即执行 | 进入步骤7执行
+```
 
 **跳过执行时记录日志：**
 
 ```
 [$NOW] [阶段三] 操作建议: [操作类型] | 状态: 跳过执行 | 原因: [观望/等待触发条件: xxx]
+```
+
+**设置止盈止损时记录日志：**
+
+```
+[$NOW] [阶段三] 操作决策: 调整止盈止损 | 条件: 无需入场条件 | 进入步骤7执行
 ```
 
 ---
@@ -317,7 +345,7 @@ okx-proxy.sh --profile live swap place \
 下单后等待 2 秒，然后查询持仓确认成交：
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 记录：
@@ -395,7 +423,7 @@ okx-proxy.sh --profile live swap algo place \
 **核对持仓：**
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 核对项目：
@@ -406,7 +434,7 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
 **核对止盈止损：**
 
 ```bash
-okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 核对项目：
@@ -442,7 +470,7 @@ okx-proxy.sh --profile live account balance USDT
 ##### 7.2.1 获取当前持仓信息
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 记录：
@@ -473,6 +501,12 @@ okx-proxy.sh --profile live swap place \
   --posSide <long|short>
 ```
 
+**记录执行日志：**
+
+```
+[$NOW] [阶段三] 加仓成功 | 方向: long/short | 加仓张数: xx | 成交价: xx | 订单ID: xx
+```
+
 ##### 7.2.5 更新止盈止损
 
 ⚠️ **加仓后必须重新设置止盈止损，覆盖全部仓位！**
@@ -492,6 +526,12 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <�
 
 与开仓流程相同。
 
+**核对完成后记录汇总日志：**
+
+```
+[$NOW] [阶段三] 加仓流程完成 | 新总仓位: xx 张 | 止盈止损: [tp1, tp2] | 止损: sl | 状态: 已更新
+```
+
 ---
 
 #### 7.3 减仓流程
@@ -503,7 +543,7 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <�
 ##### 7.3.1 获取当前持仓信息
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 ##### 7.3.2 计算减仓张数
@@ -522,6 +562,12 @@ okx-proxy.sh --profile live swap close \
   --posSide <long|short>
 ```
 
+**记录执行日志：**
+
+```
+[$NOW] [阶段三] 减仓成功 | 方向: long/short | 减仓张数: xx | 剩余仓位: xx 张
+```
+
 ##### 7.3.4 更新止盈止损
 
 ⚠️ **减仓后必须重新设置止盈止损，覆盖剩余仓位！**
@@ -533,6 +579,12 @@ okx-proxy.sh --profile live swap close \
 ##### 7.3.5 核对结果
 
 确认剩余持仓张数正确，止盈止损覆盖全部剩余仓位。
+
+**核对完成后记录汇总日志：**
+
+```
+[$NOW] [阶段三] 减仓流程完成 | 剩余仓位: xx 张 | 止盈止损: [tp1, tp2] | 止损: sl | 状态: 已更新
+```
 
 ---
 
@@ -567,7 +619,7 @@ okx-proxy.sh --profile live swap close \
 ##### 7.4.3 等待成交确认
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 确认持仓张数为 0。
@@ -589,7 +641,7 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP
 ##### 7.5.1 获取当前止盈止损订单
 
 ```bash
-okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated
 ```
 
 记录所有 algoId。
@@ -606,9 +658,21 @@ okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
 
 根据日报建议的新价位，设置两档止盈 + 止损（与开仓流程相同）。
 
+**记录执行日志：**
+
+```
+[$NOW] [阶段三] 止盈止损更新 | 止盈1: [tp1, sz/2] | 止盈2: [tp2, sz/2] | 止损: [sl, sz] | 订单ID: [tp1Id, tp2Id, slId]
+```
+
 ##### 7.5.4 核对结果
 
 确认新订单状态为 `live`，触发价正确。
+
+**核对完成后记录汇总日志：**
+
+```
+[$NOW] [阶段三] 调整止盈止损完成 | 止盈: [tp1, tp2] | 止损: sl | 状态: 已更新
+```
 
 ---
 

@@ -44,11 +44,11 @@
 
 ```bash
 # 获取当前持仓（必须筛选 BTC-USDT-SWAP 逐仓）
-okx-proxy.sh --profile live account positions --instId SWAP --json
+okx-proxy.sh --profile live account positions --instType SWAP --instId BTC-USDT-SWAP --tdMode isolated --json
 
-# 获取委托订单（止盈止损）
-okx-proxy.sh --profile live swap orders --instId BTC-USDT-SWAP --json
-okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --json
+# 获取委托订单（止盈止损，仅逐仓）
+okx-proxy.sh --profile live swap orders --instId BTC-USDT-SWAP --tdMode isolated --json
+okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated --json
 
 # 获取账单记录（当前持仓的操作历史）
 okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100 --json
@@ -262,10 +262,10 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 
 ```bash
 # 查询历史持仓（已平仓）
-okx-proxy.sh --profile live account positions-history --instId BTC-USDT-SWAP --json
+okx-proxy.sh --profile live account positions-history --instId BTC-USDT-SWAP --tdMode isolated --json
 
 # 或查询账单中的平仓记录（type=2, 平仓方向与持仓相反）
-okx-proxy.sh --profile live account bills --instId BTC-USDT-SWAP --ccy USDT --limit 50 --json
+okx-proxy.sh --profile live account bills --instId BTC-USDT-SWAP --ccy USDT --limit 50 --tdMode isolated --json
 ```
 
 **从历史持仓 API 获取平仓信息：**

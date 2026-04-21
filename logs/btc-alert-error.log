@@ -950,3 +950,149 @@
 2026-04-20T22:20:51: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
 2026-04-20T22:23:42: [数据收集错误] API错误: You are over your rate limit please upgrade your account!
 2026-04-20T23:58:15: [警报检查错误] Command failed: curl -s --max-time 15 --proxy "http://127.0.0.1:7890" "https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D"
+2026-04-21T20:25:24: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:25:24: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:26:20: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:26:20: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:27:19: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:27:19: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:28:16: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:28:16: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:29:13: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:29:13: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:30:10: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:30:10: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:31:06: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:31:06: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:32:03: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:32:03: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:33:00: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:33:00: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:33:59: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:33:59: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:34:55: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:34:55: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:35:53: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:35:53: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:36:50: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:36:50: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:37:48: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:37:48: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:38:44: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:38:44: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:39:41: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:39:41: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:40:38: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:40:38: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T20:41:35: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T20:41:35: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:00:36: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:00:36: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:01:41: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:01:41: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:02:42: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:02:42: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:03:44: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:03:44: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:04:46: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:04:46: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:05:47: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:05:47: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:06:49: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:06:49: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:07:51: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:07:51: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:08:52: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:08:52: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:09:54: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:09:54: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:10:56: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:10:56: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:11:58: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:11:58: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:13:00: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:13:00: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:14:01: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:14:01: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:15:02: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:15:02: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:16:05: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:16:05: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:17:08: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:17:08: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:18:09: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:18:09: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:19:11: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:19:11: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:20:13: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:20:13: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:21:15: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:21:15: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:22:17: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:22:17: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:23:19: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:23:19: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:24:21: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:24:21: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:25:23: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:25:23: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:26:25: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:26:25: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:27:27: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:27:27: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:28:29: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:28:29: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:29:30: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:29:30: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:30:33: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:30:33: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:31:34: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:31:34: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:32:36: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:32:36: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:33:39: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:33:39: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:34:42: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:34:42: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:35:42: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:35:42: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:36:43: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:36:43: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:37:45: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:37:45: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:38:47: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:38:47: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:39:48: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:39:48: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:40:50: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:40:50: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:41:51: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:41:51: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:42:52: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:42:52: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:43:53: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:43:53: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:44:55: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:44:55: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:45:55: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:45:55: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:46:57: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:46:57: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:47:59: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:47:59: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:49:00: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:49:00: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:50:02: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:50:02: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:51:04: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:51:04: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:52:06: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:52:06: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T22:53:07: [Alert Engine] Failed to load rule 2026-04-21-support-75550.js: Invalid or unexpected token
+2026-04-21T22:53:07: [Alert Engine] [Engine] 加载规则失败: 2026-04-21-support-75550.js
+2026-04-21T23:26:02: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-21T23:31:12: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-21T23:41:36: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-21T23:56:53: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-21T23:56:53: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
+2026-04-22T00:08:37: [警报检查错误] Command failed: curl -s --max-time 15 --proxy "http://127.0.0.1:7890" "https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT"

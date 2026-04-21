@@ -1,19 +1,19 @@
 {
   "manifest_version": "1.0",
   "stage": "data-collection",
-  "generated_at": "2026-04-20T21:07:17+08:00",
+  "generated_at": "2026-04-21T23:15:38+08:00",
   
   "cycle": {
-    "id": "cycle-20260420-001",
+    "id": "cycle-20260421-001",
     "status": "active",
-    "started_at": "2026-04-20T21:00:00+08:00",
-    "positions_file": "active/cycle-20260420-001/positions.json",
+    "started_at": "2026-04-21T23:14:32+08:00",
+    "positions_file": "active/cycle-20260421-001/positions.json",
     "is_new_cycle": true
   },
   
   "持仓信息": {
-    "文件": "active/cycle-20260420-001/positions.json",
-    "同步时间": "2026-04-20T21:00:00+08:00",
+    "文件": "active/cycle-20260421-001/positions.json",
+    "同步时间": "2026-04-21T23:14:32+08:00",
     "当前持仓数": 0,
     "有BTC逐仓持仓": false,
     "数据来源": "OKX实盘账户"
@@ -21,14 +21,14 @@
   
   "data_files": {
     "market_data": {
-      "path": "data/2026-04-20.json",
-      "generated_at": "2026-04-20T21:05:33+08:00",
-      "source": "OKX + CryptoCompare + alternative.me",
+      "path": "data/2026-04-21.json",
+      "generated_at": "2026-04-21T23:15:23+08:00",
+      "source": "OKX CLI + CryptoCompare + alternative.me + Deribit",
       "status": "success"
     },
     "data_mining_report": {
-      "path": "active/cycle-20260420-001/data-context/data-mining-2026-04-20-2105.md",
-      "generated_at": "2026-04-20T21:05:33+08:00"
+      "path": "active/cycle-20260421-001/data-context/data-mining-2026-04-21-2315.md",
+      "generated_at": "2026-04-21T23:15:38+08:00"
     }
   },
   
