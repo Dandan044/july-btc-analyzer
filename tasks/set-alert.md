@@ -2,6 +2,57 @@
 
 当你需要"设定市场警报"时，按以下流程执行：
 
+## 0. ⚠️ 先测试数据获取逻辑（必须）
+
+**在编写警报规则之前，必须先验证数据获取逻辑可用！**
+
+### 0.1 执行步骤
+
+1. 根据警报需求，确定需要调用的 API 方法（如 `getOKXTicker`、`getOKXKlines`、`get24hVolume` 等）
+2. **手动调用一次**，检查返回数据：
+   - 数据是否成功返回？
+   - 数据格式是否符合预期？
+   - 数值范围是否合理？（如成交额应该是几亿级别，不是几万）
+
+### 0.2 测试方式
+
+使用 node 命令直接测试：
+
+```bash
+node -e "
+const api = require('./skills/btc-market-lite/scripts/api');
+async function test() {
+  const ticker = await api.getOKXTicker('BTC');
+  console.log('价格:', ticker.price);
+  console.log('change1h:', ticker.change1h);
+  console.log('volume24h:', ticker.volume24h);
+}
+test().catch(console.error);
+"
+```
+
+### 0.3 数据合理性检查
+
+| 数据类型 | 合理范围示例 | 异常情况（需排查） |
+|---------|-------------|-------------------|
+| BTC 价格 | $60,000-$100,000 | 0.01 或 null |
+| 24h成交额 | $300M-$500M | $0.01M |
+| K线成交量 | 百万级 USDT | 几十 USDT |
+| change1h/change24h | ±0.1% ~ ±5% | null 或 60000% |
+
+### 0.4 发现问题时
+
+**数据异常时，必须先修复 `skills/btc-market-lite/scripts/api.js`，再继续创建警报。**
+
+常见问题：
+- API 字段映射错误（如 OKX 返回数组 index 5/6 混淆）
+- 数据单位错误（BTC vs USDT）
+- limit 参数超出 API 限制
+
+**不要在未验证数据的情况下直接创建规则文件！**
+
+---
+
 ## 1. 理解警报需求
 
 分析用户或自身分析发现的监控需求，确定：
