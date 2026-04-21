@@ -44,78 +44,40 @@ function fetch(url) {
 // ========== CryptoCompare API ==========
 
 /**
- * 获取K线数据
+ * 获取K线数据（底层使用 OKX API）
  * @param {string} symbol - 币种 (BTC)
- * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1h, 4h, 1d
+ * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1h, 4h, 1d（自动映射到OKX格式）
  * @param {number} limit - 数据条数
  * @returns {Promise<Array>} K线数据数组，从新到旧
  */
 async function getKlines(symbol = 'BTC', interval = '1h', limit = 30) {
-  // 映射间隔到 CryptoCompare endpoint
+  // CryptoCompare interval -> OKX interval 映射
   const intervalMap = {
-    '1m': { endpoint: 'histominute', multiplier: 1 },
-    '5m': { endpoint: 'histominute', multiplier: 5 },
-    '15m': { endpoint: 'histominute', multiplier: 15 },
-    '1h': { endpoint: 'histohour', multiplier: 1 },
-    '4h': { endpoint: 'histohour', multiplier: 4 },
-    '1d': { endpoint: 'histoday', multiplier: 1 }
+    '1m': '1m',
+    '5m': '5m',
+    '15m': '15m',
+    '1h': '1H',
+    '2h': '2H',
+    '4h': '4H',
+    '1d': '1D'
   };
   
-  const config = intervalMap[interval];
-  if (!config) {
-    throw new Error(`不支持的间隔: ${interval}`);
+  const okxInterval = intervalMap[interval];
+  if (!okxInterval) {
+    throw new Error(`不支持的间隔: ${interval}，支持: 1m, 5m, 15m, 1h, 2h, 4h, 1d`);
   }
   
-  const url = `https://min-api.cryptocompare.com/data/v2/${config.endpoint}?fsym=${symbol}&tsym=USD&limit=${limit}`;
-  const data = await fetch(url);
-  
-  if (data.Response !== 'Success') {
-    throw new Error(`API错误: ${data.Message || 'Unknown error'}`);
-  }
-  
-  // 返回格式化的K线数据，从新到旧
-  return data.Data.Data.map(candle => ({
-    time: candle.time,
-    datetime: new Date(candle.time * 1000).toISOString(),
-    open: candle.open,
-    high: candle.high,
-    low: candle.low,
-    close: candle.close,
-    volume: candle.volumeto,
-    volumeFrom: candle.volumefrom
-  }));
+  // 内部调用 OKX K线接口
+  return getOKXKlines(symbol, okxInterval, limit);
 }
 
 /**
- * 获取实时价格
+ * 获取实时价格（底层使用 OKX API）
  * @param {string} symbol - 币种 (BTC)
  * @returns {Promise<Object>} 价格信息
  */
 async function getTicker(symbol = 'BTC') {
-  const url = `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol}&tsym=USD&limit=168`;
-  const data = await fetch(url);
-  
-  if (data.Response !== 'Success') {
-    throw new Error(`API错误: ${data.Message || 'Unknown error'}`);
-  }
-  
-  const candles = data.Data.Data;
-  const latest = candles[candles.length - 1];
-  const hourAgo = candles[candles.length - 2];
-  const dayAgo = candles[candles.length - 25];
-  const weekAgo = candles[0];
-  
-  return {
-    symbol: symbol,
-    price: latest.close,
-    high: latest.high,
-    low: latest.low,
-    change1h: ((latest.close - hourAgo.close) / hourAgo.close * 100).toFixed(2),
-    change24h: ((latest.close - dayAgo.close) / dayAgo.close * 100).toFixed(2),
-    change7d: ((latest.close - weekAgo.close) / weekAgo.close * 100).toFixed(2),
-    volume24h: latest.volumeto,
-    timestamp: new Date().toISOString()
-  };
+  return getOKXTicker(symbol);
 }
 
 /**
@@ -124,58 +86,47 @@ async function getTicker(symbol = 'BTC') {
  * @returns {Promise<Object>} 交易量信息
  */
 async function get24hVolume(symbol = 'BTC') {
-  const url = `https://min-api.cryptocompare.com/data/v2/histohour?fsym=${symbol}&tsym=USD&limit=24`;
-  const data = await fetch(url);
+  // 使用 OKX 1H K线，24条 = 近24小时
+  const candles = await getOKXKlines(symbol, '1H', 24);
   
-  if (data.Response !== 'Success') {
-    throw new Error(`API错误: ${data.Message || 'Unknown error'}`);
-  }
-  
-  const candles = data.Data.Data;
-  const volume24h = candles.reduce((sum, c) => sum + (c.volumeto || 0), 0);
+  const volume24h = candles.reduce((sum, c) => sum + (c.volume || 0), 0);
   
   return {
     symbol: symbol,
     volume24h: volume24h,
     hourlyData: candles.map(c => ({
       time: c.time,
-      datetime: new Date(c.time * 1000).toISOString(),
-      volume: c.volumeto,
+      datetime: c.datetime,
+      volume: c.volume,
       close: c.close
     }))
   };
 }
 
 /**
- * 获取历史价格数据
+ * 获取历史价格数据（底层使用 OKX API）
  * @param {string} symbol - 币种 (BTC)
  * @param {number} days - 天数
  * @returns {Promise<Object>} 历史价格数据
  */
 async function getPriceHistory(symbol = 'BTC', days = 30) {
-  const url = `https://min-api.cryptocompare.com/data/v2/histoday?fsym=${symbol}&tsym=USD&limit=${days}`;
-  const data = await fetch(url);
-  
-  if (data.Response !== 'Success') {
-    throw new Error(`API错误: ${data.Message || 'Unknown error'}`);
-  }
-  
-  const candles = data.Data.Data.reverse(); // 从新到旧
+  // OKX 1D K线直接对应每日数据
+  const candles = await getOKXKlines(symbol, '1D', days);
   
   return {
     symbol: symbol,
     prices: candles.map(c => c.close),
     timestamps: candles.map(c => c.time),
-    volumes: candles.map(c => c.volumeto),
+    volumes: candles.map(c => c.volume),
     highs: candles.map(c => c.high),
     lows: candles.map(c => c.low),
     history: candles.map(c => ({
-      date: new Date(c.time * 1000).toISOString().split('T')[0],
+      date: new Date(c.time).toISOString().split('T')[0],
       open: c.open,
       high: c.high,
       low: c.low,
       close: c.close,
-      volume: c.volumeto
+      volume: c.volume
     }))
   };
 }
@@ -199,7 +150,81 @@ async function getFearGreedIndex(days = 30) {
   };
 }
 
-// ========== OKX API（需要代理） ==========
+// ========== OKX K线 & 价格 API（需要代理）==========
+
+/**
+ * 获取 OKX K线数据
+ * @param {string} symbol - 币种 (BTC)
+ * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1H, 2H, 4H, 1D, etc
+ * @param {number} limit - 数据条数
+ * @returns {Promise<Array>} K线数据数组，从新到旧
+ */
+async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
+  const instId = `${symbol}-USDT`;
+  const url = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=${interval}&limit=${limit}`;
+  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 20000
+  });
+  
+  const data = JSON.parse(result);
+  if (data.code !== '0') {
+    throw new Error(`OKX K线 API错误: ${data.msg}`);
+  }
+  
+  return data.data.map(candle => ({
+    time: parseInt(candle[0]),
+    datetime: new Date(parseInt(candle[0])).toISOString(),
+    open: parseFloat(candle[1]),
+    high: parseFloat(candle[2]),
+    low: parseFloat(candle[3]),
+    close: parseFloat(candle[4]),
+    volume: parseFloat(candle[5])
+  }));
+}
+
+/**
+ * 获取 OKX Ticker（实时价格）
+ * @param {string} symbol - 币种 (BTC)
+ * @returns {Promise<Object>} 价格信息
+ */
+async function getOKXTicker(symbol = 'BTC') {
+  const instId = `${symbol}-USDT`;
+  const url = `https://www.okx.com/api/v5/market/ticker?instId=${instId}`;
+  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 20000
+  });
+  
+  const data = JSON.parse(result);
+  if (data.code !== '0') {
+    throw new Error(`OKX Ticker API错误: ${data.msg}`);
+  }
+  
+  const t = data.data[0];
+  const lastPx = parseFloat(t.last);
+  const open24h = parseFloat(t.open24h);
+  
+  return {
+    symbol: symbol,
+    price: lastPx,
+    high: parseFloat(t.high24h),
+    low: parseFloat(t.low24h),
+    change1h: null,
+    change24h: ((lastPx - open24h) / open24h * 100).toFixed(2),
+    change7d: null,
+    volume24h: parseFloat(t.volCcy24h),
+    volume: parseFloat(t.vol24h),
+    askPx: parseFloat(t.askPx),
+    bidPx: parseFloat(t.bidPx),
+    open24h: open24h,
+    sodUtc0: parseFloat(t.sodUtc0),
+    sodUtc8: parseFloat(t.sodUtc8),
+    timestamp: new Date(parseInt(t.ts)).toISOString()
+  };
+}
+
+// ========== OKX 合约统计 API（需要代理）==========
 
 /**
  * 获取 OKX 持仓量数据
@@ -330,7 +355,10 @@ module.exports = {
   getPriceHistory,
   getFearGreedIndex,
   fetch,
-  // OKX API（需要代理）
+  // OKX K线 & 价格（需要代理）
+  getOKXKlines,
+  getOKXTicker,
+  // OKX 合约统计（需要代理）
   getOKXOpenInterest,
   getOKXTakerRatio,
   getOKXLongShortRatio
