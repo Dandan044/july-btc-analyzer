@@ -40,6 +40,7 @@ module.exports = {
         currentPrice: ticker.price,
         triggerPrice: TARGET_PRICE,
         priceChange: {
+          '1h': ticker.change1h,
           '24h': ticker.change24h
         },
         klines4h: klines.map(k => ({

@@ -204,13 +204,33 @@ async function getOKXTicker(symbol = 'BTC') {
   const t = data.data[0];
   const lastPx = parseFloat(t.last);
   const open24h = parseFloat(t.open24h);
-  
+
+  // 计算 change1h：获取最近2根1H K线进行比较
+  let change1h = null;
+  try {
+    const klineUrl = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=1H&limit=2`;
+    const klineResult = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${klineUrl}"`, {
+      encoding: 'utf8',
+      timeout: 20000
+    });
+    const klineData = JSON.parse(klineResult);
+    if (klineData.code === '0' && klineData.data.length >= 2) {
+      const currentClose = parseFloat(klineData.data[0][4]);
+      const hourAgoClose = parseFloat(klineData.data[1][4]);
+      if (hourAgoClose > 0) {
+        change1h = ((currentClose - hourAgoClose) / hourAgoClose * 100).toFixed(2);
+      }
+    }
+  } catch (e) {
+    // 计算失败不影响主流程
+  }
+
   return {
     symbol: symbol,
     price: lastPx,
     high: parseFloat(t.high24h),
     low: parseFloat(t.low24h),
-    change1h: null,
+    change1h: change1h,
     change24h: ((lastPx - open24h) / open24h * 100).toFixed(2),
     change7d: null,
     volume24h: parseFloat(t.volCcy24h),
