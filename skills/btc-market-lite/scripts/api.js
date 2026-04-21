@@ -117,9 +117,10 @@ async function getPriceHistory(symbol = 'BTC', days = 30) {
     symbol: symbol,
     prices: candles.map(c => c.close),
     timestamps: candles.map(c => c.time),
-    volumes: candles.map(c => c.volume),
+    volumes: candles.map(c => c.volume),   // volCcy，单位USDT
     highs: candles.map(c => c.high),
     lows: candles.map(c => c.low),
+    _actualDays: candles.length,  // 实际返回天数（OKX limit有上限）
     history: candles.map(c => ({
       date: new Date(c.time).toISOString().split('T')[0],
       open: c.open,
@@ -172,6 +173,8 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
     throw new Error(`OKX K线 API错误: ${data.msg}`);
   }
   
+  // OKX返回格式: [ts, o, h, l, c, vol(BTC), volCcy(USDT), volCcyQuote, confirm]
+  // 注意：文档说index5是volCcy，但实测index5是vol(BTC)，index6才是volCcy(USDT)
   return data.data.map(candle => ({
     time: parseInt(candle[0]),
     datetime: new Date(parseInt(candle[0])).toISOString(),
@@ -179,7 +182,8 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
     high: parseFloat(candle[2]),
     low: parseFloat(candle[3]),
     close: parseFloat(candle[4]),
-    volume: parseFloat(candle[5])
+    volume: parseFloat(candle[6]),   // volCcy (USDT成交额)
+    volumeBTC: parseFloat(candle[5]) // vol (BTC成交量，备用)
   }));
 }
 
