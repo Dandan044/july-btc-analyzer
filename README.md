@@ -324,6 +324,40 @@ env: {
 
 ## 更新日志
 
+### 2026-04-23
+> 🔧 警报引擎日志规范化 + check()日志输出规范
+
+**变更内容：**
+
+**① engine.js — 警报引擎日志统一化**
+- 移除独立 `alert-engine.log` 文件写入，改为统一输出到控制台（由 PM2 捕获到单一日志文件）
+- 日志前缀统一为中文 emoji 格式：`[🔧警报引擎]` / `[❌警报引擎错误]` / `[🔍警报检查]`
+- 规则方法（check/collect/trigger）执行时使用 `.call(rule)` 保持 `this` 绑定
+- 移除 `ENGINE_LOG` 常量和 `fs.appendFileSync` 写入逻辑
+
+**② ecosystem.config.js — 日志合并**
+- `error_file` 和 `out_file` 统一指向 `./logs/btc-alert.log`
+- 错误和输出合并为同一文件，避免分散查看
+
+**③ tasks/set-alert.md — check() 日志输出规范（新增 3.1 节）**
+- 每次心跳检查必须输出三部分信息：
+  - `[API]` 数据来源说明（如 OKX/CryptoCompare 获取了什么数据）
+  - `[进度]` 触发进度可视化（当前值、阈值、触发状态）
+  - `[来源]` 警报设立依据（来源于哪份报告的什么观点）
+- 新增延迟触发警报的特殊日志格式
+- 原价格警报数量限制从 3.1 改为 3.2
+
+**④ 警报规则归档与更新**
+- 归档 4/21 旧规则：resistance-76500, support-75000, volatility-squeeze, volume-surge
+- 归档 4/22 规则（约20个）：funding-rate, longshort-ratio, oi-recovery, 多个 resistance/support 等
+- 归档 4/22 创建的 4/23 规则：longshort-rebound, oi-drop, resistance-80000, support-78963
+- 新增 4/23 活跃规则：oi-drop, resistance-79443, support-77500
+
+**⑤ positions.json 更新**
+- 逐仓持仓备注更新：API 返回的多头/空头记录持仓量均为 0，已全部平仓
+
+---
+
 ### 2026-04-22
 > 📝 日志规范化 + 逐仓参数强制化 + 新周期开启
 
