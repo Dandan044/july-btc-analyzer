@@ -18,6 +18,11 @@ logs/
 data/*.json
 *.log
 
+# 动态运行时数据（不需要版本控制）
+active/cycle-*/
+archived/cycle-*/
+skills/btc-alert/rules-archive/
+
 # 临时文件
 *.tmp
 *.bak
