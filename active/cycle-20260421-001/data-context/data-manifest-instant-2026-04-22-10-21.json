@@ -1,0 +1,63 @@
+{
+  "manifest_version": "1.0",
+  "stage": "data-collection",
+  "generated_at": "2026-04-22T10:25:43+08:00",
+
+  "alert_context": {
+    "alert_name": "压力位突破（上方价格）",
+    "alert_time": "2026-04-22T10:21:42+08:00",
+    "alert_type": "breakthrough",
+    "trigger_price": 76500,
+    "current_price": 76916,
+    "significance": "$76,500 为三重验证强压，突破后上方空间打开至 $78,000-$80,000",
+    "klines_4h": [
+      {"time": "2026-04-22T00:00:00.000Z", "open": 76329.7, "high": 77166.6, "low": 76140.4, "close": 76902.7, "volume": 31519003.03135488},
+      {"time": "2026-04-21T20:00:00.000Z", "open": 75025.9, "high": 76423, "low": 74975.1, "close": 76329.7, "volume": 52234135.46574448},
+      {"time": "2026-04-21T16:00:00.000Z", "open": 75839.5, "high": 76188.9, "low": 74825.6, "close": 75025.9, "volume": 63941378.529354416},
+      {"time": "2026-04-21T12:00:00.000Z", "open": 76450.8, "high": 76596.5, "low": 75414.8, "close": 75839.4, "volume": 91470630.25965899},
+      {"time": "2026-04-21T08:00:00.000Z", "open": 76079.9, "high": 76954.1, "low": 76063, "close": 76450.8, "volume": 73731510.79150827}
+    ]
+  },
+
+  "cycle": {
+    "id": "cycle-20260421-001",
+    "status": "active",
+    "started_at": "2026-04-21T23:20:00+08:00",
+    "positions_file": "active/cycle-20260421-001/positions.json",
+    "is_new_cycle": false
+  },
+
+  "持仓信息": {
+    "文件": "active/cycle-20260421-001/positions.json",
+    "同步时间": "2026-04-22T10:25:43+08:00",
+    "当前持仓数": 0,
+    "有BTC逐仓持仓": false,
+    "数据来源": "OKX实盘账户"
+  },
+
+  "data_files": {
+    "market_data": {
+      "path": "data/instant-2026-04-22-10-25-43.json",
+      "generated_at": "2026-04-22T10:25:43+08:00",
+      "source": "OKX + CryptoCompare + alternative.me",
+      "status": "success"
+    }
+  },
+
+  "history_reports": {
+    "daily_reports": [
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-0921.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-0900.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-0104.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-21-2320.md", "date": "2026-04-21", "type": "daily"}
+    ],
+    "instant_reports": [],
+    "total_count": 4,
+    "note": ""
+  },
+
+  "next_stage": {
+    "task_file": "tasks/daily-report-stage2.md",
+    "spawn_instruction": "阶段一已完成，请读取 data-manifest 开始阶段二分析"
+  }
+}

@@ -13,7 +13,6 @@ const path = require('path');
 const RULES_DIR = path.join(__dirname, 'rules');
 const ARCHIVE_DIR = path.join(__dirname, 'rules-archive');
 const LOGS_DIR = path.join(__dirname, '..', '..', 'logs');
-const ENGINE_LOG = path.join(LOGS_DIR, 'alert-engine.log');
 
 // 扫描间隔：检查规则文件是否存在
 const SCAN_INTERVAL = 60 * 1000; // 1分钟
@@ -50,21 +49,12 @@ function timestamp() {
 }
 
 /**
- * 写入引擎日志
+ * 写入引擎日志（统一输出到控制台，由PM2捕获到单一日志文件）
  */
 function logEngine(level, ruleName, message, data = null) {
-  const logLine = `[${timestamp()}] [${level}] [${ruleName}] ${message}${data ? '\n  ' + JSON.stringify(data) : ''}\n`;
+  const prefix = level === 'ERROR' ? '[❌警报引擎错误]' : '[🔧警报引擎]';
+  const consoleMsg = `${prefix} [${ruleName}] ${message}${data ? ' | ' + JSON.stringify(data) : ''}`;
   
-  // 确保日志目录存在
-  if (!fs.existsSync(LOGS_DIR)) {
-    fs.mkdirSync(LOGS_DIR, { recursive: true });
-  }
-  
-  // 追加到日志文件
-  fs.appendFileSync(ENGINE_LOG, logLine);
-  
-  // 同时输出到控制台
-  const consoleMsg = `[Alert Engine] [${ruleName}] ${message}`;
   if (level === 'ERROR') {
     console.error(consoleMsg);
   } else {
@@ -100,7 +90,7 @@ ${message}`;
     stdio: 'ignore'
   });
   
-  console.log(`[Alert Engine] 已发送通知给十四月`);
+  console.log(`[🔧警报引擎] 已发送通知给十四月`);
 }
 
 /**
@@ -249,7 +239,7 @@ function archiveRule(filename, ruleName, reason) {
       archivePath: archivePath,
       reason: reason 
     });
-    console.log(`[Alert Engine] Archived rule "${ruleName}" to ${archivePath}`);
+    console.log(`[🔧警报引擎] 已归档规则 "${ruleName}" 到 ${archivePath}`);
     return true;
   } catch (error) {
     logEngine('ERROR', ruleName, '归档失败', { error: error.message });
@@ -271,7 +261,7 @@ function loadSingleRule(file) {
     
     // 验证必需字段
     if (!rule.name || !rule.interval || !rule.check || !rule.collect || !rule.trigger || !rule.lifetime) {
-      console.warn(`[Alert Engine] Rule ${file} missing required fields, skipping`);
+      console.warn(`[🔧警报引擎] 规则 ${file} 缺少必需字段，跳过`);
       logEngine('WARN', 'Engine', `规则缺少必需字段: ${file}`);
       return null;
     }
@@ -282,7 +272,7 @@ function loadSingleRule(file) {
       module: rule
     };
   } catch (error) {
-    console.error(`[Alert Engine] Failed to load rule ${file}:`, error.message);
+    console.error(`[🔧警报引擎] 加载规则失败 ${file}:`, error.message);
     logEngine('ERROR', 'Engine', `加载规则失败: ${file}`, { error: error.message });
     return null;
   }
@@ -295,7 +285,7 @@ function loadRules() {
   const rules = [];
   
   if (!fs.existsSync(RULES_DIR)) {
-    console.log('[Alert Engine] Rules directory does not exist, creating...');
+    console.log(`[🔧警报引擎] 规则目录不存在，正在创建...`);
     fs.mkdirSync(RULES_DIR, { recursive: true });
     return rules;
   }
@@ -306,7 +296,7 @@ function loadRules() {
     const ruleInfo = loadSingleRule(file);
     if (ruleInfo) {
       rules.push(ruleInfo);
-      console.log(`[Alert Engine] Loaded rule: ${ruleInfo.module.name} (interval: ${ruleInfo.module.interval}ms)`);
+      console.log(`[🔧警报引擎] 已加载规则: ${ruleInfo.module.name} (检查间隔: ${ruleInfo.module.interval}ms)`);
     }
   }
   
@@ -354,8 +344,8 @@ async function runRule(ruleInfo) {
     // 记录检测开始
     logRuleEvent(name, 'CHECK_START');
     
-    // 执行检测
-    const shouldTrigger = await check();
+    // 执行检测（使用 .call(rule) 保持 this 绑定）
+    const shouldTrigger = await check.call(rule);
     
     // 检测成功，重置错误统计
     handleRuleSuccess(filename, name);
@@ -364,11 +354,11 @@ async function runRule(ruleInfo) {
       logRuleEvent(name, 'TRIGGERED');
       
       // 收集数据
-      const data = await collect();
+      const data = await collect.call(rule);
       logRuleEvent(name, 'DATA_COLLECTED', { dataKeys: Object.keys(data || {}) });
       
       // 触发动作
-      await trigger(data);
+      await trigger.call(rule, data);
       
       logRuleEvent(name, 'TRIGGER_COMPLETED');
       
@@ -411,7 +401,7 @@ function unloadRule(filename, ruleName, reason) {
   // ruleErrorStats.delete(filename);
   
   logRuleEvent(ruleName, 'RULE_UNLOADED', { reason });
-  console.log(`[Alert Engine] Unloaded rule "${ruleName}" (${reason})`);
+  console.log(`[🔧警报引擎] 正在卸载规则 "${ruleName}" (${reason})`);
 }
 
 /**
@@ -445,7 +435,7 @@ function scanRuleFiles() {
       if (ruleInfo) {
         startRuleTimer(ruleInfo);
         logEngine('INFO', 'Engine', '热加载新规则', { file, name: ruleInfo.module.name });
-        console.log(`[Alert Engine] Hot-loaded new rule: ${ruleInfo.module.name}`);
+        console.log(`[🔧警报引擎] 热加载新规则: ${ruleInfo.module.name}`);
       }
     }
   }
@@ -478,7 +468,7 @@ function startRuleTimer(ruleInfo) {
     file: filename
   });
   
-  console.log(`[Alert Engine] Starting timer for rule "${rule.name}" (interval: ${rule.interval}ms)`);
+  console.log(`[🔧警报引擎] 启动规则定时器 "${rule.name}" (检查间隔: ${rule.interval}ms)`);
   
   // 立即执行一次
   runRule(ruleInfo).then(result => {
@@ -508,7 +498,7 @@ function startRuleTimer(ruleInfo) {
 function stopAllTimers() {
   for (const [filename, timer] of timers) {
     clearInterval(timer);
-    console.log(`[Alert Engine] Stopped timer for ${filename}`);
+    console.log(`[🔧警报引擎] 已停止定时器 ${filename}`);
   }
   timers.clear();
   activeRules.clear();
@@ -525,14 +515,12 @@ async function main() {
   
   logEngine('INFO', 'Engine', '引擎启动', { 
     rulesDir: RULES_DIR,
-    archiveDir: ARCHIVE_DIR,
-    logFile: ENGINE_LOG 
+    archiveDir: ARCHIVE_DIR
   });
   
-  console.log('[Alert Engine] Starting...');
-  console.log(`[Alert Engine] Rules directory: ${RULES_DIR}`);
-  console.log(`[Alert Engine] Archive directory: ${ARCHIVE_DIR}`);
-  console.log(`[Alert Engine] Log file: ${ENGINE_LOG}`);
+  console.log('[🔧警报引擎] 启动中...');
+  console.log(`[🔧警报引擎] 规则目录: ${RULES_DIR}`);
+  console.log(`[🔧警报引擎] 归档目录: ${ARCHIVE_DIR}`);
   
   // 初始加载规则
   const rules = loadRules();
@@ -543,16 +531,16 @@ async function main() {
   }
 
   logEngine('INFO', 'Engine', '规则加载完成', { count: timers.size });
-  console.log(`[Alert Engine] Started ${timers.size} rule(s)`);
+  console.log(`[🔧警报引擎] 已启动 ${timers.size} 个规则`);
   
   // 启动规则文件扫描定时器（每1分钟检查一次）
   const scanTimer = setInterval(scanRuleFiles, SCAN_INTERVAL);
-  console.log(`[Alert Engine] Started file scanner (interval: ${SCAN_INTERVAL / 1000}s)`);
+  console.log(`[🔧警报引擎] 已启动文件扫描器 (检查间隔: ${SCAN_INTERVAL / 1000}s)`);
   
   // 监听进程信号
   process.on('SIGINT', () => {
     logEngine('INFO', 'Engine', '引擎关闭 (SIGINT)');
-    console.log('\n[Alert Engine] Shutting down...');
+    console.log('\n[🔧警报引擎] 正在关闭...');
     stopAllTimers();
     clearInterval(scanTimer);
     process.exit(0);
@@ -560,7 +548,7 @@ async function main() {
   
   process.on('SIGTERM', () => {
     logEngine('INFO', 'Engine', '引擎关闭 (SIGTERM)');
-    console.log('\n[Alert Engine] Shutting down...');
+    console.log('\n[🔧警报引擎] 正在关闭...');
     stopAllTimers();
     clearInterval(scanTimer);
     process.exit(0);
@@ -573,6 +561,6 @@ async function main() {
 // 启动
 main().catch(error => {
   logEngine('ERROR', 'Engine', '引擎致命错误', { error: error.message });
-  console.error('[Alert Engine] Fatal error:', error);
+  console.error('[🔧警报引擎] 致命错误:', error);
   process.exit(1);
 });

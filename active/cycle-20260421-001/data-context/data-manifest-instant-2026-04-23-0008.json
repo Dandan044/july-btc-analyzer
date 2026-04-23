@@ -1,0 +1,62 @@
+{
+  "manifest_version": "1.0",
+  "stage": "data-collection",
+  "generated_at": "2026-04-23T00:08:50+08:00",
+
+  "alert_context": {
+    "alert_name": "即时分析警报",
+    "alert_time": "2026-04-23T00:06:00+08:00",
+    "alert_type": "instant",
+    "trigger_price": 79260,
+    "current_price": 79260
+  },
+
+  "cycle": {
+    "id": "cycle-20260421-001",
+    "status": "active",
+    "started_at": "2026-04-21T12:00:00+08:00",
+    "positions_file": "active/cycle-20260421-001/positions.json",
+    "is_new_cycle": false
+  },
+
+  "持仓信息": {
+    "文件": "active/cycle-20260421-001/positions.json",
+    "同步时间": "2026-04-23T00:08:00+08:00",
+    "当前持仓数": 0,
+    "有BTC逐仓持仓": false,
+    "数据来源": "OKX实盘账户",
+    "备注": "当前无BTC-USDT-SWAP逐仓持仓。全仓仓位3424935256725839872已忽略。本周期从未开逐仓仓位。"
+  },
+
+  "data_files": {
+    "market_data": {
+      "path": "data/instant-2026-04-23-00-08-50.json",
+      "generated_at": "2026-04-23T00:08:50+08:00",
+      "source": "OKX CLI + OKX API",
+      "status": "success"
+    }
+  },
+
+  "history_reports": {
+    "daily_reports": [
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-2351.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-2310.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-2151.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-2100.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-1628.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-1509.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-1407.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-1026.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-0921.md", "date": "2026-04-22", "type": "daily"},
+      {"path": "active/cycle-20260421-001/reports/btc-report-2026-04-22-0900.md", "date": "2026-04-22", "type": "daily"}
+    ],
+    "instant_reports": [],
+    "total_count": 10,
+    "note": null
+  },
+
+  "next_stage": {
+    "task_file": "tasks/daily-report-stage2.md",
+    "spawn_instruction": "阶段一已完成，请读取 data-manifest 开始阶段二分析"
+  }
+}

@@ -153,7 +153,91 @@ module.exports = {
 
 ## 3. 必须遵守的规则
 
-### 3.1 价格警报数量限制（必须）
+### 3.1 check() 日志输出规范（必须）
+
+**每次心跳检查时，`check()` 的 console.log 必须包含以下三部分信息：**
+
+#### ① API 数据来源说明
+
+明确表示使用什么 API 获取了什么数据：
+
+```
+格式：[API] <数据源>获取<数据描述>
+示例：[API] OKX获取BTC当前价格 | [API] CryptoCompare获取4根15分钟K线 | [API] OKX获取1H多空比数据
+```
+
+#### ② 触发进度可视化
+
+当前值、阈值、触发状态组成可视化触发进程：
+
+```
+格式：[进度] <规则名> | <当前值描述> | <阈值描述> | 触发: <true/false>
+
+示例：
+- 价格警报：[进度] 关键支撑跌破-77500 | 当前价: $78938 | 目标: $77500 | 触发: false
+- 多空比警报：[进度] 多空比恶化-0.65 | 当前比: 0.67 | 阈值: 0.65 | 触发: false
+- 延迟触发：[进度] 延迟确认突破 | 突破已持续: 15分钟 | 等待: 30分钟 | 触发: false
+- 定时器：[进度] 计划入场定时器 | 剩余时间: 2小时30分 | 触发时间: 14:00 | 触发: false
+```
+
+#### ③ 设立警报的来源依据
+
+记录该警报设立的原因，来源于哪份报告的什么观点：
+
+```
+格式：[来源] <报告类型+日期>: "<核心观点摘要>"
+示例：[来源] 04-22 21:00日报: "longShortRatio恶化至0.67，若继续恶化至0.65以下则空头挤压大概率爆发"
+```
+
+#### 完整示例
+
+```javascript
+async check() {
+  if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
+
+  try {
+    const ticker = await api.getTicker('BTC');
+    const currentPrice = ticker.price;
+    const triggered = currentPrice < TARGET_PRICE;
+
+    console.log(`[🔍警报检查] [API] CryptoCompare获取BTC实时价格 | [进度] ${this.name} | 当前价: $${currentPrice} | 目标: $${TARGET_PRICE} | 触发: ${triggered} | [来源] 04-22 21:51即时分析: "$77,500是关键支撑，跌破将破坏4H上升结构"`);
+    
+    return triggered;
+  } catch (error) {
+    console.error('[❌警报检查错误]', error.message);
+    throw error;
+  }
+}
+```
+
+**日志输出效果：**
+```
+[🔍警报检查] [API] CryptoCompare获取BTC实时价格 | [进度] 关键支撑跌破警报-77500 | 当前价: $78938 | 目标: $77500 | 触发: false | [来源] 04-22 21:51即时分析: "$77,500是关键支撑，跌破将破坏4H上升结构"
+```
+
+#### 延迟触发警报的特殊格式
+
+延迟触发警报需要额外显示等待进度：
+
+```javascript
+async check() {
+  // ... 检测逻辑
+  
+  if (ticker.price >= TARGET_PRICE) {
+    if (!this.breakthroughTime) {
+      this.breakthroughTime = Date.now();
+    }
+    
+    const elapsedMs = Date.now() - this.breakthroughTime;
+    const elapsedMins = Math.floor(elapsedMs / 60000);
+    const targetMins = DELAY_MS / 60000;
+    
+    console.log(`[🔍警报检查] [API] CryptoCompare获取BTC实时价格 | [进度] ${this.name} | 突破已持续: ${elapsedMins}分钟 | 等待确认: ${targetMins}分钟 | 当前价: $${ticker.price} | 目标: $${TARGET_PRICE} | 触发: ${elapsedMins >= targetMins} | [来源] 04-22 日报: "突破需确认，避免假突破"`);
+  }
+}
+```
+
+### 3.2 价格警报数量限制（必须）
 
 为防止警报冗余，价格类警报最多同时存在：
 

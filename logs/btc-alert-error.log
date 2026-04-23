@@ -1096,3 +1096,7 @@
 2026-04-21T23:56:53: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
 2026-04-21T23:56:53: [警报检查错误] API错误: You are over your rate limit please upgrade your account!
 2026-04-22T00:08:37: [警报检查错误] Command failed: curl -s --max-time 15 --proxy "http://127.0.0.1:7890" "https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT"
+2026-04-22T09:19:15: [警报检查错误] 请求超时
+2026-04-22T15:22:57: [Alert Engine] Failed to load rule 2026-04-22-volatility-squeeze.js: Invalid or unexpected token
+2026-04-22T15:22:57: [Alert Engine] [Engine] 加载规则失败: 2026-04-22-volatility-squeeze.js
+2026-04-22T22:46:22: [警报检查错误] Command failed: curl -s --max-time 15 --proxy "http://127.0.0.1:7890" "https://www.okx.com/api/v5/market/history-candles?instId=BTC-USDT&bar=1H&limit=3"

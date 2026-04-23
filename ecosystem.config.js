@@ -13,9 +13,9 @@ module.exports = {
     // 内存限制
     max_memory_restart: '500M',
     
-    // 日志
-    error_file: './logs/btc-alert-error.log',
-    out_file: './logs/btc-alert-out.log',
+    // 日志配置 - 统一合并到一个文件
+    error_file: './logs/btc-alert.log',
+    out_file: './logs/btc-alert.log',
     merge_logs: true,
     time: true,
     

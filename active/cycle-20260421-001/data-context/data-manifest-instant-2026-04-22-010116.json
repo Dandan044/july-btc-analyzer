@@ -1,0 +1,67 @@
+{
+  "manifest_version": "1.0",
+  "stage": "data-collection",
+  "generated_at": "2026-04-22T01:04:03+08:00",
+
+  "alert_context": {
+    "alert_name": "波动率收窄",
+    "alert_time": "2026-04-22T01:01:16+08:00",
+    "alert_type": "volatility_squeeze",
+    "trigger_price": 75765,
+    "current_price": 75765,
+    "average_range": "0.47",
+    "threshold": 1,
+    "consecutive_hours": 3,
+    "significance": "连续3小时振幅低于1%，市场极度收缩，可能即将变盘",
+    "recent_klines": [
+      {"time": "2026-04-21T17:00:00.000Z", "open": 75774.9, "high": 75800, "low": 75730.5, "close": 75779.1, "rangePct": "0.09"},
+      {"time": "2026-04-21T16:00:00.000Z", "open": 75839.5, "high": 76188.9, "low": 75761.9, "close": 75774.9, "rangePct": "0.56"},
+      {"time": "2026-04-21T15:00:00.000Z", "open": 75675.6, "high": 75981.1, "low": 75414.8, "close": 75839.4, "rangePct": "0.75"},
+      {"time": "2026-04-21T14:00:00.000Z", "open": 75905.1, "high": 76596.5, "low": 75625, "close": 75674.2, "rangePct": "1.28"},
+      {"time": "2026-04-21T13:00:00.000Z", "open": 76018.5, "high": 76189, "low": 75740.4, "close": 75904.9, "rangePct": "0.59"}
+    ]
+  },
+
+  "cycle": {
+    "id": "cycle-20260421-001",
+    "status": "active",
+    "started_at": "2026-04-21T23:14:00+08:00",
+    "positions_file": "active/cycle-20260421-001/positions.json",
+    "is_new_cycle": false
+  },
+
+  "持仓信息": {
+    "文件": "active/cycle-20260421-001/positions.json",
+    "同步时间": "2026-04-22T01:04:03+08:00",
+    "当前持仓数": 0,
+    "有BTC逐仓持仓": false,
+    "数据来源": "OKX实盘账户"
+  },
+
+  "data_files": {
+    "market_data": {
+      "path": "data/instant-2026-04-22-01-04-03.json",
+      "generated_at": "2026-04-22T01:04:03+08:00",
+      "source": "OKX + CryptoCompare + alternative.me",
+      "status": "success"
+    }
+  },
+
+  "history_reports": {
+    "daily_reports": [
+      {
+        "path": "active/cycle-20260421-001/reports/btc-report-2026-04-21-2320.md",
+        "date": "2026-04-21",
+        "type": "daily"
+      }
+    ],
+    "instant_reports": [],
+    "total_count": 1,
+    "note": null
+  },
+
+  "next_stage": {
+    "task_file": "tasks/daily-report-stage2.md",
+    "spawn_instruction": "阶段一已完成，请读取 data-manifest 开始阶段二分析"
+  }
+}
