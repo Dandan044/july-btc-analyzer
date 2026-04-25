@@ -417,16 +417,11 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   // 按 timestamp 映射
   const tsMap = new Map(history.map((r, i) => [r.timestamp, i]));
   
-  // 资金费率：独立列表，不再挂到 K线字段
-  const fundingRateList = [];
+  // 资金费率：压缩为数值数组格式
+  const fundingRateValues = [];
   if (fundingDataHistory && Array.isArray(fundingDataHistory)) {
-    for (const item of fundingDataHistory.slice(0, 50)) {
-      const ts = parseInt(item.fundingTime);
-      fundingRateList.push({
-        time: toBeijingDatetime(ts),
-        timestamp: ts,
-        fundingRate: parseFloat(item.fundingRate)
-      });
+    for (const item of fundingDataHistory.slice(0, 21)) {  // 只保留7天×3=21条
+      fundingRateValues.push(parseFloat(item.fundingRate));
     }
   }
   
@@ -437,30 +432,20 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     premiumCurrent = parseFloat(fundingArr[0].premium);
   }
   
-  // 计算历史 Basis（合约收盘价 - 指数收盘价）
+  // 计算历史 Basis：压缩为数值数组格式
   const indexCandlesArray = Array.isArray(indexCandlesData) ? indexCandlesData : indexCandlesData?.data;
-  const basisHistory = [];
+  const basisValues = [];
   if (indexCandlesArray && indexCandlesArray.length > 0) {
-    // indexCandles 和 klinesArray 都是按时间降序排列
-    for (let i = 0; i < Math.min(displayData.length, indexCandlesArray.length); i++) {
-      const swapK = displayData[i];  // 合约 K线
-      const idxK = indexCandlesArray[i];  // 指数 K线
+    for (let i = 0; i < Math.min(7, displayData.length, indexCandlesArray.length); i++) {  // 只保留7天
+      const swapK = displayData[i];
+      const idxK = indexCandlesArray[i];
       
-      // 时间戳对齐检查（允许1小时误差）
       const tsDiff = Math.abs(swapK.timestamp - parseInt(idxK[0]));
-      if (tsDiff < 3600000) {  // 1小时内视为同一天
+      if (tsDiff < 3600000) {
         const indexClose = parseFloat(idxK[4]);
         const swapClose = swapK.close;
-        const basis = swapClose - indexClose;
         const basisPercent = indexClose > 0 ? (swapClose / indexClose - 1) * 100 : 0;
-        
-        basisHistory.push({
-          date: swapK.date,
-          indexClose: parseFloat(indexClose.toFixed(2)),
-          swapClose: parseFloat(swapClose.toFixed(2)),
-          basis: parseFloat(basis.toFixed(2)),
-          basisPercent: parseFloat(basisPercent.toFixed(4))
-        });
+        basisValues.push(parseFloat(basisPercent.toFixed(4)));
       }
     }
   }
@@ -556,9 +541,22 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     current: currentPrice,
     volume24h: volume24h,
     volume24hFormatted: formatVol(volume24h),
-    fundingRateList: fundingRateList.length > 0 ? fundingRateList : null,
     premiumCurrent: premiumCurrent,
-    basisHistory: basisHistory.length > 0 ? basisHistory : null,
+    premiumNote: "Premium Index = 当前盘口合约价格相对于现货指数价格的偏离百分比，正值表示合约溢价，负值表示合约折价",
+    fundingRate: fundingRateValues.length > 0 ? {
+      values: fundingRateValues,
+      period: "8h",
+      count: fundingRateValues.length,
+      spanDays: Math.floor(fundingRateValues.length / 3),
+      note: "资金费率每8小时结算一次，正值表示多头付费给空头，负值表示空头付费给多头"
+    } : null,
+    basis: basisValues.length > 0 ? {
+      values: basisValues,
+      period: "1D",
+      count: basisValues.length,
+      spanDays: basisValues.length,
+      note: "Basis = 合约收盘价与现货指数收盘价的偏离百分比，正值表示合约溢价，负值表示合约折价"
+    } : null,
     liquidation: liquidationData,
     statistics: {
       days14: {
@@ -1063,9 +1061,10 @@ async function getEnhancedAnalysis(proxy = null) {
         days: dailyData.history.length,
         volume24h: dailyData.volume24h,
         volume24hFormatted: dailyData.volume24hFormatted,
-        fundingRateList: dailyData.fundingRateList,
         premiumCurrent: dailyData.premiumCurrent,
-        basisHistory: dailyData.basisHistory,
+        premiumNote: dailyData.premiumNote,
+        fundingRate: dailyData.fundingRate,
+        basis: dailyData.basis,
         liquidation: dailyData.liquidation,
         history: dailyData.history,
         statistics: dailyData.statistics,
@@ -1150,19 +1149,17 @@ function formatAnalysis(data) {
     // Premium Index（当前）
     if (ph.premiumCurrent !== null && ph.premiumCurrent !== undefined) {
       const premiumPct = ph.premiumCurrent * 100;
-      const indicator = premiumPct > 0.01 ? '📈 合约溢价（多头热情）' : premiumPct < -0.01 ? '📉 合约折价（偏空）' : '➡️ 接近平衡';
-      out += `   Premium Index: ${premiumPct.toFixed(4)}% ${indicator}\n`;
+      out += `   Premium Index: ${premiumPct.toFixed(4)}%\n`;
+      out += `   说明: ${ph.premiumNote || '当前盘口合约价格相对于现货指数价格的偏离百分比'}\n`;
     }
     
     // Basis 历史
-    if (ph.basisHistory && ph.basisHistory.length > 0) {
+    if (ph.basis && ph.basis.values && ph.basis.values.length > 0) {
       out += '\n── 📊 Basis (合约-指数价差) ──\n';
-      // 只展示最近7天
-      const recentBasis = ph.basisHistory.slice(0, 7);
-      for (const b of recentBasis) {
-        const indicator = b.basisPercent > 0 ? '正' : '负';
-        out += `   ${b.date}: 指数$${b.indexClose.toLocaleString()} 合约$${b.swapClose.toLocaleString()} → Basis ${b.basisPercent.toFixed(4)}% (${indicator})\n`;
-      }
+      const basisValues = ph.basis.values;
+      out += `   时间跨度: ${ph.basis.spanDays}天 | 数据条数: ${ph.basis.count}条\n`;
+      out += `   数值: ${basisValues.map(v => v.toFixed(4) + '%').join(', ')}\n`;
+      out += `   说明: ${ph.basis.note}\n`;
     }
     
     // 清算数据（24小时）
@@ -1178,17 +1175,14 @@ function formatAnalysis(data) {
     }
   }
   
-  // 资金费率（独立列表）
-  if (data.priceHistory?.fundingRateList && data.priceHistory.fundingRateList.length > 0) {
-    out += '\n── 💰 资金费率 (8h) ──\n';
-    // 只展示最近7天（21条），避免过长
-    const recentFunding = data.priceHistory.fundingRateList.slice(0, 21);
-    for (const f of recentFunding) {
-      const timeShort = f.time.slice(0, 16);
-      const ratePct = (f.fundingRate * 100).toFixed(4);
-      const indicator = f.fundingRate > 0.0001 ? '📈 多头付费' : f.fundingRate < -0.0001 ? '📉 空头付费' : '➡️ 接近零轴';
-      out += `   ${timeShort}: ${ratePct}% ${indicator}\n`;
-    }
+  // 资金费率
+  if (data.priceHistory?.fundingRate && data.priceHistory.fundingRate.values) {
+    const fr = data.priceHistory.fundingRate;
+    out += '\n── 💰 资金费率 ──\n';
+    out += `   时间跨度: ${fr.spanDays}天 | 间隔: ${fr.period} | 数据条数: ${fr.count}条\n`;
+    const valuesStr = fr.values.map(v => (v * 100).toFixed(4) + '%').join(', ');
+    out += `   数值: ${valuesStr}\n`;
+    out += `   说明: ${fr.note}\n`;
   }
   
   // 恐惧贪婪指数
