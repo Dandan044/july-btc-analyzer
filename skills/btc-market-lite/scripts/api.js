@@ -163,9 +163,9 @@ async function getFearGreedIndex(days = 30) {
 async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
   const instId = `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=${interval}&limit=${limit}`;
-  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
-    timeout: 20000
+    timeout: 35000
   });
   
   const data = JSON.parse(result);
@@ -195,9 +195,9 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
 async function getOKXTicker(symbol = 'BTC') {
   const instId = `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/ticker?instId=${instId}`;
-  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
-    timeout: 20000
+    timeout: 35000
   });
   
   const data = JSON.parse(result);
@@ -213,9 +213,9 @@ async function getOKXTicker(symbol = 'BTC') {
   let change1h = null;
   try {
     const klineUrl = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=1H&limit=2`;
-    const klineResult = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${klineUrl}"`, {
+    const klineResult = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${klineUrl}"`, {
       encoding: 'utf8',
-      timeout: 20000
+      timeout: 35000
     });
     const klineData = JSON.parse(klineResult);
     if (klineData.code === '0' && klineData.data.length >= 2) {
@@ -256,9 +256,9 @@ async function getOKXTicker(symbol = 'BTC') {
  */
 async function getOKXOpenInterest() {
   const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D';
-  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
-    timeout: 20000
+    timeout: 35000
   });
   
   const data = JSON.parse(result);
@@ -294,9 +294,9 @@ async function getOKXOpenInterest() {
  */
 async function getOKXTakerRatio() {
   const url = 'https://www.okx.com/api/v5/rubik/stat/taker-volume?instId=BTC-USDT-SWAP&instType=CONTRACTS&ccy=BTC&period=1D';
-  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
-    timeout: 20000
+    timeout: 35000
   });
   
   const data = JSON.parse(result);
@@ -341,9 +341,9 @@ async function getOKXTakerRatio() {
  */
 async function getOKXLongShortRatio() {
   const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
-  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
-    timeout: 20000
+    timeout: 35000
   });
   
   const data = JSON.parse(result);
@@ -379,9 +379,9 @@ async function getOKXLongShortRatio() {
  */
 async function getOKXTopTraderRatio() {
   const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
-  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
-    timeout: 20000
+    timeout: 35000
   });
   
   const data = JSON.parse(result);

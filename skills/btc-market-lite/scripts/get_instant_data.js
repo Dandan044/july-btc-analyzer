@@ -133,6 +133,73 @@ async function getOKXData(endpoint, proxy) {
   });
 }
 
+/**
+ * 获取清算数据（OKX API）
+ * 返回最近24小时的多空清算统计
+ */
+async function getLiquidationData(proxy) {
+  if (!proxy) return null;
+  
+  return new Promise((resolve) => {
+    const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
+    const cmd = `curl -s --max-time 30 -x ${proxy} '${url}'`;
+    
+    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Liquidation API error:', error.message);
+        resolve(null);
+        return;
+      }
+      
+      try {
+        const json = JSON.parse(stdout);
+        if (json.code !== '0' || !json.data || !json.data[0]?.details) {
+          resolve(null);
+          return;
+        }
+        
+        const details = json.data[0].details;
+        
+        // 统计清算数据
+        let longLiq = 0, shortLiq = 0;
+        const liquidations = [];
+        
+        for (const d of details) {
+          const sz = parseFloat(d.sz);
+          const posSide = d.posSide;
+          
+          if (posSide === 'long') {
+            longLiq += sz;
+          } else {
+            shortLiq += sz;
+          }
+          
+          liquidations.push({
+            time: toBeijingDatetime(parseInt(d.time)),
+            timestamp: parseInt(d.time),
+            bkPx: parseFloat(d.bkPx),
+            posSide: posSide,
+            side: d.side,
+            sz: sz
+          });
+        }
+        
+        resolve({
+          count: details.length,
+          longLiquidation: parseFloat(longLiq.toFixed(2)),
+          shortLiquidation: parseFloat(shortLiq.toFixed(2)),
+          netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2)),
+          // 简化输出：只返回最近10条
+          recent: liquidations.slice(0, 10)
+        });
+      } catch (e) {
+        console.error('Liquidation JSON parse error:', e.message);
+        resolve(null);
+      }
+    });
+  });
+}
+
 // ========== K线数据获取 ==========
 
 /**
@@ -402,6 +469,7 @@ async function getInstantData(proxy = null) {
     kline4h: null,
     kline1h: null,
     kline15m: null,
+    liquidation: null,
     fibonacci: null,
     dataSource: {
       price: 'OKX CLI',
@@ -413,11 +481,12 @@ async function getInstantData(proxy = null) {
     console.error('使用 OKX CLI 获取即时数据...');
     
     // 并行获取所有数据
-    const [ticker, kline4h, kline1h, kline15m, fibData] = await Promise.all([
+    const [ticker, kline4h, kline1h, kline15m, liquidation, fibData] = await Promise.all([
       getTicker24h(proxy).catch(e => { console.error('Ticker error:', e.message); return null; }),
       getKlineData('4H', 12, proxy).catch(e => { console.error('4h error:', e.message); return null; }),
       getKlineData('1H', 4, proxy).catch(e => { console.error('1h error:', e.message); return null; }),
       getKlineData('15m', 8, proxy).catch(e => { console.error('15m error:', e.message); return null; }),
+      getLiquidationData(proxy).catch(e => { console.error('Liquidation error:', e.message); return null; }),
       getFibonacciAnalysisCLI(proxy).catch(e => { console.error('Fibonacci error:', e.message); return null; })
     ]);
 
@@ -425,6 +494,7 @@ async function getInstantData(proxy = null) {
     result.kline4h = kline4h;
     result.kline1h = kline1h;
     result.kline15m = kline15m;
+    result.liquidation = liquidation;
     if (fibData) result.fibonacci = fibData;
 
   } catch (e) {
@@ -509,6 +579,30 @@ function formatInstantData(data) {
         out += ` | 成交${(k.quoteVolume/1e6).toFixed(1)}M`;
       }
       out += '\n';
+    }
+    out += '\n';
+  }
+  
+  // 清算数据（最近24小时）
+  if (data.liquidation) {
+    const liq = data.liquidation;
+    out += '── 🔥 清算数据 (24h) ──\n';
+    out += `   清算订单数: ${liq.count} 笔\n`;
+    out += `   多头清算: ${liq.longLiquidation} BTC | 空头清算: ${liq.shortLiquidation} BTC\n`;
+    
+    const netIndicator = liq.netLiquidation > 0 ? '多头被清算更多（短期偏空）' : 
+                         liq.netLiquidation < 0 ? '空头被清算更多（短期偏多）' : '平衡';
+    out += `   净清算: ${liq.netLiquidation} BTC (${netIndicator})\n`;
+    
+    // 最近5条清算记录
+    if (liq.recent && liq.recent.length > 0) {
+      out += '\n   最近清算:\n';
+      for (let i = 0; i < Math.min(5, liq.recent.length); i++) {
+        const r = liq.recent[i];
+        const timeShort = r.time.slice(5, 16);
+        const sideIndicator = r.posSide === 'long' ? '多爆仓→卖出' : '空爆仓→买入';
+        out += `   ${timeShort}: ${r.sz} BTC @ $${r.bkPx.toLocaleString()} (${sideIndicator})\n`;
+      }
     }
     out += '\n';
   }

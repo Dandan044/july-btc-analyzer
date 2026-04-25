@@ -260,7 +260,13 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   ]);
   
   // 4. 获取资金费率历史（14天 × 3条/天 = 42条，取50条余量）
-  const fundingData = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP} --history --limit 50`, proxy).catch(() => null);
+  const fundingDataHistory = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP} --history --limit 50`, proxy).catch(() => null);
+  
+  // 4.1 获取当前资金费率（含 premium 字段）
+  const fundingDataCurrent = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP}`, proxy).catch(() => null);
+  
+  // 4.2 获取指数价格 K线（用于计算历史 Basis）
+  const indexCandlesData = await okxCLIJson(`market index-candles BTC-USD --bar 1D --limit ${LIMIT_STATS}`, proxy).catch(() => null);
   
   // 5. 获取交易侧数据 (OKX API，CLI 不支持)
   // 只用 1D 周期（当天数据为实时累计值，无需 1H 补丁）
@@ -355,14 +361,49 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   
   // 资金费率：独立列表，不再挂到 K线字段
   const fundingRateList = [];
-  if (fundingData && Array.isArray(fundingData)) {
-    for (const item of fundingData.slice(0, 50)) {
+  if (fundingDataHistory && Array.isArray(fundingDataHistory)) {
+    for (const item of fundingDataHistory.slice(0, 50)) {
       const ts = parseInt(item.fundingTime);
       fundingRateList.push({
         time: toBeijingDatetime(ts),
         timestamp: ts,
         fundingRate: parseFloat(item.fundingRate)
       });
+    }
+  }
+  
+  // 提取当前 Premium Index（从当前资金费率数据）
+  let premiumCurrent = null;
+  const fundingArr = Array.isArray(fundingDataCurrent) ? fundingDataCurrent : fundingDataCurrent?.data;
+  if (fundingArr && fundingArr[0] && fundingArr[0].premium) {
+    premiumCurrent = parseFloat(fundingArr[0].premium);
+  }
+  
+  // 计算历史 Basis（合约收盘价 - 指数收盘价）
+  const indexCandlesArray = Array.isArray(indexCandlesData) ? indexCandlesData : indexCandlesData?.data;
+  const basisHistory = [];
+  if (indexCandlesArray && indexCandlesArray.length > 0) {
+    // indexCandles 和 klinesArray 都是按时间降序排列
+    for (let i = 0; i < Math.min(displayData.length, indexCandlesArray.length); i++) {
+      const swapK = displayData[i];  // 合约 K线
+      const idxK = indexCandlesArray[i];  // 指数 K线
+      
+      // 时间戳对齐检查（允许1小时误差）
+      const tsDiff = Math.abs(swapK.timestamp - parseInt(idxK[0]));
+      if (tsDiff < 3600000) {  // 1小时内视为同一天
+        const indexClose = parseFloat(idxK[4]);
+        const swapClose = swapK.close;
+        const basis = swapClose - indexClose;
+        const basisPercent = indexClose > 0 ? (swapClose / indexClose - 1) * 100 : 0;
+        
+        basisHistory.push({
+          date: swapK.date,
+          indexClose: parseFloat(indexClose.toFixed(2)),
+          swapClose: parseFloat(swapClose.toFixed(2)),
+          basis: parseFloat(basis.toFixed(2)),
+          basisPercent: parseFloat(basisPercent.toFixed(4))
+        });
+      }
     }
   }
   
@@ -458,6 +499,8 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     volume24h: volume24h,
     volume24hFormatted: formatVol(volume24h),
     fundingRateList: fundingRateList.length > 0 ? fundingRateList : null,
+    premiumCurrent: premiumCurrent,
+    basisHistory: basisHistory.length > 0 ? basisHistory : null,
     statistics: {
       days14: {
         price: {
@@ -962,6 +1005,8 @@ async function getEnhancedAnalysis(proxy = null) {
         volume24h: dailyData.volume24h,
         volume24hFormatted: dailyData.volume24hFormatted,
         fundingRateList: dailyData.fundingRateList,
+        premiumCurrent: dailyData.premiumCurrent,
+        basisHistory: dailyData.basisHistory,
         history: dailyData.history,
         statistics: dailyData.statistics,
         indicators: dailyData.indicators
@@ -1040,6 +1085,24 @@ function formatAnalysis(data) {
       out += `   RSI(14): ${ind.rsi14} ${rsiStatus}\n`;
     } else {
       out += `   RSI(14): N/A\n`;
+    }
+    
+    // Premium Index（当前）
+    if (ph.premiumCurrent !== null && ph.premiumCurrent !== undefined) {
+      const premiumPct = ph.premiumCurrent * 100;
+      const indicator = premiumPct > 0.01 ? '📈 合约溢价（多头热情）' : premiumPct < -0.01 ? '📉 合约折价（偏空）' : '➡️ 接近平衡';
+      out += `   Premium Index: ${premiumPct.toFixed(4)}% ${indicator}\n`;
+    }
+    
+    // Basis 历史
+    if (ph.basisHistory && ph.basisHistory.length > 0) {
+      out += '\n── 📊 Basis (合约-指数价差) ──\n';
+      // 只展示最近7天
+      const recentBasis = ph.basisHistory.slice(0, 7);
+      for (const b of recentBasis) {
+        const indicator = b.basisPercent > 0 ? '正' : '负';
+        out += `   ${b.date}: 指数$${b.indexClose.toLocaleString()} 合约$${b.swapClose.toLocaleString()} → Basis ${b.basisPercent.toFixed(4)}% (${indicator})\n`;
+      }
     }
   }
   
