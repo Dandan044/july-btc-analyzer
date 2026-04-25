@@ -222,6 +222,61 @@ function calcRSI(values, period = 14) {
   return 100 - (100 / (1 + rs));
 }
 
+/**
+ * 获取清算数据（OKX API）
+ * 返回最近24小时的多空清算统计
+ */
+async function getLiquidationData(proxy) {
+  if (!proxy) return null;
+  
+  return new Promise((resolve) => {
+    const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
+    const cmd = `curl -s --max-time 30 -x ${proxy} '${url}'`;
+    
+    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Liquidation API error:', error.message);
+        resolve(null);
+        return;
+      }
+      
+      try {
+        const json = JSON.parse(stdout);
+        if (json.code !== '0' || !json.data || !json.data[0]?.details) {
+          resolve(null);
+          return;
+        }
+        
+        const details = json.data[0].details;
+        
+        // 统计清算数据
+        let longLiq = 0, shortLiq = 0;
+        
+        for (const d of details) {
+          const sz = parseFloat(d.sz);
+          const posSide = d.posSide;
+          
+          if (posSide === 'long') {
+            longLiq += sz;
+          } else {
+            shortLiq += sz;
+          }
+        }
+        
+        resolve({
+          count: details.length,
+          longLiquidation: parseFloat(longLiq.toFixed(2)),
+          shortLiquidation: parseFloat(shortLiq.toFixed(2)),
+          netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2))
+        });
+      } catch (e) {
+        console.error('Liquidation JSON parse error:', e.message);
+        resolve(null);
+      }
+    });
+  });
+}
+
 // ========== K线数据获取 (OKX CLI) ==========
 
 /**
@@ -267,6 +322,9 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   
   // 4.2 获取指数价格 K线（用于计算历史 Basis）
   const indexCandlesData = await okxCLIJson(`market index-candles BTC-USD --bar 1D --limit ${LIMIT_STATS}`, proxy).catch(() => null);
+  
+  // 4.3 获取清算数据（24小时内）
+  const liquidationData = await getLiquidationData(proxy).catch(() => null);
   
   // 5. 获取交易侧数据 (OKX API，CLI 不支持)
   // 只用 1D 周期（当天数据为实时累计值，无需 1H 补丁）
@@ -501,6 +559,7 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     fundingRateList: fundingRateList.length > 0 ? fundingRateList : null,
     premiumCurrent: premiumCurrent,
     basisHistory: basisHistory.length > 0 ? basisHistory : null,
+    liquidation: liquidationData,
     statistics: {
       days14: {
         price: {
@@ -1007,6 +1066,7 @@ async function getEnhancedAnalysis(proxy = null) {
         fundingRateList: dailyData.fundingRateList,
         premiumCurrent: dailyData.premiumCurrent,
         basisHistory: dailyData.basisHistory,
+        liquidation: dailyData.liquidation,
         history: dailyData.history,
         statistics: dailyData.statistics,
         indicators: dailyData.indicators
@@ -1103,6 +1163,18 @@ function formatAnalysis(data) {
         const indicator = b.basisPercent > 0 ? '正' : '负';
         out += `   ${b.date}: 指数$${b.indexClose.toLocaleString()} 合约$${b.swapClose.toLocaleString()} → Basis ${b.basisPercent.toFixed(4)}% (${indicator})\n`;
       }
+    }
+    
+    // 清算数据（24小时）
+    if (ph.liquidation) {
+      const liq = ph.liquidation;
+      out += '\n── 🔥 清算数据 (24h) ──\n';
+      out += `   清算订单数: ${liq.count} 笔\n`;
+      out += `   多头清算: ${liq.longLiquidation} BTC | 空头清算: ${liq.shortLiquidation} BTC\n`;
+      
+      const netIndicator = liq.netLiquidation > 0 ? '多头被清算更多（短期偏空）' : 
+                           liq.netLiquidation < 0 ? '空头被清算更多（短期偏多）' : '平衡';
+      out += `   净清算: ${liq.netLiquidation} BTC (${netIndicator})\n`;
     }
   }
   
