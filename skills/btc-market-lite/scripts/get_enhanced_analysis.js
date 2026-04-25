@@ -259,19 +259,16 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     okxCLIJson(`market indicator rsi ${OKX_INST_ID_SPOT} --bar 1Dutc`, proxy).catch(() => null)
   ]);
   
-  // 4. 获取资金费率历史
-  const fundingData = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP} --history --limit 90`, proxy).catch(() => null);
+  // 4. 获取资金费率历史（14天 × 3条/天 = 42条，取50条余量）
+  const fundingData = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP} --history --limit 50`, proxy).catch(() => null);
   
   // 5. 获取交易侧数据 (OKX API，CLI 不支持)
-  // ⭐ 同时获取 1D (用于历史天数) 和 1H (用于最新一天) 两个周期
-  const [openInterest, longShortRatio1D, longShortRatio1H, topTraderRatio1D, topTraderRatio1H, takerVolume1D, takerVolume1H] = await Promise.all([
+  // 只用 1D 周期（当天数据为实时累计值，无需 1H 补丁）
+  const [openInterest, longShortRatio1D, topTraderRatio1D, takerVolume1D] = await Promise.all([
     getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=1D`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=1H`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1D`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1H`, proxy).catch(() => null)
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1D`, proxy).catch(() => null)
   ]);
   
   // 解析 K线数据 (OKX 格式: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm])
@@ -356,19 +353,16 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   // 按 timestamp 映射
   const tsMap = new Map(history.map((r, i) => [r.timestamp, i]));
   
-  // 处理资金费率 (OKX CLI 返回数组)
+  // 资金费率：独立列表，不再挂到 K线字段
+  const fundingRateList = [];
   if (fundingData && Array.isArray(fundingData)) {
-    for (const item of fundingData.slice(0, LIMIT_DISPLAY * 3)) {
+    for (const item of fundingData.slice(0, 50)) {
       const ts = parseInt(item.fundingTime);
-      // 找到匹配的日期
-      for (const h of history) {
-        // 资金费率时间戳对应的日期
-        const itemDate = toBeijingDate(ts);
-        if (h.date === itemDate) {
-          h.fundingRate = parseFloat(item.fundingRate);
-          break;
-        }
-      }
+      fundingRateList.push({
+        time: toBeijingDatetime(ts),
+        timestamp: ts,
+        fundingRate: parseFloat(item.fundingRate)
+      });
     }
   }
   
@@ -384,65 +378,38 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     }
   }
   
-  // 处理多空比
-  // 历史天数用 1D 数据（通过时间戳匹配），最新一天用 1H 数据（取最近一小时）
+  // 处理多空比（统一用 1D，当天数据为实时累计值）
   if (longShortRatio1D?.data && Array.isArray(longShortRatio1D.data)) {
-    // 历史天数：通过时间戳匹配日级别数据
     for (const item of longShortRatio1D.data.slice(0, LIMIT_DISPLAY)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
-      if (idx !== undefined && idx > 0) {  // idx > 0 表示不是最新一天
+      if (idx !== undefined) {
         history[idx].longShortRatio = parseFloat(item[1]);
       }
     }
   }
-  // 最新一天：使用 1H 数据的最新一小时
-  if (longShortRatio1H?.data && Array.isArray(longShortRatio1H.data) && longShortRatio1H.data.length > 0) {
-    const latestHour = longShortRatio1H.data[0];
-    history[0].longShortRatio = parseFloat(latestHour[1]);
-  }
   
-  // 处理大户多空比
+  // 处理大户多空比（统一用 1D）
   if (topTraderRatio1D?.data && Array.isArray(topTraderRatio1D.data)) {
     for (const item of topTraderRatio1D.data.slice(0, LIMIT_DISPLAY)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
-      if (idx !== undefined && idx > 0) {
+      if (idx !== undefined) {
         history[idx].topTraderRatio = parseFloat(item[1]);
       }
     }
   }
-  if (topTraderRatio1H?.data && Array.isArray(topTraderRatio1H.data) && topTraderRatio1H.data.length > 0) {
-    const latestHour = topTraderRatio1H.data[0];
-    history[0].topTraderRatio = parseFloat(latestHour[1]);
-  }
   
-  // 处理 Taker 买卖比
+  // 处理 Taker 买卖比（统一用 1D，只保留 ratio）
   if (takerVolume1D?.data && Array.isArray(takerVolume1D.data)) {
     for (const item of takerVolume1D.data.slice(0, LIMIT_DISPLAY)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
-      if (idx !== undefined && idx > 0) {
+      if (idx !== undefined) {
         const buyVol = parseFloat(item[1]);
         const sellVol = parseFloat(item[2]);
         history[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
-        history[idx].takerBuyVol = buyVol;
-        history[idx].takerBuyVolFormatted = formatVol(buyVol);
-        history[idx].takerSellVol = sellVol;
-        history[idx].takerSellVolFormatted = formatVol(sellVol);
       }
-    }
-  }
-  if (takerVolume1H?.data && Array.isArray(takerVolume1H.data) && takerVolume1H.data.length > 0) {
-    const latestHour = takerVolume1H.data[0];
-    const buyVol = parseFloat(latestHour[1]);
-    const sellVol = parseFloat(latestHour[2]);
-    if (sellVol > 0) {
-      history[0].takerRatio = buyVol / sellVol;
-      history[0].takerBuyVol = buyVol;
-      history[0].takerBuyVolFormatted = formatVol(buyVol);
-      history[0].takerSellVol = sellVol;
-      history[0].takerSellVolFormatted = formatVol(sellVol);
     }
   }
   
@@ -490,6 +457,7 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     current: currentPrice,
     volume24h: volume24h,
     volume24hFormatted: formatVol(volume24h),
+    fundingRateList: fundingRateList.length > 0 ? fundingRateList : null,
     statistics: {
       days14: {
         price: {
@@ -548,10 +516,9 @@ async function get4hDataCLI(proxy) {
   }
   
   // 并行获取其他数据
-  // ⭐ longShortRatio 和 takerVolume API 只支持 5m/1H/1D，不支持 4H
-  // 所以用 1H 数据，取对应 4H 周期开始的那一小时填入
-  const [fundingData, openInterest, longShortRatio1H, topTraderRatio4H, takerVolume1H] = await Promise.all([
-    okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP}`, proxy).catch(() => null),
+  // ⭐ 资金费率已在日报 fundingRateList 中独立处理，此处不再获取
+  // longShortRatio 和 takerVolume API 只支持 5m/1H/1D，用 1H 匹配 4H 时间戳
+  const [openInterest, longShortRatio1H, topTraderRatio4H, takerVolume1H] = await Promise.all([
     getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=4H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=4H`, proxy).catch(() => null),
@@ -588,16 +555,6 @@ async function get4hDataCLI(proxy) {
   
   const tsMap = new Map(result.map((r, i) => [r.timestamp, i]));
   
-  // 资金费率 (只填入最新一根)
-  if (fundingData?.data?.[0]) {
-    const rate = parseFloat(fundingData.data[0].fundingRate);
-    const markPrice = parseFloat(fundingData.data[0].markPrice || 0);
-    if (result[0]) {
-      result[0].fundingRate = rate;
-      result[0].markPrice = markPrice;
-    }
-  }
-  
   // 持仓量
   if (openInterest?.data && Array.isArray(openInterest.data)) {
     for (const item of openInterest.data.slice(0, LIMIT)) {
@@ -632,7 +589,7 @@ async function get4hDataCLI(proxy) {
     }
   }
   
-  // Taker 买卖比 (API只支持 1H，用 1H 数据匹配 4H K线的时间戳)
+  // Taker 买卖比 (API只支持 1H，用 1H 数据匹配 4H K线的时间戳，只保留ratio)
   if (takerVolume1H?.data && Array.isArray(takerVolume1H.data)) {
     for (const item of takerVolume1H.data.slice(0, LIMIT * 4)) {
       const ts = parseInt(item[0]);
@@ -641,10 +598,6 @@ async function get4hDataCLI(proxy) {
         const buyVol = parseFloat(item[1]);
         const sellVol = parseFloat(item[2]);
         result[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
-        result[idx].takerBuyVol = buyVol;
-        result[idx].takerBuyVolFormatted = formatVol(buyVol);
-        result[idx].takerSellVol = sellVol;
-        result[idx].takerSellVolFormatted = formatVol(sellVol);
       }
     }
   }
@@ -1008,6 +961,7 @@ async function getEnhancedAnalysis(proxy = null) {
         days: dailyData.history.length,
         volume24h: dailyData.volume24h,
         volume24hFormatted: dailyData.volume24hFormatted,
+        fundingRateList: dailyData.fundingRateList,
         history: dailyData.history,
         statistics: dailyData.statistics,
         indicators: dailyData.indicators
@@ -1086,6 +1040,19 @@ function formatAnalysis(data) {
       out += `   RSI(14): ${ind.rsi14} ${rsiStatus}\n`;
     } else {
       out += `   RSI(14): N/A\n`;
+    }
+  }
+  
+  // 资金费率（独立列表）
+  if (data.priceHistory?.fundingRateList && data.priceHistory.fundingRateList.length > 0) {
+    out += '\n── 💰 资金费率 (8h) ──\n';
+    // 只展示最近7天（21条），避免过长
+    const recentFunding = data.priceHistory.fundingRateList.slice(0, 21);
+    for (const f of recentFunding) {
+      const timeShort = f.time.slice(0, 16);
+      const ratePct = (f.fundingRate * 100).toFixed(4);
+      const indicator = f.fundingRate > 0.0001 ? '📈 多头付费' : f.fundingRate < -0.0001 ? '📉 空头付费' : '➡️ 接近零轴';
+      out += `   ${timeShort}: ${ratePct}% ${indicator}\n`;
     }
   }
   
@@ -1185,10 +1152,6 @@ function formatAnalysis(data) {
     out += '\n── 📊 14日日线 ──\n';
     for (const h of data.priceHistory.history) {
       out += `   ${h.date}: O$${h.open.toLocaleString()} H$${h.high.toLocaleString()} L$${h.low.toLocaleString()} C$${h.close.toLocaleString()}`;
-      if (h.fundingRate !== undefined) {
-        const ratePct = (h.fundingRate * 100).toFixed(4);
-        out += ` | 费率${ratePct}%`;
-      }
       if (h.openInterest !== undefined) {
         out += ` | OI${(h.openInterest/1000).toFixed(1)}k`;
       }
@@ -1206,10 +1169,6 @@ function formatAnalysis(data) {
       const k = data.kline4h[i];
       const timeShort = k.time.split(' ')[0].slice(5) + ' ' + k.time.split(' ')[1].slice(0, 5);
       out += `   ${timeShort}: O$${k.open.toLocaleString()} H$${k.high.toLocaleString()} L$${k.low.toLocaleString()} C$${k.close.toLocaleString()}`;
-      if (k.fundingRate !== undefined) {
-        const ratePct = (k.fundingRate * 100).toFixed(4);
-        out += ` | 费率${ratePct}%`;
-      }
       if (k.openInterest !== undefined) {
         out += ` | OI${(k.openInterest/1000).toFixed(1)}k`;
       }

@@ -155,15 +155,27 @@ async function getKlineData(bar, limit, proxy) {
   }
   
   // 获取交易侧数据（OKX API）
-  const periodMap = { '4H': '4H', '1H': '1H', '15m': '15m' };
-  const period = periodMap[bar] || bar;
+  // 注意：多空比/大户比/Taker API 只支持 5m/1H/1D，不支持 4H
+  // 所以 4H K线用 1H API 数据匹配，15m 不获取这些数据（噪音过大）
+  const isShortTerm = bar === '15m';
+  const tradingPeriod = bar === '4H' ? '1H' : bar;  // 4H 用 1H 数据匹配
   
-  const [openInterest, longShortRatio, topTraderRatio, takerVolume] = await Promise.all([
-    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=${period}&limit=${limit}`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=${period}&limit=${limit}`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=${period}&limit=${limit}`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=${period}&limit=${limit}`, proxy).catch(() => null)
-  ]);
+  let openInterest, longShortRatio, topTraderRatio, takerVolume;
+  if (isShortTerm) {
+    // 15m：只取OI，不取其他交易侧数据
+    openInterest = await getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=${bar}&limit=${limit}`, proxy).catch(() => null);
+    longShortRatio = null;
+    topTraderRatio = null;
+    takerVolume = null;
+  } else {
+    // 4H/1H：取全部交易侧数据（4H 用 1H period）
+    [openInterest, longShortRatio, topTraderRatio, takerVolume] = await Promise.all([
+      getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=${bar}&limit=${limit}`, proxy).catch(() => null),
+      getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=${tradingPeriod}&limit=${limit * (bar === '4H' ? 4 : 1)}`, proxy).catch(() => null),
+      getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=${bar}&limit=${limit}`, proxy).catch(() => null),
+      getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=${tradingPeriod}&limit=${limit * (bar === '4H' ? 4 : 1)}`, proxy).catch(() => null)
+    ]);
+  }
   
   const result = [];
   
@@ -243,7 +255,7 @@ async function getKlineData(bar, limit, proxy) {
     }
   }
   
-  // Taker 买卖比
+  // Taker 买卖比（只保留ratio）
   if (takerVolume?.data && Array.isArray(takerVolume.data)) {
     for (const d of takerVolume.data.slice(0, limit)) {
       const ts = parseInt(d[0]);
@@ -252,8 +264,6 @@ async function getKlineData(bar, limit, proxy) {
         const buyVol = parseFloat(d[1]);
         const sellVol = parseFloat(d[2]);
         result[idx].takerRatio = sellVol > 0 ? buyVol / sellVol : null;
-        result[idx].takerBuyVol = buyVol;
-        result[idx].takerSellVol = sellVol;
       }
     }
   }

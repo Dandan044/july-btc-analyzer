@@ -335,6 +335,9 @@ async function getOKXTakerRatio() {
 /**
  * 获取 OKX 多空比数据
  * @returns {Promise<Object>} 多空比数据
+ * 
+ * OKX API 返回格式: [["1777046400000","0.81"], ...]
+ * 注意：返回的是比率值，不是 longAccount/shortAccount 分开的数据
  */
 async function getOKXLongShortRatio() {
   const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
@@ -348,26 +351,73 @@ async function getOKXLongShortRatio() {
     throw new Error(`OKX API错误: ${data.msg}`);
   }
   
-  // 返回最近2天的数据
+  // OKX API 返回: [timestamp, ratio] 两个字段
   const latest = data.data[0];
   const prev = data.data[1];
   
-  const longAccount = parseFloat(latest[1]); // API 返回数组：[ts, longAccount, shortAccount]
-  const shortAccount = parseFloat(latest[2]);
-  const ratio = longAccount / shortAccount;
+  const currentRatio = parseFloat(latest[1]);
+  const prevRatio = parseFloat(prev[1]);
   
   return {
-    currentRatio: parseFloat(ratio.toFixed(2)),
-    longAccount: longAccount,
-    shortAccount: shortAccount,
+    currentRatio: parseFloat(currentRatio.toFixed(2)),
+    prevRatio: parseFloat(prevRatio.toFixed(2)),
+    longAccount: null,  // OKX 比率API不提供此字段
+    shortAccount: null, // OKX 比率API不提供此字段
     timestamp: new Date().toISOString(),
     history: data.data.slice(0, 7).map(d => ({
       date: new Date(parseInt(d[0])).toISOString().split("T")[0],
-      longAccount: parseFloat(d[1]),
-      shortAccount: parseFloat(d[2]),
-      ratio: parseFloat((parseFloat(d[1]) / parseFloat(d[2])).toFixed(2))
+      ratio: parseFloat(d[1])
     }))
   };
+}
+
+/**
+ * 获取 OKX 顶级交易者多空比数据
+ * 数据来源: OKX long-short-account-ratio (日线口径)
+ * OKX API 返回格式: [["1777046400000","0.81"], ...] — [timestamp, ratio]
+ * @returns {Promise<Object>} 顶级交易者多空比数据
+ */
+async function getOKXTopTraderRatio() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 20000
+  });
+  
+  const data = JSON.parse(result);
+  if (data.code !== '0') {
+    throw new Error(`OKX API错误: ${data.msg}`);
+  }
+  
+  // OKX API 返回: [timestamp, ratio] 两个字段
+  const latest = data.data[0];
+  const prev = data.data[1];
+  
+  const currentRatio = parseFloat(latest[1]);
+  const prevRatio = parseFloat(prev[1]);
+  
+  return {
+    currentRatio: parseFloat(currentRatio.toFixed(3)),
+    prevRatio: parseFloat(prevRatio.toFixed(3)),
+    longAccount: null,  // OKX 比率API不提供此字段
+    shortAccount: null, // OKX 比率API不提供此字段
+    change24h: parseFloat(((currentRatio - prevRatio) / prevRatio * 100).toFixed(3)),
+    timestamp: new Date().toISOString(),
+    history: data.data.slice(0, 7).map(d => ({
+      date: new Date(parseInt(d[0])).toISOString().split("T")[0],
+      ratio: parseFloat(d[1])
+    }))
+  };
+}
+
+/**
+ * 获取本地时区(Asia/Shanghai)的今日日期字符串
+ * 修复 lifetime() 中的时区问题：toISOString()返回UTC日期，导致UTC+8下日期不匹配
+ * @returns {string} 格式 "YYYY-MM-DD"
+ */
+function getLocalDate() {
+  const offsetMs = 8 * 60 * 60 * 1000; // UTC+8
+  return new Date(Date.now() + offsetMs).toISOString().split('T')[0];
 }
 
 // ========== 导出 ==========
@@ -385,5 +435,7 @@ module.exports = {
   // OKX 合约统计（需要代理）
   getOKXOpenInterest,
   getOKXTakerRatio,
-  getOKXLongShortRatio
+  getOKXLongShortRatio,
+  getOKXTopTraderRatio,
+  getLocalDate
 };
