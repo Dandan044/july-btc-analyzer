@@ -33,7 +33,10 @@ cat deployment.md
 - 🔄 **交易周期管理** - 独立管理每轮交易建议
 - 💰 **实盘交易执行** - 通过 OKX CLI 自动执行开仓、止盈、止损
 
-> **报告存储**：报告保存到 `active/cycle-*/reports/` 目录。
+> **报告存储与分发**：
+> - 报告保存到 `active/cycle-*/reports/` 目录
+> - 文件格式：`btc-report-YYYY-MM-DD-HHMM.md`（日报）或 `instant-report-YYYY-MM-DD-HHMM.md`（即时分析）
+> - 可通过外部程序监控此目录的文件更新，实现自定义推送逻辑（如发送到飞书、Telegram、Discord 等）
 
 ## 技术栈
 
