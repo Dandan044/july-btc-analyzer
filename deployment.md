@@ -58,6 +58,11 @@ git clone git@github.com:Dandan044/july-btc-analyzer.git
 | `workspace` | 克隆目录的绝对路径，如 `/home/user/.openclaw/july-btc-analyzer` |
 | `agentDir` | 智能体 agent 子目录，通常为 `<workspace>/agent` |
 | `model` | 推荐使用 `bailian/glm-5` 或其他高上下文模型 |
+| `subagents.allowAgents` | **必须包含 `"july"`**，否则智能体无法自 spawn 执行日报任务 |
+
+**💡 自 spawn 权限说明**：
+七月采用自触发机制，收到 `[SPAWN_DAILY_REPORT]` 消息后会 spawn 自己执行日报任务。
+这要求 `subagents.allowAgents` 必须包含 `"july"`，否则 spawn 操作会被拒绝。
 
 ### 3. 创建 agent 目录结构
 
