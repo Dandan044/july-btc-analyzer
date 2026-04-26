@@ -77,6 +77,12 @@ july-btc-analyzer/
 ├── logs/                        # 执行日志
 ├── scripts/                     # 辅助脚本
 ├── skills/                      # 技能目录
+│   ├── btc-alert/               # 警报器技能
+│   │   ├── engine.js            # 警报引擎
+│   │   ├── rules/               # 活跃警报规则
+│   │   └── rules-archive/       # 已归档规则
+│   └── btc-market-lite/         # 数据获取技能
+│       └── scripts/             # 数据脚本
 └── tasks/                       # 任务规则
 ```
 
@@ -86,90 +92,24 @@ july-btc-analyzer/
 [上一周期结束]
       │
       ▼
-下一篇报告生成 → 开启新周期（创建空建议文件）
+下一篇报告生成 → 开启新周期（创建 positions.json）
       │
       ▼
 周期进行中 → 报告保存到 active/cycle-xxx/reports/
-          → 可能给出交易建议 → 写入 trade-suggestions.json
-          → 检查价格触发止盈/止损 → 更新建议状态
+          → 识别操作意图 → 执行交易 → 同步 positions.json
+          → 监控止盈/止损触发
       │
       ▼
-所有建议关闭 → 归档（移动 active/ → archived/）
+持仓清空 → 归档（移动 active/ → archived/）
       │
       ▼
 [下一周期在下一篇报告时开启]
 ```
 
-### 交易建议状态系统
-
-交易建议有三种状态：
-
-| 状态 | 含义 | 说明 |
-|------|------|------|
-| `pending_entry` | 等待入场 | 计划入场，需要创建警报监控触发条件 |
-| `open` | 持仓中 | 已入场，需要监控止盈/止损 |
-| `closed` | 已平仓 | 交易结束，记录平仓原因 |
-
-**状态转换：**
-- `pending_entry` → `open`：入场条件触发后，由即时分析任务更新
-- `open` → `closed`：止盈/止损触发后，由日报或即时分析任务更新
-
-### 交易建议文件结构
-
-`trade-suggestions.json`:
-
-```json
-{
-  "cycle_id": "cycle-20260319-001",
-  "status": "active",
-  "started_at": "2026-03-19T09:00:00+08:00",
-  "closed_at": null,
-  "closed_reason": null,
-  
-  "suggestions": [
-    {
-      "id": "sug-001",
-      "created_at": "2026-03-19T09:00:00+08:00",
-      "triggered_by": "report-2026-03-19-morning",
-      "direction": "long",
-      "entry_zone": [69500, 70000],
-      
-      // ⭐ 入场条件（必须填写）
-      "entry_condition": {
-        "type": "immediate | delayed | conditional",
-        "description": "具体入场条件描述",
-        "trigger_price": null,      // 条件触发价位（如有）
-        "trigger_criteria": null,   // 其他触发条件描述
-        "delay_hours": null         // 延迟入场的小时数
-      },
-      
-      // ⭐ 警报配置（非立即入场时必须填写）
-      "alert_config": {
-        "should_create": true,
-        "alert_type": "price | timer | conditional",
-        "alert_name": null,
-        "alert_file": null
-      },
-      
-      "stop_loss": 68000,
-      "take_profit": [72000, 74000],
-      "position_size": "建议仓位 20%",
-      "status": "pending_entry | open",
-      "entry_actual": null,
-      "entry_at": null,
-      "closed_at": null,
-      "close_reason": null,
-      "notes": "突破阻力位后的回踩确认"
-    }
-  ],
-  
-  "summary": {
-    "total": 1,
-    "open": 1,
-    "closed": 0
-  }
-}
-```
+**持仓状态判断：**
+- `positions.json` 中 `当前持仓` 为空数组 → 无持仓
+- `当前持仓` 有记录 → 持仓中，需监控止盈止损
+- 归档条件：持仓数=0 且 `最近平仓` 非空（表示刚完成一轮交易）
 
 ### 设计原则
 
@@ -179,7 +119,8 @@ july-btc-analyzer/
 | **文件驱动** | 七月只通过读写文件理解状态，不依赖记忆 |
 | **周期隔离** | 归档后七月不读取历史，不受上一轮交易影响 |
 | **简洁归档** | 仅移动文件夹，不做总结计算 |
-| **空周期支持** | 允许周期内无交易建议（纯观望期） |
+| **无持仓周期支持** | 允许周期内无持仓（纯观望期） |
+| **实盘驱动** | 持仓状态由 OKX API 实时同步，而非建议文件管理 |
 
 ---
 
@@ -200,11 +141,16 @@ july-btc-analyzer/
 
 | 警报类型 | 实现思路 | 适用场景 |
 |---------|---------|---------|
-| **价格警报** | 价格 >= 或 <= 目标位 | 支撑/阻力位监控 |
+| **多价位监控** | 单规则支持≤6价位，使用K线区间数据 | 批量监控支撑/阻力位 |
+| **价格警报** | 价格 >= 或 <= 目标位 | 单价位监控（较少使用） |
 | **定时器警报** | 纯时间判断，无数据依赖 | 计划入场时间提醒、定时检查 |
 | **延迟触发警报** | 条件满足后等待N分钟 | 确认突破有效性、避免假突破 |
 | **交易量异动** | 小时交易量 > N日均值 × M | 大资金进出 |
 | **振幅警报** | 1小时 high-low > 阈值% | 剧烈波动 |
+| **OI变化监控** | 持仓量涨跌幅度监控 | 市场情绪变化 |
+| **Taker买卖比** | Taker多空比例监控 | 主力资金方向 |
+
+> **多价位优势**（2026-04-26 改造）：单规则打包多个价位，避免筛选丢弃有意义的价格位；使用K线区间而非瞬时价格，捕捉瞬时突破。
 
 ### 规则接口
 
