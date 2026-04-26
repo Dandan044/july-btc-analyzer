@@ -6,8 +6,8 @@
 const https = require('https');
 const { execSync } = require('child_process');
 
-// OKX API 代理配置
-const PROXY_URL = 'http://127.0.0.1:7890';
+// OKX API 代理配置（从环境变量读取，默认 7890）
+const PROXY_URL = process.env.http_proxy || process.env.HTTP_PROXY || 'http://127.0.0.1:7890';
 
 // ========== 工具函数 ==========
 
