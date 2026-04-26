@@ -144,8 +144,8 @@ module.exports = {
   },
 
   lifetime() {
-    // 返回 'active' / 'expired' / 'completed'
-    const today = new Date().toISOString().split('T')[0];
+    // ⚠️ 必须使用 api.getLocalDate() 而非 new Date().toISOString()（后者返回UTC日期，UTC+8下会差一天）
+    const today = api.getLocalDate();
     return today === CREATED_DATE ? 'active' : 'expired';
   }
 };
@@ -621,7 +621,7 @@ module.exports = {
   },
 
   lifetime() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = api.getLocalDate();
     return today === CREATED_DATE ? 'active' : 'expired';
   }
 };
@@ -732,7 +732,7 @@ module.exports = {
   },
 
   lifetime() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
     const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
@@ -979,7 +979,7 @@ module.exports = {
   },
 
   lifetime() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = api.getLocalDate();
     return today === CREATED_DATE ? 'active' : 'expired';
   }
 };
@@ -1239,7 +1239,7 @@ module.exports = {
   },
 
   lifetime() {
-    const today = new Date().toISOString().split('T')[0];
+    const today = api.getLocalDate();
     return today === CREATED_DATE ? 'active' : 'expired';
   }
 };
