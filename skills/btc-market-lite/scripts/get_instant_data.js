@@ -134,11 +134,13 @@ async function getOKXData(endpoint, proxy) {
 }
 
 /**
- * 获取清算数据（OKX API）
- * 返回最近24小时的多空清算统计
+ * 获取清算数据（OKX API，含价格分布热力图）
+ * 返回最近24小时的多空清算统计 + 热力图
  */
 async function getLiquidationData(proxy) {
   if (!proxy) return null;
+  
+  const PRICE_BIN = 500;
   
   return new Promise((resolve) => {
     const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
@@ -160,37 +162,62 @@ async function getLiquidationData(proxy) {
         
         const details = json.data[0].details;
         
-        // 统计清算数据
+        // 基础统计
         let longLiq = 0, shortLiq = 0;
         const liquidations = [];
+        const bins = {};
         
         for (const d of details) {
           const sz = parseFloat(d.sz);
           const posSide = d.posSide;
+          const px = parseFloat(d.bkPx);
           
-          if (posSide === 'long') {
-            longLiq += sz;
-          } else {
-            shortLiq += sz;
-          }
+          if (posSide === 'long') longLiq += sz;
+          else shortLiq += sz;
           
           liquidations.push({
             time: toBeijingDatetime(parseInt(d.time)),
             timestamp: parseInt(d.time),
-            bkPx: parseFloat(d.bkPx),
+            bkPx: px,
             posSide: posSide,
             side: d.side,
             sz: sz
           });
+          
+          // 热力图分档
+          const binKey = Math.floor(px / PRICE_BIN) * PRICE_BIN;
+          if (!bins[binKey]) bins[binKey] = { longCount: 0, shortCount: 0, longSz: 0, shortSz: 0 };
+          if (posSide === 'long') {
+            bins[binKey].longCount++;
+            bins[binKey].longSz += sz;
+          } else {
+            bins[binKey].shortCount++;
+            bins[binKey].shortSz += sz;
+          }
         }
+        
+        // 构建热力图
+        const heatmap = Object.entries(bins)
+          .map(([price, data]) => ({
+            price: parseInt(price),
+            priceRange: `${parseInt(price)}-${parseInt(price) + PRICE_BIN}`,
+            longCount: data.longCount,
+            shortCount: data.shortCount,
+            longSz: parseFloat(data.longSz.toFixed(1)),
+            shortSz: parseFloat(data.shortSz.toFixed(1)),
+            totalSz: parseFloat((data.longSz + data.shortSz).toFixed(1)),
+            dominant: data.longSz > data.shortSz * 1.5 ? 'long' :
+                      data.shortSz > data.longSz * 1.5 ? 'short' : 'mixed'
+          }))
+          .sort((a, b) => a.price - b.price);
         
         resolve({
           count: details.length,
           longLiquidation: parseFloat(longLiq.toFixed(2)),
           shortLiquidation: parseFloat(shortLiq.toFixed(2)),
           netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2)),
-          // 简化输出：只返回最近10条
-          recent: liquidations.slice(0, 10)
+          recent: liquidations.slice(0, 10),
+          heatmap: heatmap
         });
       } catch (e) {
         console.error('Liquidation JSON parse error:', e.message);
@@ -338,6 +365,64 @@ async function getKlineData(bar, limit, proxy) {
   return result;
 }
 
+// ========== 4H 技术指标获取 ==========
+
+/**
+ * 获取4H级别的技术指标（BB + MACD + RSI）
+ * 用于即时分析场景判断短期节奏
+ */
+async function getIndicators4H(proxy) {
+  const [rsiData, bbData, macdData] = await Promise.all([
+    okxCLIJson(`market indicator rsi ${OKX_INST_ID_SWAP} --bar 4H --list --limit 12`, proxy).catch(() => null),
+    okxCLIJson(`market indicator bb ${OKX_INST_ID_SWAP} --bar 4H --list --limit 12`, proxy).catch(() => null),
+    okxCLIJson(`market indicator macd ${OKX_INST_ID_SWAP} --bar 4H --list --limit 12`, proxy).catch(() => null)
+  ]);
+  
+  const result = { rsi: null, bb: null, macd: null };
+  
+  // 解析 RSI
+  try {
+    const arr = Array.isArray(rsiData) ? rsiData : rsiData?.data;
+    const list = arr?.[0]?.timeframes?.["4H"]?.indicators?.RSI;
+    if (list && list.length > 0) {
+      result.rsi = list.map(v => ({
+        ts: parseInt(v.ts),
+        value: parseFloat(v.values["14"])
+      }));
+    }
+  } catch (e) {}
+  
+  // 解析 BB
+  try {
+    const arr = Array.isArray(bbData) ? bbData : bbData?.data;
+    const list = arr?.[0]?.timeframes?.["4H"]?.indicators?.BB;
+    if (list && list.length > 0) {
+      result.bb = list.map(v => ({
+        ts: parseInt(v.ts),
+        upper: parseFloat(v.values.upper),
+        middle: parseFloat(v.values.middle),
+        lower: parseFloat(v.values.lower)
+      }));
+    }
+  } catch (e) {}
+  
+  // 解析 MACD
+  try {
+    const arr = Array.isArray(macdData) ? macdData : macdData?.data;
+    const list = arr?.[0]?.timeframes?.["4H"]?.indicators?.MACD;
+    if (list && list.length > 0) {
+      result.macd = list.map(v => ({
+        ts: parseInt(v.ts),
+        dif: parseFloat(v.values.dif),
+        dea: parseFloat(v.values.dea),
+        macd: parseFloat(v.values.macd)
+      }));
+    }
+  } catch (e) {}
+  
+  return result;
+}
+
 // ========== 斐波那契分析 (使用 OKX CLI K线数据) ==========
 
 /**
@@ -469,6 +554,7 @@ async function getInstantData(proxy = null) {
     kline4h: null,
     kline1h: null,
     kline15m: null,
+    indicators4h: null,
     liquidation: null,
     fibonacci: null,
     dataSource: {
@@ -480,12 +566,13 @@ async function getInstantData(proxy = null) {
   try {
     console.error('使用 OKX CLI 获取即时数据...');
     
-    // 并行获取所有数据
-    const [ticker, kline4h, kline1h, kline15m, liquidation, fibData] = await Promise.all([
+    // 并行获取所有数据 (含4H技术指标)
+    const [ticker, kline4h, kline1h, kline15m, indicators4h, liquidation, fibData] = await Promise.all([
       getTicker24h(proxy).catch(e => { console.error('Ticker error:', e.message); return null; }),
       getKlineData('4H', 12, proxy).catch(e => { console.error('4h error:', e.message); return null; }),
       getKlineData('1H', 4, proxy).catch(e => { console.error('1h error:', e.message); return null; }),
       getKlineData('15m', 8, proxy).catch(e => { console.error('15m error:', e.message); return null; }),
+      getIndicators4H(proxy).catch(e => { console.error('4H indicators error:', e.message); return null; }),
       getLiquidationData(proxy).catch(e => { console.error('Liquidation error:', e.message); return null; }),
       getFibonacciAnalysisCLI(proxy).catch(e => { console.error('Fibonacci error:', e.message); return null; })
     ]);
@@ -494,6 +581,7 @@ async function getInstantData(proxy = null) {
     result.kline4h = kline4h;
     result.kline1h = kline1h;
     result.kline15m = kline15m;
+    result.indicators4h = indicators4h;
     result.liquidation = liquidation;
     if (fibData) result.fibonacci = fibData;
 
@@ -553,6 +641,49 @@ function formatInstantData(data) {
       out += '\n';
     }
     out += '\n';
+    
+    // 4H 技术指标
+    if (data.indicators4h) {
+      const ind = data.indicators4h;
+      let hasData = false;
+      
+      // RSI
+      if (ind.rsi && ind.rsi.length >= 3) {
+        if (!hasData) { out += '   ── 4H 技术指标 ──\n'; hasData = true; }
+        const latest = ind.rsi[ind.rsi.length - 1];
+        const previous = ind.rsi[ind.rsi.length - 2];
+        const trend = latest.value > previous.value ? '↑' : '↓';
+        const rsiStatus = latest.value < 30 ? '超卖' : latest.value > 70 ? '超买' : '';
+        const recent = ind.rsi.slice(-4).map(r => r.value.toFixed(1)).join(' → ');
+        out += `   RSI(14): ${recent} ${trend}`;
+        if (rsiStatus) out += ` ⚠️${rsiStatus}`;
+        out += '\n';
+      }
+      
+      // BB
+      if (ind.bb && ind.bb.length >= 2) {
+        const bbl = ind.bb[ind.bb.length - 1];
+        const bw = ((bbl.upper - bbl.lower) / bbl.middle * 100).toFixed(1);
+        const bwNum = parseFloat(bw);
+        const squeezeWarn = bwNum < 8 ? ' ⚠️挤压' : bwNum < 12 ? ' 偏窄' : '';
+        out += `   BB(20,2): 上$${bbl.upper.toFixed(0)} 中$${bbl.middle.toFixed(0)} 下$${bbl.lower.toFixed(0)} | 带宽${bw}%${squeezeWarn}\n`;
+      }
+      
+      // MACD
+      if (ind.macd && ind.macd.length >= 2) {
+        const ml = ind.macd[ind.macd.length - 1];
+        const mp = ind.macd[ind.macd.length - 2];
+        let cross = '';
+        if (mp.dif <= mp.dea && ml.dif > ml.dea) cross = ' 🔄金叉';
+        else if (mp.dif >= mp.dea && ml.dif < ml.dea) cross = ' ⚠️死叉';
+        else if (ml.dif > ml.dea) cross = ' (多头)';
+        else cross = ' (空头)';
+        const hTrend = ml.macd > mp.macd ? '↑' : '↓';
+        out += `   MACD(12,26,9): DIF ${ml.dif.toFixed(1)} DEA ${ml.dea.toFixed(1)} 柱 ${ml.macd.toFixed(1)}${cross} 动能${hTrend}\n`;
+      }
+      
+      if (hasData) out += '\n';
+    }
   }
   
   // 1小时K线
@@ -583,7 +714,7 @@ function formatInstantData(data) {
     out += '\n';
   }
   
-  // 清算数据（最近24小时）
+  // 清算数据（最近24小时 + 热力图）
   if (data.liquidation) {
     const liq = data.liquidation;
     out += '── 🔥 清算数据 (24h) ──\n';
@@ -594,7 +725,19 @@ function formatInstantData(data) {
                          liq.netLiquidation < 0 ? '空头被清算更多（短期偏多）' : '平衡';
     out += `   净清算: ${liq.netLiquidation} BTC (${netIndicator})\n`;
     
-    // 最近5条清算记录
+    // 价格分布
+    if (liq.heatmap && liq.heatmap.length > 0) {
+      out += '\n   ── 价格区间分布 ──\n';
+      const maxSz = Math.max(...liq.heatmap.map(h => h.totalSz));
+      for (const h of liq.heatmap) {
+        const barLen = Math.max(1, Math.round(h.totalSz / maxSz * 25));
+        const bar = h.dominant === 'long' ? '多'.repeat(barLen) :
+                    h.dominant === 'short' ? '空'.repeat(barLen) : '混'.repeat(barLen);
+        out += `   $${h.priceRange}: ${h.longCount}多/${h.shortCount}空 ${h.totalSz.toFixed(0)}BTC ${bar}\n`;
+      }
+    }
+    
+    // 最近清算记录
     if (liq.recent && liq.recent.length > 0) {
       out += '\n   最近清算:\n';
       for (let i = 0; i < Math.min(5, liq.recent.length); i++) {

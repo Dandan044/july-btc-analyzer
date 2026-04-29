@@ -1,29 +1,39 @@
 /**
- * 多价位监控警报
- * 监控多个关键价位，使用K线区间数据捕捉瞬时突破
+ * 多价位监控警报（早间更新 #3）
+ * 基于 2026-04-29 09:30 早间日报关键位置设立
+ * 监控6个关键价位，使用K线区间数据捕捉瞬时突破
  * 单次触发传递组合信息
+ * 
+ * 背景：压缩三角形形成，波动率+成交量双压缩至极端水平
+ * MACD柱从-134.7加速恶化至-333.1（-147%），空头动能暗中积累
+ * 操作：建议重新做空（止损$76,650），止盈$74,997/$73,937
+ * 路径A(55%): 压缩向下突破 / 路径B(30%): 假突破后回落 / 路径C(15%): 突破$77,000反转
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
 
-const CREATED_DATE = '2026-04-26';
+const CREATED_DATE = '2026-04-29';
 const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
 
-// ⭐ 多价位配置（6个价位）
+// 多价位配置（6个，来自早间日报#3 四、行情推断-关键位置表 + 五、仓位操作建议）
+// 来源：active/cycle-20260428-001/reports/btc-report-2026-04-29-0930.md
 const PRICE_LEVELS = [
-  { price: 77000, type: 'support', label: '止损位', action: '止损触发出局', priority: 'high' },
-  { price: 78500, type: 'resistance', label: '第一止盈', action: '部分止盈0.18张', priority: 'high' },
-  { price: 79500, type: 'resistance', label: '第二止盈', action: '全部止盈0.18张', priority: 'high' },
-  { price: 77700, type: 'resistance', label: '阻力1', action: '突破测试', priority: 'medium' },
-  { price: 77034, type: 'support', label: '支撑1', action: '支撑再次测试', priority: 'medium' },
-  { price: 74984, type: 'support', label: '极端回调', action: '4H 50%斐波位', priority: 'medium' }
+  // ⬆️ 上方阻力（3个）
+  { price: 76947, type: 'resistance', label: '昨日16:00 4H高点/阻力₂', action: '强阻力被触及，路径B假突破风险上升', priority: 'medium' },
+  { price: 76650, type: 'resistance', label: '空头止损线/压缩区上沿+缓冲', action: '空头逻辑失效，需评估平仓', priority: 'high' },
+  { price: 76525, type: 'resistance', label: '压缩区间上沿/今日4H高点', action: '压缩区间被突破，空头结构松动', priority: 'high' },
+  // ⬇️ 下方支撑（3个）
+  { price: 75854, type: 'support', label: '压缩区间下沿/今日低点', action: '压缩向下突破确认，空头趋势延续', priority: 'high' },
+  { price: 74997, type: 'support', label: '止盈1/4H 50%斐波/$75K心理位', action: '止盈1到达，建议平仓50%', priority: 'high' },
+  { price: 73937, type: 'support', label: '止盈2/4H 61.8%黄金分割', action: '止盈2到达，建议平仓剩余50%', priority: 'high' }
 ];
 
 module.exports = {
-  name: '多价位监控警报',
+  name: '多价位监控警报（早间更新#3）',
   interval: 3 * 60 * 1000,
   lastTriggered: 0,
+  
   currentTriggeredLevels: [],
   triggeredHistory: [],
 
@@ -34,7 +44,7 @@ module.exports = {
     }
 
     try {
-      // ⭐ 获取K线片段（覆盖检查间隔）
+      // 获取K线片段（覆盖3分钟检查间隔）
       const klines = await api.getKlines('BTC', '1m', 3);
       
       // 计算区间高低价
@@ -42,7 +52,7 @@ module.exports = {
       const periodLow = Math.min(...klines.map(k => k.low));
       const latestPrice = klines[klines.length - 1].close;
 
-      // ⭐ 批量检查所有价位
+      // 批量检查所有价位
       const triggeredLevels = [];
       
       for (const level of PRICE_LEVELS) {
@@ -55,18 +65,14 @@ module.exports = {
         }
       }
 
-      // ⭐ 组合触发
       if (triggeredLevels.length > 0) {
         this.currentTriggeredLevels = triggeredLevels;
-        
         const levelStr = triggeredLevels.map(l => `$${l.price}(${l.label})`).join(', ');
-        console.log(`[🔍警报检查] [API] CryptoCompare获取BTC 3分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 触发价位: ${levelStr} | 触发: true | [来源] 04-26 01:11日报: "持仓风险边际上升，止损$77000关键边界，止盈$78500/$79500"`);
-        
+        console.log(`[🔍警报检查] [API] OKX获取BTC 3分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 触发价位: ${levelStr} | 触发: true | [来源] 04-29 09:30早间日报#3: "压缩三角形即将突破，MACD柱加速恶化至-333。止损$76,650，止盈$74,997/$73,937"`);
         return true;
       }
 
-      console.log(`[🔍警报检查] [API] CryptoCompare获取BTC 3分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 触发: false | [来源] 04-26 01:11日报: "持仓风险边际上升，止损$77000关键边界"`);
-      
+      console.log(`[🔍警报检查] [API] OKX获取BTC 3分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 触发: false`);
       return false;
     } catch (error) {
       console.error('[❌警报检查错误]', error.message);
@@ -80,12 +86,22 @@ module.exports = {
       
       const ticker = await api.getTicker('BTC');
       const klines15m = await api.getKlines('BTC', '15m', 8);
+      
+      let oiData = null;
+      let lsRatio = null;
+      let takerData = null;
+      try {
+        oiData = await api.getOKXOpenInterest();
+        lsRatio = await api.getOKXLongShortRatio();
+        takerData = await api.getOKXTakerRatio();
+      } catch (e) {
+        console.log('[数据收集] OKX扩展数据获取失败，继续使用基础数据');
+      }
 
       return {
         alertTime: new Date().toISOString(),
         currentPrice: ticker.price,
         
-        // ⭐ 组合触发信息
         triggeredLevels: triggeredLevels.map(l => ({
           price: l.price,
           type: l.type,
@@ -103,7 +119,10 @@ module.exports = {
           '1h': ticker.change1h,
           '24h': ticker.change24h
         },
-        
+        openInterest: oiData?.currentOI,
+        oiChange24h: oiData?.change24h,
+        longShortRatio: lsRatio?.currentRatio,
+        takerBuyRatio: takerData?.currentRatio,
         klines15m: klines15m.map(k => ({
           time: k.datetime,
           open: k.open,
@@ -170,7 +189,9 @@ module.exports = {
 
   lifetime() {
     const today = api.getLocalDate();
-    // 止盈止损警报与持仓周期绑定，周期归档时警报失效
-    return today === CREATED_DATE ? 'active' : 'expired';
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired'; // 有效期3天（跨日报周期）
   }
 };

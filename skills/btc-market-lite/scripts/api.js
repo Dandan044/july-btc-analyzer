@@ -411,6 +411,59 @@ async function getOKXTopTraderRatio() {
 }
 
 /**
+ * 获取BTC合约清算数据（OKX API，需要代理）
+ * 返回最近清算订单的统计 + 热力图
+ */
+async function getOKXLiquidation() {
+  return new Promise((resolve) => {
+    const url = `https://www.okx.com/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
+    const cmd = `curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`;
+    const raw = execSync(cmd, { encoding: 'utf8', timeout: 20000 });
+    
+    try {
+      const json = JSON.parse(raw);
+      if (json.code !== '0' || !json.data || !json.data[0]?.details) {
+        resolve(null);
+        return;
+      }
+      
+      const details = json.data[0].details;
+      const now = Date.now();
+      const thirtyMinAgo = now - 30 * 60 * 1000;
+      
+      let longLiq = 0, shortLiq = 0;
+      let recentLongLiq = 0, recentShortLiq = 0;
+      
+      for (const d of details) {
+        const sz = parseFloat(d.sz);
+        const ts = parseInt(d.ts);
+        if (d.posSide === 'long') {
+          longLiq += sz;
+          if (ts >= thirtyMinAgo) recentLongLiq += sz;
+        } else {
+          shortLiq += sz;
+          if (ts >= thirtyMinAgo) recentShortLiq += sz;
+        }
+      }
+      
+      resolve({
+        totalOrders: details.length,
+        longLiquidation: parseFloat(longLiq.toFixed(2)),
+        shortLiquidation: parseFloat(shortLiq.toFixed(2)),
+        recent30m: {
+          longLiquidation: parseFloat(recentLongLiq.toFixed(2)),
+          shortLiquidation: parseFloat(recentShortLiq.toFixed(2))
+        },
+        netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2))
+      });
+    } catch (e) {
+      console.error('[OKX清算] 解析失败:', e.message);
+      resolve(null);
+    }
+  });
+}
+
+/**
  * 获取本地时区(Asia/Shanghai)的今日日期字符串
  * 修复 lifetime() 中的时区问题：toISOString()返回UTC日期，导致UTC+8下日期不匹配
  * @returns {string} 格式 "YYYY-MM-DD"
@@ -437,5 +490,6 @@ module.exports = {
   getOKXTakerRatio,
   getOKXLongShortRatio,
   getOKXTopTraderRatio,
+  getOKXLiquidation,
   getLocalDate
 };

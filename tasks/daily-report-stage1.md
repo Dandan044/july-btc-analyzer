@@ -386,13 +386,13 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 ---
 
-### 7. Spawn 阶段二
+### 7. 记录阶段结束并通过 sessions_yield 触发阶段二
 
-**阶段一完成后，立即 spawn 阶段二：**
+**子会话限制：** 本阶段是子会话，不能 sessions_spawn 或 sessions_send。**使用 sessions_yield 将过渡信息发回父会话**，父会话收到后会按 AGENTS.md 规定自动 spawn 阶段二。
 
-**⚠️ Spawn 消息只需传递数据清单路径，其他信息都在清单中：**
+**步骤 7.1：构建过渡信息**
 
-构建 Spawn 消息：
+在返回值末尾必须包含以下格式的过渡信息（父会话解析用）：
 
 ```
 阶段一数据获取已完成。
@@ -400,31 +400,17 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
 
-**Spawn 参数：**
-
-```
-sessions_spawn:
-- agentId: "july"
-- mode: "run"
-- timeoutSeconds: 0
-- task: [上述消息]
-```
-
-**执行后立即返回**，不等待阶段二完成。
-
-**说明：** 数据清单 JSON 已包含周期信息、所有文件路径、持仓信息，阶段二读取清单即可获取全部参数。
-
----
-
-### 8. 记录阶段结束
-
-**Spawn 完成后，记录本阶段结束：**
+**步骤 7.2：记录阶段结束日志并发起 sessions_yield**
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段一] 完成执行，已 spawn 阶段二" >> logs/daily-report-process.log
+echo "[$NOW] [阶段一] 完成执行，过渡信息已写入日志" >> logs/daily-report-process.log
 echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-report-process.log
 ```
+
+**然后在当前回复中调用 `sessions_yield`**，message 参数为上述过渡信息文本。
+
+⚠️ **不要仅通过返回值隐式传递**：历史证明仅靠正常返回值无法触发父会话 spawn 阶段二。必须显式调用 sessions_yield。
 
 ---
 
@@ -440,8 +426,7 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-r
 | 周期文件夹创建失败 | `⛔ ERROR` | 记录异常，尝试继续执行（后续文件无法保存） |
 | 历史报告路径收集数量不足 | `⚠️ WARN` | 清单中记录实际数量，继续执行 |
 | 数据挖掘报告生成失败 | `⚠️ WARN` | 清单中标记挖掘报告缺失，阶段二可直接分析原始数据 |
-| 数据清单 JSON 生成失败 | `⛔ ERROR` | 记录异常后结束本阶段（无法 spawn 阶段二） |
-| Spawn 阶段二失败 | `⛔ ERROR` | 记录异常后结束本阶段 |
+| 数据清单 JSON 生成失败 | `⛔ ERROR` | 记录异常后结束本阶段 |
 
 **不因警告中断流程，错误视情况决定是否继续。**
 
@@ -458,21 +443,23 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-r
 7. **文件命名带时间信息**：便于区分生成时间
 8. **必须生成数据清单 JSON**：固定格式，包含所有必要信息供阶段二读取
 9. **Spawn 消息简洁**：只传递数据清单路径，其他信息都在清单中
-10. **必须 spawn 阶段二**：完成后立即触发下一阶段
+10. **传递过渡信息给父会话**：在返回值末尾包含数据清单路径，然后调用 sessions_yield，父会话收到 yield 后负责 spawn 阶段二
 11. **最后记录阶段结束**：Spawn 完成后记录
 12. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 
 ---
 
-## Spawn 消息规范
+## 阶段过渡规范
 
-**阶段一 → 阶段二的 Spawn 消息只需：**
+**本阶段使用 sessions_yield 触发阶段二。** 在最终回复中包含以下格式的过渡信息，然后调用 sessions_yield：
 
 ```
 阶段一数据获取已完成。
 数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
+
+父会话收到 yield 消息后，会按 AGENTS.md 规定解析数据清单路径并 spawn 阶段二。
 
 **数据清单已包含全部信息：**
 - 周期ID、周期状态

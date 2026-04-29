@@ -223,58 +223,108 @@ function calcRSI(values, period = 14) {
 }
 
 /**
- * 获取清算数据（OKX API）
- * 返回最近24小时的多空清算统计
+ * 获取清算数据（OKX API，翻页回溯2-3天）
+ * 返回清算热力图：按价格区间统计多空清算分布
  */
 async function getLiquidationData(proxy) {
   if (!proxy) return null;
   
-  return new Promise((resolve) => {
-    const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
-    const cmd = `curl -s --max-time 30 -x ${proxy} '${url}'`;
+  const PRICE_BIN = 500;  // 价格分档：每$500
+  const MAX_PAGES = 3;    // 最多翻3页，覆盖2-3天
+  const allDetails = [];
+  let before = null;
+  
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const beforeParam = before ? `&before=${before}` : '';
+    const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100${beforeParam}`;
     
-    exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Liquidation API error:', error.message);
-        resolve(null);
-        return;
-      }
-      
-      try {
-        const json = JSON.parse(stdout);
-        if (json.code !== '0' || !json.data || !json.data[0]?.details) {
-          resolve(null);
-          return;
-        }
-        
-        const details = json.data[0].details;
-        
-        // 统计清算数据
-        let longLiq = 0, shortLiq = 0;
-        
-        for (const d of details) {
-          const sz = parseFloat(d.sz);
-          const posSide = d.posSide;
-          
-          if (posSide === 'long') {
-            longLiq += sz;
+    const pageResult = await new Promise((resolve) => {
+      const cmd = `curl -s --max-time 30 -x ${proxy} '${url}'`;
+      exec(cmd, { maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+        if (error) { resolve(null); return; }
+        try {
+          const json = JSON.parse(stdout);
+          if (json.code === '0' && json.data?.[0]?.details) {
+            resolve(json.data[0].details);
           } else {
-            shortLiq += sz;
+            resolve(null);
           }
-        }
-        
-        resolve({
-          count: details.length,
-          longLiquidation: parseFloat(longLiq.toFixed(2)),
-          shortLiquidation: parseFloat(shortLiq.toFixed(2)),
-          netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2))
-        });
-      } catch (e) {
-        console.error('Liquidation JSON parse error:', e.message);
-        resolve(null);
-      }
+        } catch (e) { resolve(null); }
+      });
     });
-  });
+    
+    if (!pageResult || pageResult.length === 0) break;
+    allDetails.push(...pageResult);
+    before = Math.min(...pageResult.map(d => parseInt(d.time)));
+  }
+  
+  if (allDetails.length === 0) return null;
+  
+  // 基础统计
+  let longLiq = 0, shortLiq = 0;
+  for (const d of allDetails) {
+    const sz = parseFloat(d.sz);
+    if (d.posSide === 'long') longLiq += sz;
+    else shortLiq += sz;
+  }
+  
+  // 按价格区间构建热力图
+  const bins = {};
+  for (const d of allDetails) {
+    const px = Math.floor(parseFloat(d.bkPx) / PRICE_BIN) * PRICE_BIN;
+    if (!bins[px]) bins[px] = { longCount: 0, shortCount: 0, longSz: 0, shortSz: 0 };
+    const sz = parseFloat(d.sz);
+    if (d.posSide === 'long') {
+      bins[px].longCount++;
+      bins[px].longSz += sz;
+    } else {
+      bins[px].shortCount++;
+      bins[px].shortSz += sz;
+    }
+  }
+  
+  const heatmap = Object.entries(bins)
+    .map(([price, data]) => ({
+      price: parseInt(price),
+      priceRange: `${parseInt(price)}-${parseInt(price) + PRICE_BIN}`,
+      longCount: data.longCount,
+      shortCount: data.shortCount,
+      longSz: parseFloat(data.longSz.toFixed(1)),
+      shortSz: parseFloat(data.shortSz.toFixed(1)),
+      totalSz: parseFloat((data.longSz + data.shortSz).toFixed(1)),
+      dominant: data.longSz > data.shortSz * 1.5 ? 'long' : 
+                data.shortSz > data.longSz * 1.5 ? 'short' : 'mixed'
+    }))
+    .sort((a, b) => a.price - b.price);
+  
+  // 关键区间
+  const maxTotalZone = [...heatmap].sort((a, b) => b.totalSz - a.totalSz)[0];
+  const maxLongZone = [...heatmap].sort((a, b) => b.longSz - a.longSz)[0];
+  const maxShortZone = [...heatmap].sort((a, b) => b.shortSz - a.shortSz)[0];
+  
+  // 时间范围
+  const allTimes = allDetails.map(d => parseInt(d.time));
+  const tsMin = Math.min(...allTimes);
+  const tsMax = Math.max(...allTimes);
+  
+  return {
+    count: allDetails.length,
+    pages: MAX_PAGES,
+    longLiquidation: parseFloat(longLiq.toFixed(2)),
+    shortLiquidation: parseFloat(shortLiq.toFixed(2)),
+    netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2)),
+    heatmap: heatmap,
+    keyLevels: {
+      maxTotal: maxTotalZone,
+      maxLong: maxLongZone,
+      maxShort: maxShortZone
+    },
+    timeRange: {
+      start: tsMin,
+      end: tsMax,
+      spanHours: parseFloat(((tsMax - tsMin) / (1000 * 60 * 60)).toFixed(1))
+    }
+  };
 }
 
 // ========== K线数据获取 (OKX CLI) ==========
@@ -308,10 +358,12 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   const volume24h = tickerArr?.[0]?.volCcy24h ? 
     parseFloat(tickerArr[0].volCcy24h) * parseFloat(tickerArr[0].last || 70000) : null;
   
-  // 3. 获取技术指标 (OKX CLI 服务端计算)
-  const [emaData, rsiData] = await Promise.all([
+  // 3. 获取技术指标 (OKX CLI 服务端计算) — RSI/BB/MACD 使用 --list 获取14天序列
+  const [emaData, rsiData, bbData, macdData] = await Promise.all([
     okxCLIJson(`market indicator ema ${OKX_INST_ID_SPOT} --bar 1Dutc --params 7,12,20,26`, proxy).catch(() => null),
-    okxCLIJson(`market indicator rsi ${OKX_INST_ID_SPOT} --bar 1Dutc`, proxy).catch(() => null)
+    okxCLIJson(`market indicator rsi ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => null),
+    okxCLIJson(`market indicator bb ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => null),
+    okxCLIJson(`market indicator macd ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => null)
   ]);
   
   // 4. 获取资金费率历史（14天 × 3条/天 = 42条，取50条余量）
@@ -519,13 +571,19 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   const minVolume30d = volumes30d.length > 0 ? Math.min(...volumes30d) : null;
   const avgVolume30d = volumes30d.length > 0 ? volumes30d.reduce((a, b) => a + b, 0) / volumes30d.length : null;
   
-  // RSI - 从 OKX CLI 响应中提取
+  // RSI 序列 (14天) — 从 OKX CLI --list 响应中提取
   let rsi14 = null;
+  let rsiSeries = null;
   try {
-    // OKX CLI RSI 格式: { data: [{ timeframes: { "1Dutc": { indicators: { RSI: [{ values: { "14": "57.56" }}] }}}}] }
     const rsiArr = Array.isArray(rsiData) ? rsiData : rsiData?.data;
-    if (rsiArr?.[0]?.timeframes?.["1Dutc"]?.indicators?.RSI?.[0]?.values?.["14"]) {
-      rsi14 = parseFloat(rsiArr[0].timeframes["1Dutc"].indicators.RSI[0].values["14"]);
+    const rsiList = rsiArr?.[0]?.timeframes?.["1Dutc"]?.indicators?.RSI;
+    if (rsiList && rsiList.length > 0) {
+      // 序列模式 (--list): 返回多条，按时间正序（旧→新）
+      rsiSeries = rsiList.map(v => ({
+        ts: parseInt(v.ts),
+        value: parseFloat(v.values["14"])
+      }));
+      rsi14 = rsiSeries[rsiSeries.length - 1].value;
     }
   } catch (e) {
     // 忽略解析错误
@@ -534,6 +592,40 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   // 备用：自己计算
   if (rsi14 === null) {
     rsi14 = calcRSI(closes, 14) ? parseFloat(calcRSI(closes, 14).toFixed(1)) : null;
+  }
+  
+  // BB 序列 (14天) — 1Dutc Bollinger Bands
+  let bbSeries = null;
+  try {
+    const bbArr = Array.isArray(bbData) ? bbData : bbData?.data;
+    const bbList = bbArr?.[0]?.timeframes?.["1Dutc"]?.indicators?.BB;
+    if (bbList && bbList.length > 0) {
+      bbSeries = bbList.map(v => ({
+        ts: parseInt(v.ts),
+        upper: parseFloat(v.values.upper),
+        middle: parseFloat(v.values.middle),
+        lower: parseFloat(v.values.lower)
+      }));
+    }
+  } catch (e) {
+    // 忽略解析错误
+  }
+  
+  // MACD 序列 (14天) — 1Dutc MACD
+  let macdSeries = null;
+  try {
+    const macdArr = Array.isArray(macdData) ? macdData : macdData?.data;
+    const macdList = macdArr?.[0]?.timeframes?.["1Dutc"]?.indicators?.MACD;
+    if (macdList && macdList.length > 0) {
+      macdSeries = macdList.map(v => ({
+        ts: parseInt(v.ts),
+        dif: parseFloat(v.values.dif),
+        dea: parseFloat(v.values.dea),
+        macd: parseFloat(v.values.macd)  // histogram value (DIF - DEA)
+      }));
+    }
+  } catch (e) {
+    // 忽略解析错误
   }
   
   return {
@@ -595,7 +687,10 @@ async function getDailyDataCLI(proxy, fngMap = null) {
       }
     },
     indicators: {
-      rsi14: rsi14
+      rsi14: rsi14,
+      rsiSeries: rsiSeries,
+      bbSeries: bbSeries,
+      macdSeries: macdSeries
     }
   };
 }
@@ -1139,11 +1234,50 @@ function formatAnalysis(data) {
     out += ` | 均值: ${formatVolume(stats.days30.volume.avg)}\n`;
     
     out += '\n── 📈 技术指标 ──\n';
+    
+    // RSI (14天序列)
     if (ind.rsi14 !== null) {
       const rsiStatus = ind.rsi14 < 30 ? '⚠️ 超卖' : ind.rsi14 > 70 ? '⚠️ 超买' : '';
-      out += `   RSI(14): ${ind.rsi14} ${rsiStatus}\n`;
+      if (ind.rsiSeries && ind.rsiSeries.length >= 5) {
+        const recent = ind.rsiSeries.slice(-5);
+        out += `   RSI(14): ${recent.map(r => r.value.toFixed(1)).join(' → ')} ${rsiStatus}\n`;
+      } else {
+        out += `   RSI(14): ${ind.rsi14} ${rsiStatus}\n`;
+      }
     } else {
       out += `   RSI(14): N/A\n`;
+    }
+    
+    // BB (14天序列)
+    if (ind.bbSeries && ind.bbSeries.length >= 2) {
+      const bbl = ind.bbSeries[ind.bbSeries.length - 1];  // latest
+      const bf = ind.bbSeries[0];  // first
+      const bw = ((bbl.upper - bbl.lower) / bbl.middle * 100).toFixed(1);
+      const bwFirst = ((bf.upper - bf.lower) / bf.middle * 100).toFixed(1);
+      const bwTrend = parseFloat(bw) < parseFloat(bwFirst) ? `从${bwFirst}%收缩至${bw}%` : `从${bwFirst}%扩张至${bw}%`;
+      const squeezeWarning = parseFloat(bw) < 10 ? ' ⚠️ 带宽<10%，挤压中' : '';
+      out += `   BB(1D,20,2): 上轨 $${bbl.upper.toFixed(0)} 中轨 $${bbl.middle.toFixed(0)} 下轨 $${bbl.lower.toFixed(0)}\n`;
+      out += `               带宽 ${bw}% (${bwTrend})${squeezeWarning}\n`;
+    }
+    
+    // MACD (14天序列)
+    if (ind.macdSeries && ind.macdSeries.length >= 2) {
+      const ml = ind.macdSeries[ind.macdSeries.length - 1];  // latest
+      const mp = ind.macdSeries[ind.macdSeries.length - 2];  // previous
+      // 检测金叉/死叉
+      let crossover = '';
+      if (mp.dif <= mp.dea && ml.dif > ml.dea) {
+        crossover = ' 🔄 今日金叉(DIF上穿DEA)';
+      } else if (mp.dif >= mp.dea && ml.dif < ml.dea) {
+        crossover = ' ⚠️ 今日死叉(DIF下穿DEA)';
+      } else if (ml.dif > ml.dea) {
+        crossover = ' (多头排列)';
+      } else {
+        crossover = ' (空头排列)';
+      }
+      const histTrend = ml.macd > mp.macd ? '↑动能增强' : '↓动能减弱';
+      out += `   MACD(1D,12,26,9): DIF ${ml.dif.toFixed(1)} DEA ${ml.dea.toFixed(1)} 柱 ${ml.macd.toFixed(1)}${crossover}\n`;
+      out += `                    柱状图${histTrend}\n`;
     }
     
     // Premium Index（当前）
@@ -1162,16 +1296,39 @@ function formatAnalysis(data) {
       out += `   说明: ${ph.basis.note}\n`;
     }
     
-    // 清算数据（24小时）
+    // 清算热力图（多日翻页）
     if (ph.liquidation) {
       const liq = ph.liquidation;
-      out += '\n── 🔥 清算数据 (24h) ──\n';
-      out += `   清算订单数: ${liq.count} 笔\n`;
+      const spanH = liq.timeRange?.spanHours || 24;
+      out += `\n── 🔥 清算热力图 (${spanH}h, ${liq.count}笔) ──\n`;
       out += `   多头清算: ${liq.longLiquidation} BTC | 空头清算: ${liq.shortLiquidation} BTC\n`;
       
-      const netIndicator = liq.netLiquidation > 0 ? '多头被清算更多（短期偏空）' : 
-                           liq.netLiquidation < 0 ? '空头被清算更多（短期偏多）' : '平衡';
+      const netIndicator = liq.netLiquidation > 0 ? '多头被清算更多' : 
+                           liq.netLiquidation < 0 ? '空头被清算更多' : '平衡';
       out += `   净清算: ${liq.netLiquidation} BTC (${netIndicator})\n`;
+      
+      // 热力图：按价格区间
+      if (liq.heatmap && liq.heatmap.length > 0) {
+        out += '\n   ── 价格区间分布 ──\n';
+        const maxSz = Math.max(...liq.heatmap.map(h => h.totalSz));
+        for (const h of liq.heatmap) {
+          const barLen = Math.max(1, Math.round(h.totalSz / maxSz * 30));
+          const bar = h.dominant === 'long' ? '🟥'.repeat(barLen) :
+                      h.dominant === 'short' ? '🟩'.repeat(barLen) : '🟨'.repeat(barLen);
+          const tag = h.dominant === 'long' ? '多杀' : h.dominant === 'short' ? '空杀' : '混战';
+          const szStr = h.totalSz >= 1000 ? `$${(h.totalSz/1000).toFixed(1)}M` : `${h.totalSz.toFixed(0)}`;
+          out += `   $${h.priceRange}: ${h.longCount}多/${h.shortCount}空 ${szStr} ${tag}\n`;
+        }
+        
+        // 关键区间标注
+        if (liq.keyLevels) {
+          out += '\n   🔑 关键区间:\n';
+          const kl = liq.keyLevels;
+          if (kl.maxTotal) out += `   最大清算: $${kl.maxTotal.priceRange} (${kl.maxTotal.totalSz.toFixed(1)} BTC)\n`;
+          if (kl.maxLong) out += `   多头集中: $${kl.maxLong.priceRange} (${kl.maxLong.longSz.toFixed(1)} BTC, ${kl.maxLong.longCount}笔)\n`;
+          if (kl.maxShort) out += `   空头集中: $${kl.maxShort.priceRange} (${kl.maxShort.shortSz.toFixed(1)} BTC, ${kl.maxShort.shortCount}笔)\n`;
+        }
+      }
     }
   }
   

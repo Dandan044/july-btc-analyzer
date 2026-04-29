@@ -405,9 +405,93 @@ function unloadRule(filename, ruleName, reason) {
 }
 
 /**
+ * 获取文件的修改时间（mtime）
+ * @param {string} filePath - 文件路径
+ * @returns {number|null} mtime 时间戳，文件不存在时返回 null
+ */
+function getFileMtime(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const stats = fs.statSync(filePath);
+    return stats.mtimeMs;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * 重新加载被修改的规则
+ * @param {string} filename - 规则文件名
+ * @param {object} oldInfo - 旧的规则信息（来自 activeRules）
+ */
+function reloadRule(filename, oldInfo) {
+  const oldName = oldInfo.name;
+  
+  // 1. 停止旧定时器（但不清理冷却状态，保持连续性）
+  if (timers.has(filename)) {
+    clearInterval(timers.get(filename));
+    timers.delete(filename);
+  }
+  
+  // 2. 加载新版本
+  const ruleInfo = loadSingleRule(filename);
+  if (!ruleInfo) {
+    // 加载失败，保留旧版本信息但标记为问题
+    logEngine('ERROR', oldName, '规则重新加载失败，保留旧版本', { file: filename });
+    return;
+  }
+  
+  const newName = ruleInfo.module.name;
+  
+  // 3. 更新 activeRules（包含新的 mtime）
+  activeRules.set(filename, {
+    name: newName,
+    path: ruleInfo.path,
+    filename: filename,
+    mtime: getFileMtime(ruleInfo.path)
+  });
+  
+  // 4. 重置错误统计（新规则重新开始）
+  resetErrorStats(filename);
+  
+  // 5. 启动新定时器
+  logRuleEvent(newName, 'RULE_RELOADED', { 
+    oldName: oldName,
+    newName: newName,
+    file: filename,
+    interval: `${ruleInfo.module.interval / 1000}s`
+  });
+  console.log(`[🔧警报引擎] 热重载规则: "${oldName}" → "${newName}" (${filename})`);
+  
+  // 立即执行一次检查
+  runRule(ruleInfo).then(result => {
+    if (result === 'stop') {
+      unloadRule(filename, newName, 'lifetime_ended');
+    } else if (result === 'pause') {
+      unloadRule(filename, newName, 'error_threshold_reached');
+    }
+  });
+  
+  // 启动定时器
+  const timer = setInterval(async () => {
+    const result = await runRule(ruleInfo);
+    if (result === 'stop') {
+      unloadRule(filename, newName, 'lifetime_ended');
+    } else if (result === 'pause') {
+      unloadRule(filename, newName, 'error_threshold_reached');
+    }
+  }, ruleInfo.module.interval);
+  
+  timers.set(filename, timer);
+}
+
+/**
  * 扫描检查：
  * 1. 发现规则文件被移走时自动卸载
  * 2. 发现新增规则文件时自动加载
+ * 3. 发现规则文件被修改时自动重新加载
  */
 function scanRuleFiles() {
   // 1. 检测移除的规则
@@ -418,10 +502,22 @@ function scanRuleFiles() {
       // 规则文件不存在了（被手动归档或删除）
       logEngine('INFO', info.name, '检测到规则文件已不存在', { path: filePath });
       unloadRule(filename, info.name, 'file_removed');
+      continue;
+    }
+    
+    // ⭐ 2. 检测文件修改（mtime 变化）
+    const currentMtime = getFileMtime(filePath);
+    if (currentMtime !== null && info.mtime !== currentMtime) {
+      logEngine('INFO', info.name, '检测到规则文件已修改', { 
+        file: filename,
+        oldMtime: info.mtime,
+        newMtime: currentMtime
+      });
+      reloadRule(filename, info);
     }
   }
   
-  // 2. 检测新增的规则
+  // 3. 检测新增的规则
   if (!fs.existsSync(RULES_DIR)) {
     return;
   }
@@ -455,17 +551,22 @@ function startRuleTimer(ruleInfo) {
   // 初始化错误统计
   resetErrorStats(filename);
   
-  // 记录规则信息（用于扫描检查）
+  // ⭐ 获取文件修改时间
+  const mtime = getFileMtime(rulePath);
+  
+  // 记录规则信息（用于扫描检查，包含 mtime）
   activeRules.set(filename, {
     name: rule.name,
     path: rulePath,
-    filename: filename
+    filename: filename,
+    mtime: mtime  // ⭐ 新增：记录文件修改时间
   });
   
   // 记录启动
   logRuleEvent(rule.name, 'TIMER_STARTED', {
     interval: `${rule.interval / 1000}s`,
-    file: filename
+    file: filename,
+    mtime: mtime
   });
   
   console.log(`[🔧警报引擎] 启动规则定时器 "${rule.name}" (检查间隔: ${rule.interval}ms)`);

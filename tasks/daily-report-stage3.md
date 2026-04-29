@@ -368,21 +368,74 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 | TP2 | OCO | sz/2 | tp2 | 第二档止盈，平仓剩余 50% |
 | SL | OCO | sz | sl | 止损，平仓全部 |
 
-**⭐ 整数位偏移规则（止盈专用）：**
+**⭐ 整数位偏移规则（止盈 + 止损同向偏移）：**
 
-整数价位（如 72000、75000）常有强大阻力，价格可能差一点不到。设置止盈时需酌情偏移：
+⚠️ **强制规则：止盈和止损都要判断并应用偏移，不得省略！**
 
-| 方向 | 原止盈价 | 实际设置 | 示例 |
-|------|---------|---------|------|
-| 多单 | 72500 | 72500 - 22 = **72478** | 略低，更容易触发 |
-| 空单 | 72500 | 72500 + 22 = **72522** | 略高，更容易触发 |
+整数价位（如 72000、75000）常有强大阻力，价格可能差一点不到。**报告给出的原始点位是参考值**，实际设置时必须判断是否为整数，并应用偏移：
+
+- **多单（long）**：止盈-22，止损-22（全向下）
+- **空单（short）**：止盈+22，止损+22（全向上）
+- **止盈**：朝触发方向偏移，更易触发
+- **止损**：与止盈同向偏移，更难触发（需要价格走更深才触发）
+
+| 持仓方向 | 止盈偏移 | 止损偏移 | 说明 |
+|---------|---------|---------|------|
+| 多单 long | **-22**（更易） | **-22**（更难） | 止盈设低更快触，止损设低需跌更深才触发 |
+| 空单 short | **+22**（更易） | **+22**（更难） | 止盈设高更快触，止损设高需涨更高才触发 |
 
 **判断逻辑：**
-- 如果止盈价是整数（末尾 2-3 位为 0），应用偏移
-- 偏移量固定约 ±22（BTC），换取更高的触发概率
-- 止损**不偏移**（止损触发是保护机制，无需刻意避开整数位）
+- 如果止盈价或止损价是整数（末尾 2-3 位为 0）→ **必须偏移**
+- 多单：止盈-22，止损-22
+- 空单：止盈+22，止损+22
 
-**执行命令：**
+**偏移计算与日志埋点（每设置一笔订单前必须执行）：**
+
+```bash
+# 判断止盈1是否为整数（末尾3位为0），计算实际设置价
+TP1_RAW=<tp1原始值>
+TP1_LAST3=${TP1_RAW: -3}
+if [ "$TP1_LAST3" = "000" ]; then
+  if [ "<direction>" = "long" ]; then
+    TP1_ACTUAL=$((TP1_RAW - 22))   # 多单止盈：更低，更易触发
+    TP1_REASON="更易触发（多单）"
+  else
+    TP1_ACTUAL=$((TP1_RAW + 22))   # 空单止盈：更高，更易触发
+    TP1_REASON="更易触发（空单）"
+  fi
+  echo "[$NOW] [阶段三] ⭐ 止盈1整数位偏移 | 原始: $TP1_RAW | 方向: <direction> | 实际: $TP1_ACTUAL | $TP1_REASON" >> logs/daily-report-process.log
+else
+  TP1_ACTUAL=$TP1_RAW
+fi
+
+# 止盈2计算逻辑同上
+
+# 止损计算（与止盈同向偏移）
+SL_RAW=<sl原始值>
+SL_LAST3=${SL_RAW: -3}
+if [ "$SL_LAST3" = "000" ]; then
+  if [ "<direction>" = "long" ]; then
+    SL_ACTUAL=$((SL_RAW - 22))   # 多单止损：更低，更难触发
+    SL_REASON="更难触发（多单）"
+  else
+    SL_ACTUAL=$((SL_RAW + 22))   # 空单止损：更高，更难触发
+    SL_REASON="更难触发（空单）"
+  fi
+  echo "[$NOW] [阶段三] ⭐ 止损整数位偏移 | 原始: $SL_RAW | 方向: <direction> | 实际: $SL_ACTUAL | $SL_REASON" >> logs/daily-report-process.log
+else
+  SL_ACTUAL=$SL_RAW
+fi
+
+echo "[$NOW] [阶段三] 止盈止损设置 | TP1原始: $TP1_RAW → $TP1_ACTUAL | TP2原始: $TP2_RAW → $TP2_ACTUAL | SL原始: $SL_RAW → $SL_ACTUAL" >> logs/daily-report-process.log
+```
+
+**⚠️ 重要提醒：**
+- 报告给出的止盈/止损价格是**分析判断的理想位置**，不代表实际挂单价格
+- 整数位必须偏移是**安全规则**，不是为了"优化"而是必须执行
+- 止盈和止损**同向偏移**：多单全向下，空单全向上
+- 止盈偏移目的：更易触发；止损偏移目的：更难触发
+
+**执行命令（使用已计算的偏移后价格）：**
 
 ```bash
 # 第一档止盈（sz/2 张）
@@ -394,9 +447,9 @@ okx-proxy.sh --profile live swap algo place \
   --posSide <long|short> \
   --reduceOnly \
   --ordType oco \
-  --tpTriggerPx <tp1> \
+  --tpTriggerPx <$TP1_ACTUAL> \
   --tpOrdPx=-1 \
-  --slTriggerPx <sl> \
+  --slTriggerPx <$SL_ACTUAL> \
   --slOrdPx=-1
 
 # 第二档止盈（sz/2 张）
@@ -408,11 +461,13 @@ okx-proxy.sh --profile live swap algo place \
   --posSide <long|short> \
   --reduceOnly \
   --ordType oco \
-  --tpTriggerPx <tp2> \
+  --tpTriggerPx <$TP2_ACTUAL> \
   --tpOrdPx=-1 \
-  --slTriggerPx <sl> \
+  --slTriggerPx <$SL_ACTUAL> \
   --slOrdPx=-1
 ```
+
+**⚠️ 挂单价格必须使用 `$TP1_ACTUAL` / `$TP2_ACTUAL` / `$SL_ACTUAL`，禁止直接使用报告原始值！**
 
 **注意方向：**
 - 做多平仓：`--side sell`
@@ -456,7 +511,7 @@ okx-proxy.sh --profile live account balance USDT
 **记录执行日志：**
 
 ```
-[$NOW] [阶段三] 开仓成功 | 方向: long/short | 张数: xx | 成交价: xx | 止盈: [xx, xx] | 止损: xx | 订单ID: xx | 止盈止损ID: [xx, xx]
+[$NOW] [阶段三] 开仓成功 | 方向: long/short | 张数: xx | 成交价: xx | 止盈: [${TP1_ACTUAL}, ${TP2_ACTUAL}]（已偏移） | 止损: ${SL_ACTUAL}（已偏移） | 订单ID: xx | 止盈止损ID: [xx, xx]
 ```
 
 ---
@@ -519,6 +574,9 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <�
 ```
 
 设置新的止盈止损（覆盖全部新仓位）：
+- ⚠️ **必须重新计算偏移量**（与7.1.6步骤相同）：判断tp1/tp2/sl是否为整数，计算$TP1_ACTUAL/$TP2_ACTUAL/$SL_ACTUAL
+- 记录偏移日志
+- 使用偏移后价格设置订单
 - 两档止盈各覆盖新总仓位的 50%
 - 止损覆盖新总仓位全部
 
@@ -529,7 +587,7 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <�
 **核对完成后记录汇总日志：**
 
 ```
-[$NOW] [阶段三] 加仓流程完成 | 新总仓位: xx 张 | 止盈止损: [tp1, tp2] | 止损: sl | 状态: 已更新
+[$NOW] [阶段三] 加仓流程完成 | 新总仓位: xx 张 | 止盈止损: [${TP1_ACTUAL}, ${TP2_ACTUAL}]（已偏移） | 止损: ${SL_ACTUAL}（已偏移） | 状态: 已更新
 ```
 
 ---
@@ -576,6 +634,8 @@ okx-proxy.sh --profile live swap close \
 
 取消旧止盈止损订单，设置新订单覆盖剩余仓位。
 
+⚠️ **必须重新计算偏移量**（与7.1.6步骤相同）：判断tp1/tp2/sl是否为整数，计算$TP1_ACTUAL/$TP2_ACTUAL/$SL_ACTUAL，记录偏移日志。
+
 ##### 7.3.5 核对结果
 
 确认剩余持仓张数正确，止盈止损覆盖全部剩余仓位。
@@ -583,7 +643,7 @@ okx-proxy.sh --profile live swap close \
 **核对完成后记录汇总日志：**
 
 ```
-[$NOW] [阶段三] 减仓流程完成 | 剩余仓位: xx 张 | 止盈止损: [tp1, tp2] | 止损: sl | 状态: 已更新
+[$NOW] [阶段三] 减仓流程完成 | 剩余仓位: xx 张 | 止盈止损: [${TP1_ACTUAL}, ${TP2_ACTUAL}]（已偏移） | 止损: ${SL_ACTUAL}（已偏移） | 状态: 已更新
 ```
 
 ---
@@ -656,12 +716,18 @@ okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
 
 ##### 7.5.3 设置新止盈止损
 
-根据日报建议的新价位，设置两档止盈 + 止损（与开仓流程相同）。
+⚠️ **必须应用整数位偏移规则！** 根据日报建议的新价位，**先计算偏移量**（与开仓流程相同），再设置订单。
+
+执行步骤：
+1. 判断 tp1/tp2/sl 是否为整数位
+2. 计算实际设置价格（多单-22，空单+22）
+3. 记录偏移日志
+4. 使用偏移后价格设置止盈止损订单
 
 **记录执行日志：**
 
 ```
-[$NOW] [阶段三] 止盈止损更新 | 止盈1: [tp1, sz/2] | 止盈2: [tp2, sz/2] | 止损: [sl, sz] | 订单ID: [tp1Id, tp2Id, slId]
+[$NOW] [阶段三] 止盈止损更新 | 止盈1: [${TP1_RAW}→${TP1_ACTUAL}, sz/2] | 止盈2: [${TP2_RAW}→${TP2_ACTUAL}, sz/2] | 止损: [${SL_RAW}→${SL_ACTUAL}, sz] | 订单ID: [tp1Id, tp2Id, slId]
 ```
 
 ##### 7.5.4 核对结果
@@ -671,7 +737,7 @@ okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
 **核对完成后记录汇总日志：**
 
 ```
-[$NOW] [阶段三] 调整止盈止损完成 | 止盈: [tp1, tp2] | 止损: sl | 状态: 已更新
+[$NOW] [阶段三] 调整止盈止损完成 | 止盈: [${TP1_ACTUAL}, ${TP2_ACTUAL}]（已偏移） | 止损: ${SL_ACTUAL}（已偏移） | 状态: 已更新
 ```
 
 ---
@@ -736,9 +802,13 @@ echo "[$NOW] [阶段三] 周期归档 | cycle-xxx → archived/ | 平仓盈亏: 
 
 ---
 
-### 步骤 10: Spawn 阶段四
+### 步骤 10: 记录阶段结束并传递过渡信息
 
-**构建 Spawn 消息：**
+**子会话限制：** 本阶段是子会话，不能 sessions_spawn 或 sessions_send。只需将过渡信息写入日志，通过返回值传递给父会话。**父会话会负责 spawn 阶段四。**
+
+**步骤 10.1：构建过渡信息**
+
+在返回值末尾必须包含周期状态和路径：
 
 ```
 阶段三仓位管理已完成。
@@ -752,27 +822,11 @@ echo "[$NOW] [阶段三] 周期归档 | cycle-xxx → archived/ | 平仓盈亏: 
 - 周期路径：定位日报文件（仅 active 状态需要）
 - 持仓状态、最近平仓：不影响阶段四流程，不传递
 
-**Spawn：**
-
-```
-sessions_spawn:
-- agentId: "july"
-- mode: "run"
-- timeoutSeconds: 0
-- task: [上述消息]
-```
-
-**执行后立即返回**，不等待阶段四完成。
-
----
-
-### 步骤 11: 记录阶段结束
-
-**Spawn 完成后，记录本阶段结束：**
+**步骤 10.2：记录阶段结束日志**
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段三] 完成执行，已 spawn 阶段四" >> logs/daily-report-process.log
+echo "[$NOW] [阶段三] 完成执行，过渡信息已写入日志" >> logs/daily-report-process.log
 echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-report-process.log
 ```
 
@@ -829,7 +883,7 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-r
 7. **执行后必须同步持仓**：调用 sync-positions 逻辑更新文件
 8. **归档判断基于「最近平仓」**：观察持仓文件字段
 9. **⭐ Spawn 消息传递周期状态**：供阶段四决定清零还是正常管理
-10. **必须 spawn 阶段四**：完成后触发警报管理
+10. **传递过渡信息给父会话**：在返回值末尾包含周期状态和路径，父会话负责 spawn 阶段四
 11. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 12. **日志完整记录**：每个关键步骤都有日志
 

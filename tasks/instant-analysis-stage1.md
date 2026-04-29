@@ -242,9 +242,13 @@ ls -t active/cycle-*/reports/instant-report-*.md 2>/dev/null | head -5
 
 ---
 
-### 8. Spawn 阶段二
+### 8. 记录阶段结束并通过 sessions_yield 触发阶段二
 
-**构建 Spawn 消息：**
+**子会话限制：** 本阶段是子会话，不能 sessions_spawn 或 sessions_send。**使用 sessions_yield 将过渡信息发回父会话**，父会话收到后会按 AGENTS.md 规定自动 spawn 阶段二。
+
+**步骤 8.1：构建过渡信息**
+
+在返回值末尾必须包含数据清单路径（放在 yield message 中）：
 
 ```
 阶段一数据获取已完成。
@@ -252,27 +256,17 @@ ls -t active/cycle-*/reports/instant-report-*.md 2>/dev/null | head -5
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
 
-**Spawn 参数：**
-
-```
-sessions_spawn:
-- agentId: "july"
-- mode: "run"
-- timeoutSeconds: 0
-- task: [上述消息]
-```
-
-**执行后立即返回**，不等待阶段二完成。
-
----
-
-### 9. 记录阶段结束
+**步骤 8.2：记录阶段结束日志并发起 sessions_yield**
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [即时分析阶段一] 完成执行，已 spawn 阶段二" >> logs/daily-report-process.log
+echo "[$NOW] [即时分析阶段一] 完成执行，过渡信息已写入日志" >> logs/daily-report-process.log
 echo "[$NOW] [即时分析阶段一] ========== 阶段一结束 ==========" >> logs/daily-report-process.log
 ```
+
+**然后在当前回复中调用 `sessions_yield`**，message 参数为上述过渡信息文本。
+
+⚠️ **不要仅通过返回值隐式传递**：历史证明仅靠正常返回值无法触发父会话 spawn 阶段二。必须显式调用 sessions_yield。
 
 ---
 
@@ -285,7 +279,6 @@ echo "[$NOW] [即时分析阶段一] ========== 阶段一结束 ==========" >> l
 | 周期文件夹创建失败 | `⛔ ERROR` | 记录异常，尝试继续执行 |
 | 历史报告路径收集失败 | `⚠️ WARN` | 标记 note，继续执行 |
 | 数据清单 JSON 生成失败 | `⛔ ERROR` | 记录异常后结束 |
-| Spawn 阶段二失败 | `⛔ ERROR` | 记录异常后结束 |
 
 ---
 
@@ -298,18 +291,22 @@ echo "[$NOW] [即时分析阶段一] ========== 阶段一结束 ==========" >> l
 5. **不生成数据挖掘报告**：跳过此步骤
 6. **收集历史报告路径**：与日报阶段一规则一致
 7. **manifest 兼容日报阶段二**：格式一致，字段兼容
-8. **Spawn 到日报阶段二**：复用餐段二分析逻辑
+8. **传递过渡信息给父会话**：在返回值末尾包含数据清单路径，父会话负责 spawn 日报阶段二
 9. **最后记录阶段结束**
 
 ---
 
-## Spawn 消息规范
+## 阶段过渡规范
+
+**本阶段使用 sessions_yield 触发阶段二。** 在最终回复中包含以下格式的过渡信息，然后调用 sessions_yield：
 
 ```
 阶段一数据获取已完成。
 数据清单: active/cycle-xxx/data-context/data-manifest-instant-xxx.json
 请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
+
+父会话收到 yield 消息后，会按 AGENTS.md 规定解析数据清单路径并 spawn 阶段二。
 
 ---
 

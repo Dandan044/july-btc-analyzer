@@ -216,10 +216,8 @@ july-btc-analyzer/
 | 执行日报任务（阶段三） | `tasks/daily-report-stage3.md` |
 | 执行日报任务（阶段四） | `tasks/daily-report-stage4.md` |
 | 设定市场警报 | `tasks/set-alert.md` |
-| 即时分析任务 | `tasks/instant-analysis.md` |
-| 警报器管理任务 | `tasks/alert-management.md` |
+| 即时分析任务（阶段一） | `tasks/instant-analysis-stage1.md` |
 | 实盘持仓同步 | `tasks/sync-positions.md` |
-| 仓位执行任务 | `tasks/execute-trade.md` |
 
 ### 任务触发流程
 
@@ -228,12 +226,9 @@ july-btc-analyzer/
 （主会话spawn）  ↓        ↓        ↓        ↓
               清单路径  周期目录  状态+路径  警报管理
                             ↓
-                      同步持仓 ──► 执行交易
+                      同步持仓
 
-警报触发 ───► 即时分析任务 ──► 警报管理（直接）
-                               │
-                               ▼
-                       警报器监控 ──► 触发即时分析
+警报触发 ───► 即时分析（阶段一）
 ```
 
 ---
