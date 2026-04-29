@@ -8,76 +8,31 @@
 
 ## ⚡ SPAWN 触发机制
 
-七月采用自触发机制，通过阻塞式 spawn 实现上下文隔离。收到以下特殊前缀的消息时，**按顺序 spawn 并等待各阶段完成**：
+七月采用 fire-and-forget 机制。收到以下特殊前缀的消息时，spawn 一个子会话执行全部任务即结束，无需等待返回：
 
 ### [SPAWN_INSTANT_ANALYSIS] - 即时分析
 
-这表示警报器触发的即时分析请求。**必须阻塞等待全部四阶段完成，不要提前返回。**
+这表示警报器触发的即时分析请求。**fire-and-forget：spawn 一个子会话执行全部任务后即结束。**
 
-#### 阶段一：数据获取
-
-消息格式为 `[SPAWN_INSTANT_ANALYSIS]{...JSON...}`。**首先移除前缀**，保留纯 JSON 警报数据。
+消息格式为 `[SPAWN_INSTANT_ANALYSIS]{...JSON...}`。**移除前缀**，保留纯 JSON 警报数据。
 
 ```
 使用 sessions_spawn 工具：
 - agentId: "july"
 - mode: "run"
-- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的 JSON 数据 + 换行 + "请读取 tasks/instant-analysis-stage1.md 并执行以上警报数据分析。"
+- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的 JSON 数据 + 换行 + "以上为警报触发数据。请按顺序完成即时分析全四阶段：
+1. 读取 tasks/instant-analysis-stage1.md 执行数据获取
+2. 读取 tasks/daily-report-stage2.md 执行技术分析
+3. 读取 tasks/daily-report-stage3.md 执行仓位管理
+4. 读取 tasks/daily-report-stage4.md 执行警报管理
+每个阶段完成后自动进入下一阶段，最终输出全流程摘要。"
 ```
 
-⚠️ 阶段一子会话的 task 必须包含 JSON 数据！否则无法解析警报上下文。
-
-**阻塞等待阶段一完成。** 收到返回值后，解析其中 `数据清单:` 行，提取 manifest 路径。
-
-#### 阶段二：技术分析
-
-收到阶段一返回后立即 spawn 阶段二：
-
-```
-使用 sessions_spawn 工具：
-- agentId: "july"
-- mode: "run"
-- task: "阶段一数据获取已完成。
-数据清单: <阶段一返回的 manifest 路径>
-请读取 tasks/daily-report-stage2.md 开始阶段二分析。"
-```
-
-**阻塞等待阶段二完成。** 收到返回值后，解析其中 `周期目录:` 行，提取周期路径。
-
-#### 阶段三：仓位管理
-
-收到阶段二返回后立即 spawn 阶段三：
-
-```
-使用 sessions_spawn 工具：
-- agentId: "july"
-- mode: "run"
-- task: "阶段二分析已完成。
-周期目录: <阶段二返回的周期路径>
-请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。"
-```
-
-**阻塞等待阶段三完成。**
-
-#### 阶段四：警报管理
-
-收到阶段三返回后立即 spawn 阶段四：
-
-```
-使用 sessions_spawn 工具：
-- agentId: "july"
-- mode: "run"
-- task: "阶段三仓位管理已完成。
-周期状态: <阶段三返回的周期状态>
-周期路径: <阶段三返回的周期路径>
-请读取 tasks/daily-report-stage4.md 开始阶段四警报管理。"
-```
-
-**阻塞等待阶段四完成。** 全部四阶段完成后，即时分析结束。
+spawn 后无需等待返回，直接回复「已派发即时分析任务」即结束。子会话独立完成全部工作。
 
 ### [SPAWN_DAILY_REPORT] - 日报任务
 
-这表示定时触发的日报请求。**必须阻塞等待全部四阶段完成，不要提前返回。**
+这表示定时触发的日报请求。**fire-and-forget：spawn 一个子会话执行全部任务后即结束。**
 
 ```
 使用 sessions_spawn 工具：
@@ -86,83 +41,7 @@
 - task: 移除 `[SPAWN_DAILY_REPORT]` 前缀后的完整内容
 ```
 
-**为何阻塞等待：** 同上。只有父会话逐个等待每个阶段完成再到 spawn 下一个，才能保证四阶段串行执行。子会话的分析上下文不会泄漏到父会话。
-
----
-
-**自触发原理**：通过 spawn 自己并在新会话中执行任务，主会话保持"清爽"，不会积累历史上下文，确保每次分析的质量稳定。
-
----
-
-## ⚠️ 子会话 Spawn 限制
-
-**系统限制：子会话既不能 sessions_spawn 另一个子会话，也不能 sessions_send。**
-
-这是 OpenClaw 的安全设计，防止子会话产生外部副作用。
-
-### 解决方案：父会话阻塞等待 + 逐个 spawn
-
-**正确的调度方式：由父会话（cron 隔离会话 / 主会话）逐个 spawn 各阶段并阻塞等待完成。**
-
-```
-cron 隔离会话 (父)
-  │ sessions_spawn 阶段一 (阻塞等待 5-8min)
-  │ 收到阶段一结果 → 提取 data-manifest 路径
-  │ sessions_spawn 阶段二 (阻塞等待 4-6min)
-  │ 收到阶段二结果 → 提取周期目录
-  │ sessions_spawn 阶段三 (阻塞等待 5-7min)
-  │ 收到阶段三结果 → 提取周期状态
-  │ sessions_spawn 阶段四 (阻塞等待 3-5min)
-  │ 收到阶段四结果 → 全部完成
-  ▼
-会话结束
-```
-
-**关键：** 父会话的 sessions_spawn 不设 `timeoutSeconds: 0`，默认阻塞等待子会话完成。每个子会话的分析上下文在内部消化，不会泄漏回父会话。
-
-### 阶段间过渡的具体操作
-
-父会话收到每个阶段的返回后，解析返回值中的过渡信息，spawn 下一阶段：
-
-**阶段一返回 → spawn 阶段二：**
-阶段一返回值中包含 `数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json`。提取此路径，构建 spawn 消息：
-```
-阶段一数据获取已完成。
-数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
-请读取 tasks/daily-report-stage2.md 开始阶段二分析。
-```
-
-**阶段二返回 → spawn 阶段三：**
-阶段二返回值中包含 `周期目录: active/cycle-xxx`。提取周期目录，构建 spawn 消息：
-```
-阶段二分析已完成。
-周期目录: active/cycle-xxx
-请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
-```
-
-**阶段三返回 → spawn 阶段四：**
-阶段三返回值中包含周期状态和路径信息。构建 spawn 消息：
-```
-阶段三仓位管理已完成。
-周期状态: [周期活跃中 | 所有仓位平仓，已完成归档]
-周期路径: [active/cycle-xxx | archived/cycle-xxx]
-请读取 tasks/daily-report-stage4.md 开始阶段四警报管理。
-```
-
-### 阶段过渡规范
-
-每个任务文件底部都有「阶段过渡规范」，记录了当前阶段完成后如何将信息传递给父会话，供父会话 spawn 下一阶段使用。
-
-**⚠️ 注意：** 子会话内部不能执行 spawn/send，只需将过渡信息写入日志并通过返回值传递给父会话。父会话负责解析返回值并 spawn 下一阶段。
-
-### 日志警告说明
-
-日志中可能出现：
-```
-[阶段X] ⚠️ WARN: 无法直接 spawn 阶段Y（子会话环境限制），使用 sessions_yield 触发阶段Y
-```
-
-这表示子会话在尝试 spawn 时发现自身是子会话，改为通过返回值传递过渡信息。父会话应解析返回值并执行 spawn。
+spawn 后无需等待返回，直接回复「已派发日报任务」即结束。子会话独立完成全部工作。
 
 ---
 

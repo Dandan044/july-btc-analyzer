@@ -386,31 +386,25 @@ node skills/btc-market-lite/scripts/get_enhanced_analysis.js --save
 
 ---
 
-### 7. 记录阶段结束并通过 sessions_yield 触发阶段二
+### 7. 记录阶段结束
 
-**子会话限制：** 本阶段是子会话，不能 sessions_spawn 或 sessions_send。**使用 sessions_yield 将过渡信息发回父会话**，父会话收到后会按 AGENTS.md 规定自动 spawn 阶段二。
+阶段一完成。输出当前进度和数据清单路径。
 
-**步骤 7.1：构建过渡信息**
+**步骤 7.1：记录进度**
 
-在返回值末尾必须包含以下格式的过渡信息（父会话解析用）：
+在回复中输出：
 
 ```
 阶段一数据获取已完成。
 数据清单: active/cycle-YYYYMMDD-XXX/data-context/data-manifest-YYYY-MM-DD-HHMM.json
-请读取 tasks/daily-report-stage2.md 开始阶段二分析。
 ```
 
-**步骤 7.2：记录阶段结束日志并发起 sessions_yield**
+**步骤 7.2：记录日志**
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段一] 完成执行，过渡信息已写入日志" >> logs/daily-report-process.log
 echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-report-process.log
 ```
-
-**然后在当前回复中调用 `sessions_yield`**，message 参数为上述过渡信息文本。
-
-⚠️ **不要仅通过返回值隐式传递**：历史证明仅靠正常返回值无法触发父会话 spawn 阶段二。必须显式调用 sessions_yield。
 
 ---
 
@@ -443,32 +437,9 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-r
 7. **文件命名带时间信息**：便于区分生成时间
 8. **必须生成数据清单 JSON**：固定格式，包含所有必要信息供阶段二读取
 9. **Spawn 消息简洁**：只传递数据清单路径，其他信息都在清单中
-10. **传递过渡信息给父会话**：在返回值末尾包含数据清单路径，然后调用 sessions_yield，父会话收到 yield 后负责 spawn 阶段二
+10. **完成后继续阶段二**：输出数据清单路径，然后读取 tasks/daily-report-stage2.md 继续执行
 11. **最后记录阶段结束**：Spawn 完成后记录
 12. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
-
----
-
-## 阶段过渡规范
-
-**本阶段使用 sessions_yield 触发阶段二。** 在最终回复中包含以下格式的过渡信息，然后调用 sessions_yield：
-
-```
-阶段一数据获取已完成。
-数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
-请读取 tasks/daily-report-stage2.md 开始阶段二分析。
-```
-
-父会话收到 yield 消息后，会按 AGENTS.md 规定解析数据清单路径并 spawn 阶段二。
-
-**数据清单已包含全部信息：**
-- 周期ID、周期状态
-- 持仓文件路径
-- 市场数据路径
-- 数据挖掘报告路径
-- 历史报告路径列表
-
-阶段二只需读取清单即可获取所有参数。
 
 ---
 
@@ -513,4 +484,11 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/daily-r
 
 ---
 
-阶段一-v4.18
+
+阶段一-v4.29
+
+---
+
+## 阶段过渡
+
+输出数据清单路径后，立即读取并执行 `tasks/daily-report-stage2.md`。数据清单已包含周期、持仓、数据文件、历史报告等全部上下文，阶段二读取清单即可获取所有参数。

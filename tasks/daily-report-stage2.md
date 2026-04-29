@@ -282,21 +282,18 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null
 
 使用的本地数据路径：
 
+说明本次分析是否额外获取了数据：
+- 若有，列出获取了什么数据（如：1小时K线、30日价格历史等）
+- 若无，说明"本次分析使用默认数据"
 ---
+
+⚠️ 报告末尾注明：仅供参考，不构成投资建议。七月-v4.18。
+
 
 **日志记录：**
 ```
 [$NOW] [阶段二] 报告撰写完成
 ```
-
----
-
-### 6. 保存报告文件
-
-
-说明本次分析是否额外获取了数据：
-- 若有，列出获取了什么数据（如：1小时K线、30日价格历史等）
-- 若无，说明"本次分析使用默认数据"
 
 ---
 
@@ -311,20 +308,10 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json 2>/dev/null
 7. **操作建议必须具体**：基于实盘持仓状态给出明确指令
 8. **专注撰写报告**：只保存报告文件，不修改其他文件
 9. **⭐ Spawn 消息传递预判信息**：操作类型、入场条件，帮助阶段三决策
-10. **传递过渡信息给父会话**：在返回值末尾包含周期目录路径，父会话负责 spawn 阶段三
+10. **完成后继续阶段三**：输出周期目录路径，然后读取 tasks/daily-report-stage3.md 继续执行
 11. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 
----
 
-## 阶段过渡规范
-
-**本阶段不执行 spawn/spend。** 将以下格式的过渡信息写入日志并通过返回值传递，父会话解析后 spawn 阶段三：
-
-```
-阶段二分析已完成。
-周期目录: active/cycle-xxx
-请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
-```
 
 ---
 
@@ -341,7 +328,6 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json | head -1)
 
 读取清单后获取所有参数，无需逐项保底查找。
 
-⚠️ 报告末尾注明：仅供参考，不构成投资建议。七月-v4.18。
 
 
 ---
@@ -361,34 +347,32 @@ MANIFEST_FILE=$(ls -t ${CYCLE_DIR}/data-context/data-manifest-*.json | head -1)
 
 ---
 
-### 7. 记录阶段结束并传递过渡信息
+### 7. 记录阶段结束
 
-**子会话限制：** 本阶段是子会话，不能 sessions_spawn 或 sessions_send。只需将过渡信息写入日志，通过返回值传递给父会话。**父会话会负责 spawn 阶段三。**
+阶段二分析完成。输出当前进度和周期目录路径。
 
-**步骤 7.1：构建过渡信息**
+**步骤 7.1：记录进度**
 
-在返回值末尾必须包含周期目录路径：
+在回复中输出：
 
 ```
 阶段二分析已完成。
 周期目录: active/cycle-YYYYMMDD-XXX
-请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
+报告已保存: reports/btc-report-YYYY-MM-DD-HHMM.md
 ```
 
-**说明：**
-- 日报路径：`${CYCLE_DIR}/reports/btc-report-*.md`（最新）
-- 持仓文件：`${CYCLE_DIR}/positions.json`（固定位置）
-- 阶段三从周期目录推断所有所需路径
-
-**步骤 7.2：记录阶段结束日志**
+**步骤 7.2：记录日志****
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段二] 完成执行，过渡信息已写入日志" >> logs/daily-report-process.log
 echo "[$NOW] [阶段二] ========== 阶段二结束 ========== " >> logs/daily-report-process.log
 ```
 
-
 ---
 
-阶段二-v4.18
+## 阶段过渡
+
+输出周期目录路径和报告路径后，立即读取并执行 `tasks/daily-report-stage3.md`。
+---
+
+阶段二-v4.19
