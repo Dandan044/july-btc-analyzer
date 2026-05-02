@@ -3,7 +3,7 @@
  * 比特币市场数据获取 v4
  * 数据源: 
  *   - Binance Futures API (价格/OHLCV + 交易侧数据)
- *   - alternative.me (恐惧贪婪指数)
+
  * 
  * 功能:
  *   - 获取日线级别数据（14天展示，30日用于统计）
@@ -1235,10 +1235,10 @@ async function get4hData(proxy) {
 }
 
 // ========== 恐惧贪婪指数 ==========
-
-async function getFearGreedIndex(days = 30) {
-  return fetch(`https://api.alternative.me/fng/?limit=${days}`);
-}
+// [已注释] 不再获取恐慌指数
+// async function getFearGreedIndex(days = 30) {
+//   return fetch(`https://api.alternative.me/fng/?limit=${days}`);
+// }
 
 // ========== Deribit 期权数据 ==========
 
@@ -1435,7 +1435,7 @@ async function getEnhancedAnalysis(proxy = null) {
     timestamp: toBeijingTime(new Date()),
     priceHistory: null,
     kline4h: null,
-    fearGreedIndex: null,
+    // fearGreedIndex: null,  // [已注释]
     options: null,
     fibonacci: null,
     dataSource: {
@@ -1476,8 +1476,10 @@ async function getEnhancedAnalysis(proxy = null) {
     }
     
     // ===== 其他数据源（无需代理或使用代理） =====
-    const [fngData, optionsData, fibData] = await Promise.all([
-      getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; }),
+    // [已注释] 不再获取恐慌指数
+    // const [fngData, optionsData, fibData] = await Promise.all([
+    //   getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; }),
+    const [optionsData, fibData] = await Promise.all([
       proxy ? getDeribitOptions(proxy).catch(e => { console.error('Options error:', e.message); return null; }) : Promise.resolve(null),
       getFibonacciAnalysis().catch(e => { console.error('Fibonacci error:', e.message); return null; })
     ]);
@@ -1495,24 +1497,25 @@ async function getEnhancedAnalysis(proxy = null) {
 
     result.kline4h = kline4h;
 
-    if (fngData?.data) {
-      const fngValues = fngData.data.map(d => parseInt(d.value));
-      const current = fngValues[0];
-      const max30d = Math.max(...fngValues);
-      const min30d = Math.min(...fngValues);
-      const avg30d = fngValues.reduce((a, b) => a + b, 0) / fngValues.length;
-      
-      result.fearGreedIndex = {
-        current: current,
-        classification: fngData.data[0].value_classification,
-        statistics: {
-          avg30d: parseFloat(avg30d.toFixed(1)),
-          max30d: max30d,
-          min30d: min30d,
-          rangePosition: parseFloat(((current - min30d) / (max30d - min30d) * 100).toFixed(0))
-        }
-      };
-    }
+    // [已注释] 恐慌指数处理逻辑不再执行
+    // if (fngData?.data) {
+    //   const fngValues = fngData.data.map(d => parseInt(d.value));
+    //   const current = fngValues[0];
+    //   const max30d = Math.max(...fngValues);
+    //   const min30d = Math.min(...fngValues);
+    //   const avg30d = fngValues.reduce((a, b) => a + b, 0) / fngValues.length;
+    //   
+    //   result.fearGreedIndex = {
+    //     current: current,
+    //     classification: fngData.data[0].value_classification,
+    //     statistics: {
+    //       avg30d: parseFloat(avg30d.toFixed(1)),
+    //       max30d: max30d,
+    //       min30d: min30d,
+    //       rangePosition: parseFloat(((current - min30d) / (max30d - min30d) * 100).toFixed(0))
+    //     }
+    //   };
+    // }
 
     // 期权数据
     if (optionsData && Array.isArray(optionsData)) {
@@ -1589,14 +1592,14 @@ function formatAnalysis(data) {
     }
   }
   
-  // 恐惧贪婪指数
-  if (data.fearGreedIndex) {
-    const fng = data.fearGreedIndex;
-    out += '\n── 😰 恐惧贪婪指数 ──\n';
-    const emoji = fng.current <= 25 ? '😱' : fng.current <= 45 ? '😰' : fng.current <= 55 ? '😐' : fng.current <= 75 ? '😊' : '🤑';
-    out += `   当前: ${fng.current} (${fng.classification}) ${emoji}\n`;
-    out += `   30日: 均值${fng.statistics.avg30d} | 区间${fng.statistics.min30d}-${fng.statistics.max30d}\n`;
-  }
+  // [已注释] 恐惧贪婪指数不再输出
+  // if (data.fearGreedIndex) {
+  //   const fng = data.fearGreedIndex;
+  //   out += '\n── 😰 恐惧贪婪指数 ──\n';
+  //   const emoji = fng.current <= 25 ? '😱' : fng.current <= 45 ? '😰' : fng.current <= 55 ? '😐' : fng.current <= 75 ? '😊' : '🤑';
+  //   out += `   当前: ${fng.current} (${fng.classification}) ${emoji}\n`;
+  //   out += `   30日: 均值${fng.statistics.avg30d} | 区间${fng.statistics.min30d}-${fng.statistics.max30d}\n`;
+  // }
   
   // 期权数据
   if (data.options && data.options.length > 0) {
@@ -1734,7 +1737,7 @@ function formatAnalysis(data) {
   }
   
   out += '\n' + '─'.repeat(70) + '\n';
-  out += `📊 数据源: ${activeDataSource || 'N/A'} + alternative.me + CryptoCompare\n`;
+  out += `📊 数据源: ${activeDataSource || 'N/A'} + CryptoCompare\n`;
   
   return out;
 }

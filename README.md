@@ -1,6 +1,8 @@
-# 七月 📈 - 比特币技术分析师
+# 七月 📈 - 加密货币技术分析师
 
-> 专注于比特币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
+> 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
+> 
+> **v6 更新**：数据脚本已支持多币种（BTC/ETH/SOL/LAB...），`--coin` 参数一键切换。
 
 ## 🚀 快速开启
 
@@ -44,10 +46,11 @@ cat deployment.md
 
 | 数据 | API | 说明 |
 |------|-----|------|
-| 比特币价格 | **OKX** | K线、实时价格、交易量、资金费率、OI、多空比（需代理） |
-| 比特币价格 | CryptoCompare | 警报器专用，无需代理 |
-| 恐惧贪婪指数 | alternative.me | 每日更新，无需代理 |
-| 期权数据 | Deribit | Put/Call Ratio、Max Pain、IV（需代理） |
+| 多币种价格/K线 | **OKX CLI** | 支持任意 USDT 合约对，`--coin` 切换（需代理） |
+| 技术指标 | **OKX CLI** | RSI/MACD/BB/EMA 服务端计算 |
+| 持仓量/多空比/Taker | **OKX Rubik API** | 动态 `ccy` 参数适配多币种 |
+| 恐惧贪婪指数 | alternative.me | 仅 BTC，其他币种跳过 |
+| 期权数据 | Deribit | 仅 BTC/ETH 支持，其他币种自动跳过 |
 
 > **数据源说明**: OKX 为主力数据源（国内网络需代理），CryptoCompare 用于警报器（国内直连）
 
@@ -65,8 +68,37 @@ cat deployment.md
 
 | 技能 | 说明 |
 |------|------|
-| `btc-market-lite` | 比特币市场数据获取 |
+| `btc-market-lite` | 多币种市场数据获取（`--coin BTC/SOL/ETH/LAB...`） |
 | `btc-alert` | 灵活的市场警报系统 |
+
+---
+
+## 数据脚本使用 📊
+
+```bash
+cd skills/btc-market-lite/scripts
+
+# 默认 BTC 增强分析
+node get_enhanced_analysis.js --save
+
+# 多币种切换
+node get_enhanced_analysis.js --coin SOL --json --save
+node get_enhanced_analysis.js --coin ETH --save
+node get_enhanced_analysis.js --coin LAB --save
+
+# 即时分析（多币种）
+node get_instant_data.js --coin SOL --json --save
+```
+
+### 自适应机制
+
+| 特性 | BTC (~$78k) | SOL (~$84) | LAB (~$3) |
+|------|------------|-----------|----------|
+| 价格精度 | 2位 | 3位 | 5位 |
+| 清算分档 | $500/档 | $5/档 | $0.5/档 |
+| 费率周期 | 自动推算(8h) | 自动推算(8h) | 自动推算(4h) |
+| 期权数据 | ✅ Deribit | ⛔ 跳过 | ⛔ 跳过 |
+| Spot回退 | ✅ | ✅ | ⛔→SWAP |
 
 ---
 
@@ -278,6 +310,17 @@ env: {
 ---
 
 ## 更新日志
+
+### 2026-05-03
+> 🌐 多币种支持 — 数据脚本 v6
+
+**变更内容：**
+
+**① `--coin` 参数**：两个数据脚本新增 `--coin` 参数，支持任意 OKX USDT 合约币种，默认 BTC 向后完全兼容。
+
+**② 动态自适应**：价格精度 6 层阶梯（≥$10k 2位 → ≥$0.000001 11位）；清算分档 8 层阶梯（$500 → $0.000001）；资金费率周期从历史时间戳自动推算（LAB=4h, SOL/BTC=8h）；修复 `parseInt` 截断小数分档键的 bug。
+
+**③ 健壮性增强**：Spot→Swap 双重回退（指标+斐波那契）；Deribit 期权仅 BTC/ETH（其他币种自动跳过）；保存文件非BTC自动加币种后缀（`2026-05-03_LAB.json`）。
 
 ### 2026-04-26
 > 📊 多价位警报监控 + 数据脚本优化 + SOUL.md人格定义

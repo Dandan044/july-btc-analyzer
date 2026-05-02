@@ -1,18 +1,15 @@
 #!/usr/bin/env node
 /**
- * 比特币市场数据获取 v5
+ * 加密货币市场数据获取 v6
  * 数据源: 
- *   - OKX CLI 工具 (K线、技术指标、资金费率、期权)
+ *   - OKX CLI 工具 (K线、技术指标、资金费率)
  *   - OKX API (多空比、Taker买卖比)
- *   - alternative.me (恐惧贪婪指数)
+ *   - Deribit (期权, BTC/ETH only)
  * 
- * 改进:
- *   - 使用 OKX CLI 工具获取 K线和技术指标（服务端计算）
- *   - 简化代码，移除 Deribit 依赖
- *   - 统一数据源为 OKX
+ * --coin 支持任意 OKX 上的 USDT 合约币种 (默认 BTC)
  * 
  * 用法: 
- *   node get_enhanced_analysis_v5.js [--json] [--save] [--proxy http://127.0.0.1:7890]
+ *   node get_enhanced_analysis.js [--coin SOL] [--json] [--save] [--proxy http://127.0.0.1:7890]
  */
 
 const https = require('https');
@@ -26,9 +23,43 @@ const { execSync, exec } = require('child_process');
 
 const PROXY_DEFAULT = 'http://127.0.0.1:7890';
 const OKX_API_BASE = 'https://www.okx.com';
-const OKX_INST_ID_SWAP = 'BTC-USDT-SWAP';
-const OKX_INST_ID_SPOT = 'BTC-USDT';
 const OKX_PROXY_SCRIPT = path.resolve(__dirname, '../../../scripts/okx-proxy.sh');
+
+// 多币种支持（通过 --coin 或 applyCoin() 切换）
+let COIN = 'BTC';
+let OKX_INST_ID_SWAP;
+let OKX_INST_ID_SPOT;
+let OKX_INDEX_INST_ID;
+let DERIBIT_CURRENCY;
+
+function applyCoin(coin) {
+  COIN = coin.toUpperCase();
+  OKX_INST_ID_SWAP = `${COIN}-USDT-SWAP`;
+  OKX_INST_ID_SPOT = `${COIN}-USDT`;
+  OKX_INDEX_INST_ID = `${COIN}-USD`;
+  // Deribit 仅支持 BTC/ETH 期权
+  DERIBIT_CURRENCY = (COIN === 'BTC' || COIN === 'ETH') ? COIN : null;
+}
+applyCoin('BTC');
+
+// 根据币价动态决定小数位数
+function priceDecimals(price) {
+  if (price === null || price === undefined) return 2;
+  const abs = Math.abs(price);
+  if (abs >= 10000) return 2;    // BTC级别
+  if (abs >= 100) return 3;      // SOL级别
+  if (abs >= 1) return 5;        // 普通山寨币
+  if (abs >= 0.01) return 7;     // 低价币
+  if (abs >= 0.0001) return 9;   // 极小币
+  if (abs >= 0.000001) return 11; // 微型币
+  return 13;                     // 纳米币
+}
+
+// 动态价格格式化
+function fmtPrice(val, refPrice = null) {
+  if (val === null || val === undefined) return null;
+  return parseFloat(val.toFixed(priceDecimals(refPrice ?? val)));
+}
 
 let activeDataSource = 'OKX CLI';
 
@@ -226,17 +257,28 @@ function calcRSI(values, period = 14) {
  * 获取清算数据（OKX API，翻页回溯2-3天）
  * 返回清算热力图：按价格区间统计多空清算分布
  */
-async function getLiquidationData(proxy) {
+async function getLiquidationData(proxy, currentPrice = 80000) {
   if (!proxy) return null;
   
-  const PRICE_BIN = 500;  // 价格分档：每$500
+  // 根据币价动态设定分档间隔（约 0.5%-1% 价格区间）
+  const absPrice = Math.abs(currentPrice);
+  let PRICE_BIN;
+  if (absPrice >= 10000) PRICE_BIN = 500;
+  else if (absPrice >= 1000) PRICE_BIN = 50;
+  else if (absPrice >= 100) PRICE_BIN = 5;
+  else if (absPrice >= 10) PRICE_BIN = 1;
+  else if (absPrice >= 1) PRICE_BIN = 0.5;
+  else if (absPrice >= 0.01) PRICE_BIN = 0.01;
+  else if (absPrice >= 0.0001) PRICE_BIN = 0.0001;
+  else PRICE_BIN = 0.000001;
+  
   const MAX_PAGES = 3;    // 最多翻3页，覆盖2-3天
   const allDetails = [];
   let before = null;
   
   for (let page = 0; page < MAX_PAGES; page++) {
     const beforeParam = before ? `&before=${before}` : '';
-    const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100${beforeParam}`;
+    const url = `${OKX_API_BASE}/api/v5/public/liquidation-orders?instFamily=${COIN}-USDT&instType=SWAP&state=filled&limit=100${beforeParam}`;
     
     const pageResult = await new Promise((resolve) => {
       const cmd = `curl -s --max-time 30 -x ${proxy} '${url}'`;
@@ -284,18 +326,22 @@ async function getLiquidationData(proxy) {
   }
   
   const heatmap = Object.entries(bins)
-    .map(([price, data]) => ({
-      price: parseInt(price),
-      priceRange: `${parseInt(price)}-${parseInt(price) + PRICE_BIN}`,
-      longCount: data.longCount,
-      shortCount: data.shortCount,
-      longSz: parseFloat(data.longSz.toFixed(1)),
-      shortSz: parseFloat(data.shortSz.toFixed(1)),
-      totalSz: parseFloat((data.longSz + data.shortSz).toFixed(1)),
-      dominant: data.longSz > data.shortSz * 1.5 ? 'long' : 
-                data.shortSz > data.longSz * 1.5 ? 'short' : 'mixed'
-    }))
-    .sort((a, b) => a.price - b.price);
+    .map(([priceStr, data]) => {
+      const price = parseFloat(priceStr);
+      const rangeEnd = parseFloat((price + PRICE_BIN).toFixed(10)); // 防浮点
+      return {
+        priceRange: `${price}-${rangeEnd}`,
+        longCount: data.longCount,
+        shortCount: data.shortCount,
+        longSz: parseFloat(data.longSz.toFixed(1)),
+        shortSz: parseFloat(data.shortSz.toFixed(1)),
+        totalSz: parseFloat((data.longSz + data.shortSz).toFixed(1)),
+        dominant: data.longSz > data.shortSz * 1.5 ? 'long' :
+                  data.shortSz > data.longSz * 1.5 ? 'short' : 'mixed',
+        settled: true
+      };
+    })
+    .sort((a, b) => parseFloat(a.priceRange) - parseFloat(b.priceRange));
   
   // 关键区间
   const maxTotalZone = [...heatmap].sort((a, b) => b.totalSz - a.totalSz)[0];
@@ -308,6 +354,7 @@ async function getLiquidationData(proxy) {
   const tsMax = Math.max(...allTimes);
   
   return {
+    _disclaimer: "本数据仅包含已完成的强制平仓记录(state=filled)，是历史已爆仓数据，不是预估清算或待触发清算。不能用于判断某价位附近有多少杠杆仓位等待被清算。",
     count: allDetails.length,
     pages: MAX_PAGES,
     longLiquidation: parseFloat(longLiq.toFixed(2)),
@@ -333,9 +380,8 @@ async function getLiquidationData(proxy) {
  * 获取日线数据 (使用 OKX CLI)
  * 输出结构与原 getDailyDataOKX 完全一致
  * @param {string} proxy - 代理地址
- * @param {Map} fngMap - 恐慌指数日期映射表 (可选)
  */
-async function getDailyDataCLI(proxy, fngMap = null) {
+async function getDailyDataCLI(proxy) {
   const LIMIT_DISPLAY = 14;
   const LIMIT_STATS = 30;
   
@@ -359,11 +405,16 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     parseFloat(tickerArr[0].volCcy24h) * parseFloat(tickerArr[0].last || 70000) : null;
   
   // 3. 获取技术指标 (OKX CLI 服务端计算) — RSI/BB/MACD 使用 --list 获取14天序列
+  // 优先用现货，如果现货不存在则回退到合约
   const [emaData, rsiData, bbData, macdData] = await Promise.all([
-    okxCLIJson(`market indicator ema ${OKX_INST_ID_SPOT} --bar 1Dutc --params 7,12,20,26`, proxy).catch(() => null),
-    okxCLIJson(`market indicator rsi ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => null),
-    okxCLIJson(`market indicator bb ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => null),
-    okxCLIJson(`market indicator macd ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => null)
+    okxCLIJson(`market indicator ema ${OKX_INST_ID_SPOT} --bar 1Dutc --params 7,12,20,26`, proxy).catch(() => 
+      okxCLIJson(`market indicator ema ${OKX_INST_ID_SWAP} --bar 1Dutc --params 7,12,20,26`, proxy).catch(() => null)),
+    okxCLIJson(`market indicator rsi ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => 
+      okxCLIJson(`market indicator rsi ${OKX_INST_ID_SWAP} --bar 1Dutc --list --limit 14`, proxy).catch(() => null)),
+    okxCLIJson(`market indicator bb ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => 
+      okxCLIJson(`market indicator bb ${OKX_INST_ID_SWAP} --bar 1Dutc --list --limit 14`, proxy).catch(() => null)),
+    okxCLIJson(`market indicator macd ${OKX_INST_ID_SPOT} --bar 1Dutc --list --limit 14`, proxy).catch(() => 
+      okxCLIJson(`market indicator macd ${OKX_INST_ID_SWAP} --bar 1Dutc --list --limit 14`, proxy).catch(() => null))
   ]);
   
   // 4. 获取资金费率历史（14天 × 3条/天 = 42条，取50条余量）
@@ -373,18 +424,19 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   const fundingDataCurrent = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP}`, proxy).catch(() => null);
   
   // 4.2 获取指数价格 K线（用于计算历史 Basis）
-  const indexCandlesData = await okxCLIJson(`market index-candles BTC-USD --bar 1D --limit ${LIMIT_STATS}`, proxy).catch(() => null);
+  const indexCandlesData = await okxCLIJson(`market index-candles ${OKX_INDEX_INST_ID} --bar 1D --limit ${LIMIT_STATS}`, proxy).catch(() => null);
   
   // 4.3 获取清算数据（24小时内）
-  const liquidationData = await getLiquidationData(proxy).catch(() => null);
+  const currentPriceForLiq = parseFloat(tickerArr?.[0]?.last) || parseFloat(klinesArray[0]?.[4]) || 80000;
+  const liquidationData = await getLiquidationData(proxy, currentPriceForLiq).catch(() => null);
   
   // 5. 获取交易侧数据 (OKX API，CLI 不支持)
   // 只用 1D 周期（当天数据为实时累计值，无需 1H 补丁）
   const [openInterest, longShortRatio1D, topTraderRatio1D, takerVolume1D] = await Promise.all([
-    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${COIN}&period=1D`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${COIN}&period=1D`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=1D`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1D`, proxy).catch(() => null)
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=${COIN}&period=1D`, proxy).catch(() => null)
   ]);
   
   // 解析 K线数据 (OKX 格式: [ts, open, high, low, close, vol, volCcy, volCcyQuote, confirm])
@@ -410,11 +462,12 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
     if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
     if (val >= 1e3) return `$${(val / 1e3).toFixed(2)}K`;
-    return `$${val.toFixed(0)}`;
+    return `$${Number(val).toFixed(2)}`;
   };
   
   // 展示数据：取前14条
   const displayData = allDataDesc.slice(0, LIMIT_DISPLAY);
+  const currentPrice = displayData[0]?.close || 0;
   
   // EMA 计算需要从旧到新的顺序
   const allDataAsc = [...allDataDesc].reverse();
@@ -452,16 +505,16 @@ async function getDailyDataCLI(proxy, fngMap = null) {
       volumeFormatted: i === 0 ? null : formatVol(d.volume)  // 格式化的交易量
     };
     
-    if (i < ema7.length) entry.ema7 = parseFloat(ema7[i].toFixed(2));
-    if (i < ema12.length) entry.ema12 = parseFloat(ema12[i].toFixed(2));
-    if (i < ema20.length) entry.ema20 = parseFloat(ema20[i].toFixed(2));
-    if (i < ema26.length) entry.ema26 = parseFloat(ema26[i].toFixed(2));
+    if (i < ema7.length) entry.ema7 = fmtPrice(ema7[i], currentPrice);
+    if (i < ema12.length) entry.ema12 = fmtPrice(ema12[i], currentPrice);
+    if (i < ema20.length) entry.ema20 = fmtPrice(ema20[i], currentPrice);
+    if (i < ema26.length) entry.ema26 = fmtPrice(ema26[i], currentPrice);
     
-    // 添加恐慌指数值
-    if (fngMap) {
-      const fngValue = fngMap.get(d.date);
-      if (fngValue !== undefined) entry.fearGreed = fngValue;
-    }
+    // [已注释] 恐慌指数值不再填入每日记录
+    // if (fngMap) {
+    //   const fngValue = fngMap.get(d.date);
+    //   if (fngValue !== undefined) entry.fearGreed = fngValue;
+    // }
     
     return entry;
   });
@@ -469,11 +522,24 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   // 按 timestamp 映射
   const tsMap = new Map(history.map((r, i) => [r.timestamp, i]));
   
-  // 资金费率：压缩为数值数组格式
+  // 资金费率：压缩为数值数组格式，同时推算结算周期
   const fundingRateValues = [];
+  let fundingPeriodH = 8; // 默认8h
   if (fundingDataHistory && Array.isArray(fundingDataHistory)) {
-    for (const item of fundingDataHistory.slice(0, 21)) {  // 只保留7天×3=21条
+    const fundingItems = fundingDataHistory.slice(0, 21);  // 只保留7天×3-6条
+    for (const item of fundingItems) {
       fundingRateValues.push(parseFloat(item.fundingRate));
+    }
+    // 从相邻时间戳推算结算间隔
+    if (fundingItems.length >= 2) {
+      const diffs = [];
+      for (let i = 1; i < fundingItems.length; i++) {
+        const diff = Math.abs(parseInt(fundingItems[i-1].fundingTime) - parseInt(fundingItems[i].fundingTime));
+        if (diff > 0) diffs.push(diff);
+      }
+      if (diffs.length > 0) {
+        fundingPeriodH = Math.round((diffs.reduce((a,b)=>a+b,0) / diffs.length) / (1000 * 3600));
+      }
     }
   }
   
@@ -550,7 +616,6 @@ async function getDailyDataCLI(proxy, fngMap = null) {
   }
   
   // 计算统计
-  const currentPrice = displayData[0].close;
   const prices14d = displayData.map(d => d.close);
   const maxPrice14d = Math.max(...prices14d);
   const minPrice14d = Math.min(...prices14d);
@@ -637,10 +702,10 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     premiumNote: "Premium Index = 当前盘口合约价格相对于现货指数价格的偏离百分比，正值表示合约溢价，负值表示合约折价",
     fundingRate: fundingRateValues.length > 0 ? {
       values: fundingRateValues,
-      period: "8h",
+      period: `${fundingPeriodH}h`,
       count: fundingRateValues.length,
-      spanDays: Math.floor(fundingRateValues.length / 3),
-      note: "资金费率每8小时结算一次，正值表示多头付费给空头，负值表示空头付费给多头"
+      spanDays: Math.floor(fundingRateValues.length * fundingPeriodH / 24),
+      note: `资金费率每${fundingPeriodH}小时结算一次，正值表示多头付费给空头，负值表示空头付费给多头`
     } : null,
     basis: basisValues.length > 0 ? {
       values: basisValues,
@@ -653,9 +718,9 @@ async function getDailyDataCLI(proxy, fngMap = null) {
     statistics: {
       days14: {
         price: {
-          max: parseFloat(maxPrice14d.toFixed(2)),
-          min: parseFloat(minPrice14d.toFixed(2)),
-          avg: parseFloat(avgPrice14d.toFixed(2)),
+          max: fmtPrice(maxPrice14d, currentPrice),
+          min: fmtPrice(minPrice14d, currentPrice),
+          avg: fmtPrice(avgPrice14d, currentPrice),
           rangePosition: parseFloat(((currentPrice - minPrice14d) / (maxPrice14d - minPrice14d) * 100).toFixed(1))
         },
         volume: {
@@ -670,9 +735,9 @@ async function getDailyDataCLI(proxy, fngMap = null) {
       },
       days30: {
         price: {
-          max: parseFloat(maxPrice30d.toFixed(2)),
-          min: parseFloat(minPrice30d.toFixed(2)),
-          avg: parseFloat(avgPrice30d.toFixed(2)),
+          max: fmtPrice(maxPrice30d, currentPrice),
+          min: fmtPrice(minPrice30d, currentPrice),
+          avg: fmtPrice(avgPrice30d, currentPrice),
           rangePosition: parseFloat(((currentPrice - minPrice30d) / (maxPrice30d - minPrice30d) * 100).toFixed(1))
         },
         volume: {
@@ -714,10 +779,10 @@ async function get4hDataCLI(proxy) {
   // ⭐ 资金费率已在日报 fundingRateList 中独立处理，此处不再获取
   // longShortRatio 和 takerVolume API 只支持 5m/1H/1D，用 1H 匹配 4H 时间戳
   const [openInterest, longShortRatio1H, topTraderRatio4H, takerVolume1H] = await Promise.all([
-    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=4H`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${COIN}&period=4H`, proxy).catch(() => null),
+    getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${COIN}&period=1H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=4H`, proxy).catch(() => null),
-    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=BTC&period=1H`, proxy).catch(() => null)
+    getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=${COIN}&period=1H`, proxy).catch(() => null)
   ]);
   
   const result = [];
@@ -801,10 +866,10 @@ async function get4hDataCLI(proxy) {
 }
 
 // ========== 恐惧贪婪指数 ==========
-
-async function getFearGreedIndex(days = 30) {
-  return fetch(`https://api.alternative.me/fng/?limit=${days}`);
-}
+// [已注释] 不再获取恐慌指数
+// async function getFearGreedIndex(days = 30) {
+//   return fetch(`https://api.alternative.me/fng/?limit=${days}`);
+// }
 
 // ========== 斐波那契分析 (使用 OKX CLI K线数据) ==========
 
@@ -812,7 +877,12 @@ async function getFearGreedIndex(days = 30) {
  * 获取 OKX K线数据用于斐波那契分析
  */
 async function getOKXCandles(bar, limit, proxy) {
-  const data = await okxCLIJson(`market candles ${OKX_INST_ID_SPOT} --bar ${bar} --limit ${limit}`, proxy);
+  // 优先用现货，不存在则回退到合约
+  let data = await okxCLIJson(`market candles ${OKX_INST_ID_SPOT} --bar ${bar} --limit ${limit}`, proxy).catch(() => null);
+  if (!data || (Array.isArray(data) && data.length === 0) || (data?.data && data.data.length === 0)) {
+    data = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar ${bar} --limit ${limit}`, proxy).catch(() => null);
+  }
+  if (!data) return null;
   
   // OKX CLI 返回的是数组，不是 { data: [...] }
   const arr = Array.isArray(data) ? data : data?.data;
@@ -850,17 +920,17 @@ function analyzeTimeframeRaw(timeframe, candles) {
   
   return {
     timeframe: timeframe,
-    high: parseFloat(swingHigh.toFixed(2)),
-    low: parseFloat(swingLow.toFixed(2)),
-    range: parseFloat(diff.toFixed(2)),
+    high: fmtPrice(swingHigh),
+    low: fmtPrice(swingLow),
+    range: fmtPrice(diff),
     levels: [
-      parseFloat(swingHigh.toFixed(2)),                     // 0%
-      parseFloat((swingHigh - diff * 0.236).toFixed(2)),    // 23.6%
-      parseFloat((swingHigh - diff * 0.382).toFixed(2)),    // 38.2%
-      parseFloat((swingHigh - diff * 0.5).toFixed(2)),      // 50%
-      parseFloat((swingHigh - diff * 0.618).toFixed(2)),    // 61.8%
-      parseFloat((swingHigh - diff * 0.786).toFixed(2)),    // 78.6%
-      parseFloat(swingLow.toFixed(2))                       // 100%
+      fmtPrice(swingHigh),                     // 0%
+      fmtPrice(swingHigh - diff * 0.236, swingHigh),    // 23.6%
+      fmtPrice(swingHigh - diff * 0.382, swingHigh),    // 38.2%
+      fmtPrice(swingHigh - diff * 0.5, swingHigh),      // 50%
+      fmtPrice(swingHigh - diff * 0.618, swingHigh),    // 61.8%
+      fmtPrice(swingHigh - diff * 0.786, swingHigh),    // 78.6%
+      fmtPrice(swingLow)                       // 100%
     ]
   };
 }
@@ -878,6 +948,7 @@ async function getFibonacciAnalysisCLI(proxy) {
     ]);
     
     const result = {
+      coin: COIN,
       currentPrice: null,
       note: 'high/low为波段高低点, range为波动幅度, levels数组依次对应0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100%斐波那契回调位价格',
       daily: null,
@@ -931,11 +1002,11 @@ async function getFibonacciAnalysisCLI(proxy) {
  * 使用 curl 通过代理请求
  */
 async function getDeribitOptions(proxy) {
-  if (!proxy) return null;
+  if (!proxy || !DERIBIT_CURRENCY) return null;
   
   return new Promise((resolve) => {
     const { exec } = require('child_process');
-    const cmd = `curl -s --max-time 30 -x ${proxy} 'https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=BTC&kind=option'`;
+    const cmd = `curl -s --max-time 30 -x ${proxy} 'https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=${DERIBIT_CURRENCY}&kind=option'`;
     
     exec(cmd, { maxBuffer: 100 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
@@ -1103,23 +1174,25 @@ async function getOptionsDataCLI(proxy) {
 
 // ========== 主数据获取 ==========
 
-/**
- * 创建恐慌指数日期映射表
- */
-function createFngMap(fngData) {
-  if (!fngData?.data) return null;
-  
-  const map = new Map();
-  for (const d of fngData.data) {
-    const ts = parseInt(d.timestamp) * 1000;  // API返回的是秒级时间戳
-    const date = toBeijingDate(ts);
-    map.set(date, parseInt(d.value));
-  }
-  return map;
-}
+// [已注释] 不再使用恐慌指数
+// /**
+//  * 创建恐慌指数日期映射表
+//  */
+// function createFngMap(fngData) {
+//   if (!fngData?.data) return null;
+//   
+//   const map = new Map();
+//   for (const d of fngData.data) {
+//     const ts = parseInt(d.timestamp) * 1000;  // API返回的是秒级时间戳
+//     const date = toBeijingDate(ts);
+//     map.set(date, parseInt(d.value));
+//   }
+//   return map;
+// }
 
 async function getEnhancedAnalysis(proxy = null) {
   const result = {
+    coin: COIN,
     timestamp: toBeijingTime(new Date()),
     priceHistory: null,
     kline4h: null,
@@ -1135,12 +1208,12 @@ async function getEnhancedAnalysis(proxy = null) {
     // ===== 使用 OKX CLI 获取数据 =====
     console.error('使用 OKX CLI 获取数据...');
     
-    // 先获取恐慌指数，创建日期映射
-    const fngData = await getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; });
-    const fngMap = createFngMap(fngData);
+    // [已注释] 不再获取恐慌指数
+    // const fngData = await getFearGreedIndex(30).catch(e => { console.error('FGI error:', e.message); return null; });
+    // const fngMap = createFngMap(fngData);
     
     const [dailyData, kline4h, optionsData, fibData] = await Promise.all([
-      getDailyDataCLI(proxy, fngMap).catch(e => { console.error('日线数据错误:', e.message); return null; }),
+      getDailyDataCLI(proxy).catch(e => { console.error('日线数据错误:', e.message); return null; }),
       get4hDataCLI(proxy).catch(e => { console.error('4小时数据错误:', e.message); return null; }),
       getOptionsDataCLI(proxy).catch(e => { console.error('Options error:', e.message); return null; }),
       getFibonacciAnalysisCLI(proxy).catch(e => { console.error('Fibonacci error:', e.message); return null; })
@@ -1148,7 +1221,7 @@ async function getEnhancedAnalysis(proxy = null) {
     
     activeDataSource = 'OKX CLI';
     result.dataSource.price = 'OKX CLI';
-    result.dataSource.sentiment = 'OKX CLI + alternative.me';
+    result.dataSource.sentiment = 'OKX CLI';
 
     if (dailyData) {
       result.priceHistory = {
@@ -1169,7 +1242,7 @@ async function getEnhancedAnalysis(proxy = null) {
 
     result.kline4h = kline4h;
 
-    // 恐慌指数已整合到 priceHistory.history 的每日记录中，不再单独输出
+    // [已注释] 恐慌指数不再获取
 
     if (optionsData && optionsData.data) {
       result.options = optionsData;
@@ -1197,8 +1270,9 @@ function formatVolume(val) {
 function formatAnalysis(data) {
   let out = '';
   
+  const coinEmoji = data.coin === 'BTC' ? '₿' : data.coin === 'ETH' ? 'Ξ' : data.coin === 'SOL' ? '◎' : '💰';
   out += '═'.repeat(70) + '\n';
-  out += '              ₿ 比特币市场数据 v5 (OKX CLI)\n';
+  out += `              ${coinEmoji} ${data.coin} 市场数据 v6 (OKX CLI)\n`;
   out += '═'.repeat(70) + '\n\n';
   
   out += `📅 ${data.timestamp}\n\n`;
@@ -1301,11 +1375,11 @@ function formatAnalysis(data) {
       const liq = ph.liquidation;
       const spanH = liq.timeRange?.spanHours || 24;
       out += `\n── 🔥 清算热力图 (${spanH}h, ${liq.count}笔) ──\n`;
-      out += `   多头清算: ${liq.longLiquidation} BTC | 空头清算: ${liq.shortLiquidation} BTC\n`;
+      out += `   多头清算: ${liq.longLiquidation} ${COIN} | 空头清算: ${liq.shortLiquidation} ${COIN}\n`;
       
       const netIndicator = liq.netLiquidation > 0 ? '多头被清算更多' : 
                            liq.netLiquidation < 0 ? '空头被清算更多' : '平衡';
-      out += `   净清算: ${liq.netLiquidation} BTC (${netIndicator})\n`;
+      out += `   净清算: ${liq.netLiquidation} ${COIN} (${netIndicator})\n`;
       
       // 热力图：按价格区间
       if (liq.heatmap && liq.heatmap.length > 0) {
@@ -1324,9 +1398,9 @@ function formatAnalysis(data) {
         if (liq.keyLevels) {
           out += '\n   🔑 关键区间:\n';
           const kl = liq.keyLevels;
-          if (kl.maxTotal) out += `   最大清算: $${kl.maxTotal.priceRange} (${kl.maxTotal.totalSz.toFixed(1)} BTC)\n`;
-          if (kl.maxLong) out += `   多头集中: $${kl.maxLong.priceRange} (${kl.maxLong.longSz.toFixed(1)} BTC, ${kl.maxLong.longCount}笔)\n`;
-          if (kl.maxShort) out += `   空头集中: $${kl.maxShort.priceRange} (${kl.maxShort.shortSz.toFixed(1)} BTC, ${kl.maxShort.shortCount}笔)\n`;
+          if (kl.maxTotal) out += `   最大清算: $${kl.maxTotal.priceRange} (${kl.maxTotal.totalSz.toFixed(1)} ${COIN})\n`;
+          if (kl.maxLong) out += `   多头集中: $${kl.maxLong.priceRange} (${kl.maxLong.longSz.toFixed(1)} ${COIN}, ${kl.maxLong.longCount}笔)\n`;
+          if (kl.maxShort) out += `   空头集中: $${kl.maxShort.priceRange} (${kl.maxShort.shortSz.toFixed(1)} ${COIN}, ${kl.maxShort.shortCount}笔)\n`;
         }
       }
     }
@@ -1342,14 +1416,14 @@ function formatAnalysis(data) {
     out += `   说明: ${fr.note}\n`;
   }
   
-  // 恐惧贪婪指数
-  if (data.fearGreedIndex) {
-    const fng = data.fearGreedIndex;
-    out += '\n── 😰 恐惧贪婪指数 ──\n';
-    const emoji = fng.current <= 25 ? '😱' : fng.current <= 45 ? '😰' : fng.current <= 55 ? '😐' : fng.current <= 75 ? '😊' : '🤑';
-    out += `   当前: ${fng.current} (${fng.classification}) ${emoji}\n`;
-    out += `   30日: 均值${fng.statistics.avg30d} | 区间${fng.statistics.min30d}-${fng.statistics.max30d}\n`;
-  }
+  // [已注释] 恐惧贪婪指数不再输出
+  // if (data.fearGreedIndex) {
+  //   const fng = data.fearGreedIndex;
+  //   out += '\n── 😰 恐惧贪婪指数 ──\n';
+  //   const emoji = fng.current <= 25 ? '😱' : fng.current <= 45 ? '😰' : fng.current <= 55 ? '😐' : fng.current <= 75 ? '😊' : '🤑';
+  //   out += `   当前: ${fng.current} (${fng.classification}) ${emoji}\n`;
+  //   out += `   30日: 均值${fng.statistics.avg30d} | 区间${fng.statistics.min30d}-${fng.statistics.max30d}\n`;
+  // }
   
   // 期权数据
   if (data.options && data.options.data && data.options.data.length > 0) {
@@ -1360,8 +1434,8 @@ function formatAnalysis(data) {
       const label = i === 0 ? '近期主力' : '远期主力';
       
       out += `\n   【${opt.expiry} - ${label}】\n`;
-      out += `   总持仓: ${opt.oi.total} BTC | 合约数: ${opt.contracts}个\n`;
-      out += `   看涨持仓: ${opt.oi.call} BTC | 看跌持仓: ${opt.oi.put} BTC\n`;
+      out += `   总持仓: ${opt.oi.total} ${COIN} | 合约数: ${opt.contracts}个\n`;
+      out += `   看涨持仓: ${opt.oi.call} ${COIN} | 看跌持仓: ${opt.oi.put} ${COIN}\n`;
       out += `   Put/Call持仓比: ${opt.oi.pcr} (${opt.oi.pcr > 1 ? '看跌情绪占优' : '看涨情绪占优'})\n`;
       out += `   Put/Call交易比: ${opt.vol.pcr} (当日交易情绪)\n`;
       
@@ -1466,7 +1540,7 @@ function formatAnalysis(data) {
   }
   
   out += '\n' + '─'.repeat(70) + '\n';
-  out += `📊 数据源: ${activeDataSource || 'N/A'} + alternative.me\n`;
+  out += `📊 数据源: ${activeDataSource || 'N/A'}\n`;
   
   return out;
 }
@@ -1479,17 +1553,20 @@ function saveData(data, basePath) {
   const dataDir = path.join(workspaceDir, 'data');
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   const dateStr = data.timestamp.split(' ')[0];
-  const filePath = path.join(dataDir, `${dateStr}.json`);
+  const coinSuffix = data.coin && data.coin !== 'BTC' ? `_${data.coin}` : '';
+  const filePath = path.join(dataDir, `${dateStr}${coinSuffix}.json`);
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
   return filePath;
 }
 
 function parseArgs() {
-  const args = { json: false, save: false, proxy: null };
+  const args = { coin: 'BTC', json: false, save: false, proxy: null };
   for (let i = 2; i < process.argv.length; i++) {
     const arg = process.argv[i];
     if (arg === '--json') args.json = true;
     else if (arg === '--save') args.save = true;
+    else if (arg === '--coin') args.coin = process.argv[++i] || 'BTC';
+    else if (arg.startsWith('--coin=')) args.coin = arg.split('=')[1];
     else if (arg === '--proxy') args.proxy = process.argv[++i] || PROXY_DEFAULT;
     else if (arg.startsWith('--proxy=')) args.proxy = arg.split('=')[1];
   }
@@ -1499,6 +1576,8 @@ function parseArgs() {
 
 async function main() {
   const args = parseArgs();
+  applyCoin(args.coin);
+  console.error(`📊 获取 ${COIN} 市场数据...`);
   try {
     const data = await getEnhancedAnalysis(args.proxy);
     if (args.save) {
