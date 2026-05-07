@@ -1,6 +1,6 @@
-# 日报任务 - 阶段三：仓位管理
+# 山寨币任务 - 阶段三：仓位执行
 
-此任务为日报工作流的第三阶段，负责阅读报告、识别操作意图、执行仓位操作、同步持仓、判断归档。
+此任务为山寨币工作流的第三阶段，负责阅读报告、识别操作意图、执行仓位操作、同步持仓、判断归档。
 
 ---
 
@@ -23,7 +23,7 @@
 
 ## 触发方式
 
-- 由阶段二结束后触发
+- 由阶段二（`alt-intel-stage2.md`）结束后触发
 - 接收阶段二传递的日报文件路径
 
 ---
@@ -32,7 +32,7 @@
 
 **所有阶段共用同一个日报进程日志文件：**
 
-路径：`logs/daily-report-process.log`
+路径：`logs/alt-{COIN}-process.log`
 
 格式：追加模式，记录阶段三的开始、执行、结束、警告、错误。
 
@@ -51,7 +51,7 @@
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段三] 开始执行" >> logs/daily-report-process.log
+echo "[$NOW] [阶段三] 开始执行" >> logs/alt-${COIN}-process.log
 ```
 
 ---
@@ -65,12 +65,12 @@ echo "[$NOW] [阶段三] 开始执行" >> logs/daily-report-process.log
 预期上一步消息格式：
 ```
 阶段二分析已完成。
-周期目录: active/cycle-YYYYMMDD-XXX
-请读取 tasks/daily-report-stage3.md 开始阶段三仓位管理。
+周期目录: active/alt-{COIN}-YYYYMMDD-HHMM
+请读取 tasks/alt-intel-stage3.md 开始阶段三仓位管理。
 ```
 
 **提取周期目录路径，从中定位：**
-- 日报文件：`${CYCLE_DIR}/reports/btc-report-*.md`（最新）
+- 日报文件：`${CYCLE_DIR}/reports/alt-report-{COIN}-*.md`（最新）
 - 持仓文件：`${CYCLE_DIR}/positions.json`（固定位置）
 
 #### 2.2 保底措施：从本地默认路径查找
@@ -79,10 +79,10 @@ echo "[$NOW] [阶段三] 开始执行" >> logs/daily-report-process.log
 
 ```bash
 # 直接查找最新周期目录
-CYCLE_DIR=$(ls -td active/cycle-* 2>/dev/null | head -1)
+CYCLE_DIR=$(ls -td active/alt-{COIN}-* 2>/dev/null | head -1)
 
 # 从周期目录定位日报和持仓
-REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/btc-report-*.md 2>/dev/null | head -1)
+REPORT_FILE=$(ls -t ${CYCLE_DIR}/reports/alt-report-{COIN}-*.md 2>/dev/null | head -1)
 POSITIONS_FILE="${CYCLE_DIR}/positions.json"
 ```
 
@@ -102,8 +102,8 @@ POSITIONS_FILE="${CYCLE_DIR}/positions.json"
 
 **日志记录：**
 ```
-[$NOW] [阶段三] 周期目录: cycle-YYYYMMDD-XXX
-[$NOW] [阶段三] 日报文件: reports/btc-report-YYYY-MM-DD-HHMM.md
+[$NOW] [阶段三] 周期目录: alt-{COIN}-YYYYMMDD-HHMM
+[$NOW] [阶段三] 日报文件: reports/alt-report-{COIN}-YYYY-MM-DD-HHMM.md
 [$NOW] [阶段三] 持仓文件: positions.json
 ```
 
@@ -114,7 +114,7 @@ POSITIONS_FILE="${CYCLE_DIR}/positions.json"
 **读取实盘持仓状态：**
 
 ```bash
-cat active/cycle-*/positions.json
+cat active/alt-{COIN}-*/positions.json
 ```
 
 **从中获取关键信息：**
@@ -237,8 +237,8 @@ cat active/cycle-*/positions.json
 
 | 限制项 | 值 | 说明 |
 |--------|---|------|
-| 默认杠杆 | 3x | **绝对不允许更改杠杆** |
-| 仓位模式 | isolated（逐仓） | 必须使用逐仓模式 |
+| 默认杠杆 | **10x** | 统一使用 10 倍杠杆。若该币种最大杠杆 < 10x，使用最大杠杆 |
+| 仓位模式 | cross（全仓） | 必须使用全仓模式 |
 | 止损要求 | 必须 | 止损必须覆盖全部仓位 |
 | 止盈要求 | 必须 | 分批止盈必须覆盖全部仓位（两档止盈合计100%） |
 
@@ -253,97 +253,110 @@ okx-proxy.sh --profile live account balance USDT
 记录 `equity`（权益）和 `available`（可用余额）。
 
 **安全检查：**
-- 计算所需保证金：`margin = equity × position_size / leverage`
-- 如果 `available < margin`，**终止下单**，记录日志：
+- 山寨仓位固定名义价值 40 USDT，全仓模式下保证金需求极低
+- 如果 `available < 5 USDT`，**终止下单**，记录日志：
   ```
-  [$NOW] [阶段三] ⛔ ERROR: 可用余额不足，需要 xx USDT，可用 xx USDT
+  [$NOW] [阶段三] ⛔ ERROR: 可用余额不足，需要 ≥ 5 USDT，可用 xx USDT
   ```
 
 ##### 7.1.2 获取当前价格和合约信息
 
 ```bash
 # 获取当前价格
-okx-proxy.sh market ticker BTC-USDT-SWAP
+okx-proxy.sh market ticker {COIN}-USDT-SWAP
 
 # 获取合约信息
-okx-proxy.sh market instruments --instType SWAP | grep BTC-USDT-SWAP
+okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 ```
 
 关键参数：
 - `last`：最新成交价
-- `ctVal`：合约面值（从 API 实时获取，如 BTC-USDT-SWAP=0.01 BTC）
-- `minSz`：最小下单张数（⚠️ 从 API 实时获取，不同币种不同！如 BTC=0.01, ETH=0.01, SOL=0.1）
-- `lotSz`：下单步长（⚠️ 从 API 实时获取，必须按此精度取整！如 BTC=0.01, 某些山寨币=1）
+- `ctVal`：合约面值（⚠️ 从 API 实时获取，不同币种不同！如 BTC=0.01、DOGE=1000、BOME=10000）
+- `minSz`：最小下单张数（⚠️ 从 API 实时获取，不同币种不同！如 BTC=0.01、DOGE=1、某些币=0.1）
+- `lotSz`：下单步长（⚠️ 从 API 实时获取，必须按此精度取整！如 BTC=0.01、某些山寨币=1）
+- `lever`：最大可用杠杆（⚠️ 用于计算实际杠杆：`lever_actual = min(10, lever)`）
 
 > 所有合约参数以 `market instruments` 实际返回值为准，不得硬编码。
 
 ##### 7.1.3 计算下单参数
 
+**核心规则：固定名义价值 40 USDT，±20u 容差。**
+
+```
+张数 = 40 / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
+名义价值容差 = |实际张数 × 价格 × ctVal - 40| ≤ 20 USDT
+
+⚠️ 取整后再次检查：sz ≥ minSz && sz 是 lotSz 的整数倍
+```
+
 | 参数 | 来源 | 计算方式 |
 |------|------|---------|
-| instId | 固定 | BTC-USDT-SWAP |
+| instId | 固定 | {COIN}-USDT-SWAP |
 | side | 建议 | direction: long → buy, short → sell |
-| sz | 计算 | equity × position_size / (价格 × ctVal)，向下取整到 lotSz |
-| tdMode | 固定 | isolated |
+| sz | 计算 | 40 / (价格 × ctVal)，按 lotSz 步进取整 |
+| tdMode | 固定 | cross |
 | posSide | 建议 | direction: long → long, short → short |
 
-**示例计算（position_size 表示名义价值相对于余额的比例）：**
+**示例计算：**
 
 ```
-例A：position_size = 100%（标准仓位）
-equity = 500 USDT
-名义价值 = 500 × 100% = 500 USDT
-保证金 = 500 / 3 = 166.67 USDT
-张数 = 500 / (76000 × 0.01) = 0.657 → 取整到 lotSz(0.01) = 0.65 张
+例A：DOGE-USDT-SWAP (ctVal=1000, price=0.15, lotSz=1, minSz=1)
+  张数 = 40 / (0.15 × 1000) = 0.267 → 取整到 lotSz(1) = 0 张
+  名义价值 = 0 × 0.15 × 1000 = 0 USDT
+  → sz=0 < minSz(1) → ⚠️ 无法开仓，记录日志
 
-例B：position_size = 200%（2倍仓位）
-equity = 500 USDT
-名义价值 = 500 × 200% = 1000 USDT
-保证金 = 1000 / 3 = 333.33 USDT
-张数 = 1000 / (76000 × 0.01) = 1.315 → 取整到 lotSz(0.01) = 1.31 张
+例B：BOME-USDT-SWAP (ctVal=10000, price=0.0005, lotSz=1, minSz=1)
+  张数 = 40 / (0.0005 × 10000) = 8 张 ✅
+  名义价值 = 8 × 0.0005 × 10000 = 40 USDT ✅
 
-例C：position_size = 300%（3倍仓位，最大）
-equity = 500 USDT
-名义价值 = 500 × 300% = 1500 USDT
-保证金 = 1500 / 3 = 500 USDT（需要全部余额）
-张数 = 1500 / (76000 × 0.01) = 1.973 → 取整到 lotSz(0.01) = 1.97 张
+例C：SOL-USDT-SWAP (ctVal=1, price=150, lotSz=0.1, minSz=0.1)
+  张数 = 40 / (150 × 1) = 0.267 → 取整到 lotSz(0.1) = 0.3 张
+  名义价值 = 0.3 × 150 × 1 = 45 USDT ✅（容差 5 ≤ 20）
+
+例D：LAB-USDT-SWAP (ctVal=1, price=2.5, lotSz=1, minSz=1)
+  张数 = 40 / (2.5 × 1) = 16 张
+  名义价值 = 16 × 2.5 × 1 = 40 USDT ✅
+
+例E：某小币 (ctVal=100, price=0.02, lotSz=1, minSz=1)
+  张数 = 40 / (0.02 × 100) = 20 张
+  名义价值 = 20 × 0.02 × 100 = 40 USDT ✅
+
+例F：ETH-USDT-SWAP (ctVal=0.01, price=3000, lotSz=0.01, minSz=0.01)
+  张数 = 40 / (3000 × 0.01) = 1.333 → 取整到 lotSz(0.01) = 1.33 张
+  名义价值 = 1.33 × 3000 × 0.01 = 39.9 USDT ✅
 ```
 
-** position_size 范围：75%~300%**
-- 75% = 名义价值为余额的 75%
-- 100% = 名义价值等于余额
-- 200% = 名义价值为余额的 2倍
-- 300% = 名义价值为余额的 3倍（最大，需要全部可用余额作为保证金）
-
-** ⚠️ 最小仓位检查（必须用实际 minSz 而非固定值！）：**
+**⚠️ 最小仓位与精度检查（必须用实际 minSz/lotSz！）：**
 
 ```bash
-# 从合约信息中获取实际的 minSz（不同币种不同！）
+# 从合约信息中获取实际的 minSz 和 lotSz（不同币种不同！）
 # 如 BTC-USDT-SWAP 的 minSz=0.01, lotSz=0.01
-# 如 某些山寨币的 minSz=0.1 或 minSz=1
+# 如 DOGE-USDT-SWAP 的 minSz=1, lotSz=1
+# 如 SOL-USDT-SWAP 的 minSz=0.1, lotSz=0.1
 ```
 
-- 计算张数 `sz = equity × position_size / (价格 × ctVal)`，按 `lotSz` 步进取整
-- 如果 `sz < minSz`，**终止下单**，记录日志：
+- 计算张数 `sz = 40 / (价格 × ctVal)`，按 `lotSz` 步进取整
+- 如果 `sz < minSz`，终止下单，记录日志：
   ```
-  [$NOW] [阶段三] ⛔ ERROR: 计算张数 {sz} < 最小下单张数 {minSz}（合约：{instId}）
-  需要 equity ≥ {minSz × 价格 × ctVal / position_size} USDT，当前 equity = {equity} USDT
+  [$NOW] [阶段三] ⚠️ WARN: 计算张数 {sz} < 最小下单张数 {minSz}（合约：{instId}，lotSz={lotSz}）
+  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ 40u
   ```
-- **即使 sz ≥ minSz，如果取整后值不是 lotSz 的整数倍，也需修正为合法值**
+- **即使 sz ≥ minSz，也必须确保 sz 是 lotSz 的整数倍**
 
 ##### 7.1.4 执行下单
 
+**先计算实际杠杆：** `lever_actual = min(10, lever)`（lever 从步骤 7.1.2 获取）
+
 ```bash
 okx-proxy.sh --profile live swap place \
-  --instId BTC-USDT-SWAP \
+  --instId {COIN}-USDT-SWAP \
   --side <buy|sell> \
   --ordType market \
   --sz <张数> \
-  --tdMode isolated \
-  --posSide <long|short>
+  --tdMode cross \
+  --posSide <long|short> \
+  --lever <lever_actual>
 ```
-
-**注意：** 不传递 `--lever` 参数，保持账户默认杠杆设置（应为 3x）。
 
 **下单结果处理：**
 - 成功：记录订单ID `ordId`，平均成交价 `avgPx`
@@ -354,7 +367,7 @@ okx-proxy.sh --profile live swap place \
 下单后等待 2 秒，然后查询持仓确认成交：
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live account positions --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 记录：
@@ -377,82 +390,27 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 | TP2 | OCO | sz/2 | tp2 | 第二档止盈，平仓剩余 50% |
 | SL | OCO | sz | sl | 止损，平仓全部 |
 
-**⭐ 整数位偏移规则（止盈 + 止损同向偏移）：**
+**⭐ 整数位偏移规则（简化版）：**
 
-⚠️ **强制规则：止盈和止损都要判断并应用偏移，不得省略！**
+⚠️ 报告给出的止盈止损价位是分析参考值。对于整数价位（如 2.50、0.00100），OKX 引擎可能因流动性问题无法精确触发。因此整数位需偏移 ±1 个最小价格单位：
 
-整数价位（如 72000、75000）常有强大阻力，价格可能差一点不到。**报告给出的原始点位是参考值**，实际设置时必须判断是否为整数，并应用偏移：
+- **判断**：价位末位为 0（如 2.500、0.00100）→ 整数位，需偏移
+- **方向**：与触发方向一致（止盈更易触发，止损同样方向）
+- **幅度**：加减 1 个 tick（最小价格单位），而非固定 22
+- **多单**：止盈 -1 tick，止损 -1 tick
+- **空单**：止盈 +1 tick，止损 +1 tick
 
-- **多单（long）**：止盈-22，止损-22（全向下）
-- **空单（short）**：止盈+22，止损+22（全向上）
-- **止盈**：朝触发方向偏移，更易触发
-- **止损**：与止盈同向偏移，更难触发（需要价格走更深才触发）
+> 山寨币价格跨度极大（$0.0001 ~ $100+），固定 22 偏移不适用。改用 1 tick 偏移。
 
-| 持仓方向 | 止盈偏移 | 止损偏移 | 说明 |
-|---------|---------|---------|------|
-| 多单 long | **-22**（更易） | **-22**（更难） | 止盈设低更快触，止损设低需跌更深才触发 |
-| 空单 short | **+22**（更易） | **+22**（更难） | 止盈设高更快触，止损设高需涨更高才触发 |
-
-**判断逻辑：**
-- 如果止盈价或止损价是整数（末尾 2-3 位为 0）→ **必须偏移**
-- 多单：止盈-22，止损-22
-- 空单：止盈+22，止损+22
-
-**偏移计算与日志埋点（每设置一笔订单前必须执行）：**
-
-```bash
-# 判断止盈1是否为整数（末尾3位为0），计算实际设置价
-TP1_RAW=<tp1原始值>
-TP1_LAST3=${TP1_RAW: -3}
-if [ "$TP1_LAST3" = "000" ]; then
-  if [ "<direction>" = "long" ]; then
-    TP1_ACTUAL=$((TP1_RAW - 22))   # 多单止盈：更低，更易触发
-    TP1_REASON="更易触发（多单）"
-  else
-    TP1_ACTUAL=$((TP1_RAW + 22))   # 空单止盈：更高，更易触发
-    TP1_REASON="更易触发（空单）"
-  fi
-  echo "[$NOW] [阶段三] ⭐ 止盈1整数位偏移 | 原始: $TP1_RAW | 方向: <direction> | 实际: $TP1_ACTUAL | $TP1_REASON" >> logs/daily-report-process.log
-else
-  TP1_ACTUAL=$TP1_RAW
-fi
-
-# 止盈2计算逻辑同上
-
-# 止损计算（与止盈同向偏移）
-SL_RAW=<sl原始值>
-SL_LAST3=${SL_RAW: -3}
-if [ "$SL_LAST3" = "000" ]; then
-  if [ "<direction>" = "long" ]; then
-    SL_ACTUAL=$((SL_RAW - 22))   # 多单止损：更低，更难触发
-    SL_REASON="更难触发（多单）"
-  else
-    SL_ACTUAL=$((SL_RAW + 22))   # 空单止损：更高，更难触发
-    SL_REASON="更难触发（空单）"
-  fi
-  echo "[$NOW] [阶段三] ⭐ 止损整数位偏移 | 原始: $SL_RAW | 方向: <direction> | 实际: $SL_ACTUAL | $SL_REASON" >> logs/daily-report-process.log
-else
-  SL_ACTUAL=$SL_RAW
-fi
-
-echo "[$NOW] [阶段三] 止盈止损设置 | TP1原始: $TP1_RAW → $TP1_ACTUAL | TP2原始: $TP2_RAW → $TP2_ACTUAL | SL原始: $SL_RAW → $SL_ACTUAL" >> logs/daily-report-process.log
-```
-
-**⚠️ 重要提醒：**
-- 报告给出的止盈/止损价格是**分析判断的理想位置**，不代表实际挂单价格
-- 整数位必须偏移是**安全规则**，不是为了"优化"而是必须执行
-- 止盈和止损**同向偏移**：多单全向下，空单全向上
-- 止盈偏移目的：更易触发；止损偏移目的：更难触发
-
-**执行命令（使用已计算的偏移后价格）：**
+**执行命令（使用报告建议价，整数位 ±1 tick 偏移）：**
 
 ```bash
 # 第一档止盈（sz/2 张）
 okx-proxy.sh --profile live swap algo place \
-  --instId BTC-USDT-SWAP \
+  --instId {COIN}-USDT-SWAP \
   --side <sell|buy> \
   --sz <sz/2> \
-  --tdMode isolated \
+  --tdMode cross \
   --posSide <long|short> \
   --reduceOnly \
   --ordType oco \
@@ -463,10 +421,10 @@ okx-proxy.sh --profile live swap algo place \
 
 # 第二档止盈（sz/2 张）
 okx-proxy.sh --profile live swap algo place \
-  --instId BTC-USDT-SWAP \
+  --instId {COIN}-USDT-SWAP \
   --side <sell|buy> \
   --sz <sz/2> \
-  --tdMode isolated \
+  --tdMode cross \
   --posSide <long|short> \
   --reduceOnly \
   --ordType oco \
@@ -487,7 +445,7 @@ okx-proxy.sh --profile live swap algo place \
 **核对持仓：**
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live account positions --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 核对项目：
@@ -498,7 +456,7 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 **核对止盈止损：**
 
 ```bash
-okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live swap algo orders --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 核对项目：
@@ -534,7 +492,7 @@ okx-proxy.sh --profile live account balance USDT
 ##### 7.2.1 获取当前持仓信息
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live account positions --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 记录：
@@ -550,19 +508,20 @@ okx-proxy.sh --profile live account balance USDT
 
 ##### 7.2.3 计算加仓张数
 
-使用与开仓相同的计算逻辑：
-- `sz_add = equity × position_size / (价格 × ctVal)`，按 `lotSz` 步进取整
+使用与开仓相同的固定 40u 名义价值计算逻辑：
+- `sz_add = 40 / (价格 × ctVal)`，按 `lotSz` 步进取整
+- 验证容差 ≤ 20 USDT
 - 同样执行 `sz_add ≥ minSz` 检查
 
 ##### 7.2.4 执行加仓下单
 
 ```bash
 okx-proxy.sh --profile live swap place \
-  --instId BTC-USDT-SWAP \
+  --instId {COIN}-USDT-SWAP \
   --side <buy|sell> \
   --ordType market \
   --sz <sz_add> \
-  --tdMode isolated \
+  --tdMode cross \
   --posSide <long|short>
 ```
 
@@ -580,7 +539,7 @@ okx-proxy.sh --profile live swap place \
 
 取消旧止盈止损订单：
 ```bash
-okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <旧algoId>
+okx-proxy.sh --profile live swap algo cancel --instId {COIN}-USDT-SWAP --algoId <旧algoId>
 ```
 
 设置新的止盈止损（覆盖全部新仓位）：
@@ -611,7 +570,7 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <�
 ##### 7.3.1 获取当前持仓信息
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live account positions --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 ##### 7.3.2 计算减仓张数
@@ -629,11 +588,11 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 ```bash
 # ⚠️ 安全前提：sz_reduce 必须 < 当前持仓张数
 okx-proxy.sh --profile live swap place \
-  --instId BTC-USDT-SWAP \
+  --instId {COIN}-USDT-SWAP \
   --side <sell|buy> \
   --ordType market \
   --sz <sz_reduce> \
-  --tdMode isolated \
+  --tdMode cross \
   --posSide <long|short>
 ```
 
@@ -648,7 +607,7 @@ CURRENT_POS=$(node -e "const p=require('./<cycle_dir>/positions.json'); console.
 
 # 验证减仓张数不超过当前持仓
 if [ "$(echo "$sz_reduce >= $CURRENT_POS" | bc)" -eq 1 ]; then
-  echo "[$NOW] [阶段三] ⛔ ERROR: 减仓张数($sz_reduce) >= 当前持仓($CURRENT_POS)，应使用平仓流程而非减仓" >> logs/daily-report-process.log
+  echo "[$NOW] [阶段三] ⛔ ERROR: 减仓张数($sz_reduce) >= 当前持仓($CURRENT_POS)，应使用平仓流程而非减仓" >> logs/alt-${COIN}-process.log
   exit 1
 fi
 ```
@@ -690,12 +649,12 @@ fi
 ##### 7.4.1 取消止盈止损订单
 
 ```bash
-okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live swap algo cancel-all --instId {COIN}-USDT-SWAP
 ```
 
 或逐个取消：
 ```bash
-okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <algoId>
+okx-proxy.sh --profile live swap algo cancel --instId {COIN}-USDT-SWAP --algoId <algoId>
 ```
 
 ##### 7.4.2 执行全部平仓
@@ -704,15 +663,15 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <al
 
 ```bash
 okx-proxy.sh --profile live swap close \
-  --instId BTC-USDT-SWAP \
-  --mgnMode isolated \
+  --instId {COIN}-USDT-SWAP \
+  --mgnMode cross \
   --posSide <long|short>
 ```
 
 ##### 7.4.3 等待成交确认
 
 ```bash
-okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live account positions --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 确认持仓张数为 0。
@@ -734,7 +693,7 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 ##### 7.5.1 获取当前止盈止损订单
 
 ```bash
-okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated
+okx-proxy.sh --profile live swap algo orders --instId {COIN}-USDT-SWAP --tdMode cross
 ```
 
 记录所有 algoId。
@@ -742,7 +701,7 @@ okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode iso
 ##### 7.5.2 取消旧订单
 
 ```bash
-okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
+okx-proxy.sh --profile live swap algo cancel-all --instId {COIN}-USDT-SWAP
 ```
 
 或逐个取消。
@@ -753,7 +712,7 @@ okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
 
 执行步骤：
 1. 判断 tp1/tp2/sl 是否为整数位
-2. 计算实际设置价格（多单-22，空单+22）
+2. 计算实际设置价格（±1 tick：多单-1，空单+1）
 3. 记录偏移日志
 4. 使用偏移后价格设置止盈止损订单
 
@@ -785,7 +744,7 @@ okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
 
 sync-positions.md 会完成以下操作：
 - 从 OKX API 获取最新持仓、止盈止损订单、账单记录
-- 筛选 BTC-USDT-SWAP 逐仓仓位
+- 筛选 {COIN}-USDT-SWAP 全仓仓位
 - 检测平仓状态（对比旧持仓文件，填充「最近平仓」字段）
 - 覆写 `positions.json`
 
@@ -818,11 +777,11 @@ sync-positions.md 会完成以下操作：
 
 ```bash
 # 移动周期文件夹
-mv active/cycle-YYYYMMDD-XXX archived/
+mv active/alt-{COIN}-YYYYMMDD-HHMM archived/
 
 # 记录归档信息
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段三] 周期归档 | cycle-xxx → archived/ | 平仓盈亏: xx USDT | 平仓类型: xx" >> logs/daily-report-process.log
+echo "[$NOW] [阶段三] 周期归档 | alt-{COIN}-YYYYMMDD-HHMM → archived/ | 平仓盈亏: xx USDT | 平仓类型: xx" >> logs/alt-${COIN}-process.log
 ```
 
 ##### 9.3 不满足归档条件
@@ -846,14 +805,15 @@ echo "[$NOW] [阶段三] 周期归档 | cycle-xxx → archived/ | 平仓盈亏: 
 ```
 阶段三仓位管理已完成。
 周期状态: [所有仓位平仓，已完成归档/周期活跃中]
-周期路径: [archived/cycle-xxx | active/cycle-xxx]
+周期路径: [archived/alt-{COIN}-YYYYMMDD-HHMM | active/alt-{COIN}-YYYYMMDD-HHMM]
+请读取 tasks/alt-intel-stage4.md 开始阶段四警报管理。
 ```
 
 **步骤 10.2：记录日志****
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-report-process.log
+echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/alt-${COIN}-process.log
 ```
 
 ---
@@ -905,11 +865,11 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-r
 3. **阅读整篇日报**：理解分析逻辑，提炼仓位意图（阶段三本职工作）
 4. **必须读持仓文件**：验证建议合理性
 5. **操作必须明确**：立即入场才执行，等待触发跳过
-6. **安全限制不变**：杠杆 3x、逐仓、止盈止损必须覆盖全部
+6. **安全限制**：杠杆最大、全仓、止盈止损必须覆盖全部
 7. **执行后必须同步持仓**：调用 sync-positions 逻辑更新文件
 8. **归档判断基于「最近平仓」**：观察持仓文件字段
 9. **⭐ 上一步消息传递周期状态**：供阶段四决定清零还是正常管理
-10. **完成后继续阶段四**：输出周期状态和路径，然后读取 tasks/daily-report-stage4.md 继续执行
+10. **完成后继续阶段四**：输出周期状态和路径，然后读取 tasks/alt-intel-stage4.md 继续执行
 11. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 12. **日志完整记录**：每个关键步骤都有日志
 
@@ -917,8 +877,8 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-r
 
 ## 阶段过渡
 
-输出周期状态和路径后，立即读取并执行 `tasks/daily-report-stage4.md`。
+输出周期状态和路径后，立即读取并执行 `tasks/alt-intel-stage4.md`。
 
 ---
 
-阶段三-v4.19（完整版）
+alt-intel-stage3-v1.1

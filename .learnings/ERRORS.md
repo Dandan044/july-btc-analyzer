@@ -1,5 +1,53 @@
 # 错误记录
 
+## 2026-05-01: 警报规则 lifetime() 返回值类型错误 — 导致无限重载循环
+
+**问题：** 警报引擎对「延迟确认多价位监控」规则陷入无限加载-卸载循环，每~57秒重新加载一次，累计566次，日志膨胀至3MB。
+
+**根因：** 规则 `lifetime()` 返回布尔值 (`true`/`false`)，而引擎 `engine.js` 的 `runRule()` 期望返回字符串：
+```js
+// engine.js runRule()
+const status = lifetime();
+if (status === 'expired' || status === 'completed') { ... return 'stop'; }
+if (status !== 'active') { ... return 'stop'; }  // ← true/false 不等于 'active'！
+```
+
+当 `lifetime()` 返回 `true` 时，`true !== 'active'` → 引擎标记为 `RULE_STOPPED` → `unloadRule` 从 `activeRules` 移除。60秒文件扫描器发现 `.js` 文件仍在 `rules/` 目录 → 识别为「新规则」→ `startRuleTimer()` → `runRule()` → 又是 `true !== 'active'` → 循环。
+
+**错误写法：**
+```js
+lifetime() {
+  const created = new Date(CREATED_DATE);
+  const now = new Date();
+  const ageHours = (now - created) / (60 * 60 * 1000);
+  return ageHours < 72;  // ❌ 返回 boolean
+}
+```
+
+**正确写法：**
+```js
+lifetime() {
+  const created = new Date(CREATED_DATE);
+  const now = new Date();
+  const ageHours = (now - created) / (60 * 60 * 1000);
+  return ageHours < 72 ? 'active' : 'expired';  // ✅ 返回字符串
+}
+```
+
+**引擎 API 合约（engine.js）：**
+| 方法 | 返回类型 | 说明 |
+|------|---------|------|
+| `check()` | `boolean` \| `Promise<boolean>` | 触发条件是否满足 |
+| `collect()` | `object` | 收集触发数据 |
+| `trigger(alert)` | `void` | 触发动作 |
+| `lifetime()` | `'active'` \| `'expired'` \| `'completed'` | ⚠️ 必须是字符串！ |
+
+**影响范围：** rules-archive/ 中 17 个归档规则也存在相同写法，但不影响运行（引擎只加载 rules/ 目录）。修复后需确保未来所有规则严格使用字符串返回值。
+
+**修复状态：** ✅ 已修复 `2026-04-30-price-multi-levels-v11.js`
+
+---
+
 ## 2026-03-27: 止盈判断错误
 
 **问题：** 在 cycle-20260327-001 的即时分析中，错误判断止盈2 ($65,000) 已触发，实际上价格最低只到 $65,716.95，距离止盈目标还有 $717。

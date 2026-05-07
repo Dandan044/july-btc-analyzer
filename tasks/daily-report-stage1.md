@@ -112,8 +112,10 @@ mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/data-context
 **任务路由：** 读取 `tasks/sync-positions.md` 执行持仓同步任务。
 
 **输入参数：**
+- 币种：`BTC`
 - 周期文件夹路径：当前活跃周期文件夹（步骤 2 已创建）
 - 日志文件路径：`logs/daily-report-process.log`
+- 仓位模式：`isolated`（逐仓）
 
 **输出产物：**
 - 持仓文件：`active/cycle-*/positions.json`

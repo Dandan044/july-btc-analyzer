@@ -1,6 +1,6 @@
-# 日报任务 - 阶段四：警报管理
+# 山寨币任务 - 阶段四：警报管理
 
-此任务为日报工作流的第四阶段，负责警报规则的全生命周期管理。
+此任务为山寨币工作流的第四阶段，负责警报规则的全生命周期管理。
 
 ---
 
@@ -15,7 +15,7 @@
 
 **所有阶段共用同一个日报进程日志文件：**
 
-路径：`logs/daily-report-process.log`
+路径：`logs/alt-{COIN}-process.log`
 
 格式：追加模式，记录阶段四的开始、结束、警告、错误。
 
@@ -40,8 +40,8 @@
 ```
 阶段三仓位管理已完成。
 周期状态: [所有仓位平仓，已完成归档/周期活跃中]
-周期路径: [已归档 | active/cycle-xxx]
-请读取 tasks/daily-report-stage4.md 开始阶段四警报管理。
+周期路径: [已归档 | active/alt-{COIN}-YYYYMMDD-HHMM]
+请读取 tasks/alt-intel-stage4.md 开始阶段四警报管理。
 ```
 
 **提取关键参数：**
@@ -59,7 +59,7 @@
 
 ```bash
 # 尝试查找活跃周期
-CYCLE_ACTIVE=$(ls -td active/cycle-* 2>/dev/null | head -1)
+CYCLE_ACTIVE=$(ls -td active/alt-{COIN}-* 2>/dev/null | head -1)
 ```
 
 **保底日志记录：**
@@ -81,7 +81,7 @@ CYCLE_ACTIVE=$(ls -td active/cycle-* 2>/dev/null | head -1)
 ```
 [$NOW] [阶段四] 参数来源: [消息解析 | 保底查找]
 [$NOW] [阶段四] 周期状态: [active | archived]
-[$NOW] [阶段四] 周期路径: [active/cycle-xxx | archived/cycle-xxx]
+[$NOW] [阶段四] 周期路径: [active/alt-{COIN}-YYYYMMDD-HHMM | archived/alt-{COIN}-YYYYMMDD-HHMM]
 ```
 
 **日志记录（确认解析结果）：**
@@ -95,7 +95,7 @@ CYCLE_ACTIVE=$(ls -td active/cycle-* 2>/dev/null | head -1)
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段四] 开始执行 | 周期状态: [active | archived]" >> logs/daily-report-process.log
+echo "[$NOW] [阶段四] 开始执行 | 周期状态: [active | archived]" >> logs/alt-${COIN}-process.log
 ```
 
 ---
@@ -108,28 +108,28 @@ echo "[$NOW] [阶段四] 开始执行 | 周期状态: [active | archived]" >> lo
 
 **如果周期状态为 `所有仓位平仓，已完成归档`，执行警报清零流程。**
 
-### A.1 读取 BTC 活跃警报规则
+### A.1 读取该币种活跃警报规则
 
 ```bash
-ls -la skills/btc-alert/rules/20*.js 2>/dev/null
+ls -la skills/btc-alert/rules/${COIN}-*.js 2>/dev/null
 ```
 
-> ⚠️ BTC 规则以日期 `20xx-xx-xx-` 开头，用 `20*` 匹配只读 BTC 规则。山寨规则以币名开头（如 `DOGE-`），不会被匹配。
+> ⚠️ 只列出以 `{COIN}-` 开头的规则，不触碰 BTC 或其他币种的规则。
 
 记录当前活跃规则数量。
 
-### A.2 归档 BTC 规则
+### A.2 归档该币种所有规则
 
 ```bash
-# 只移动 BTC 规则（日期前缀），不影响山寨币规则
-mv skills/btc-alert/rules/20*.js skills/btc-alert/rules-archive/ 2>/dev/null
+# 只移动该币种规则（{COIN}- 前缀），不影响其他币种
+mv skills/btc-alert/rules/${COIN}-*.js skills/btc-alert/rules-archive/ 2>/dev/null
 ```
 
 ### A.3 记录清零日志
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段四] 周期归档，BTC警报全部清零 | 归档规则数: X | 归档规则: [规则列表]" >> logs/daily-report-process.log
+echo "[$NOW] [阶段四] 周期归档，{COIN}警报全部清零 | 归档规则数: X | 归档规则: [规则列表]" >> logs/alt-${COIN}-process.log
 ```
 
 **清零完成确认日志：**
@@ -141,8 +141,8 @@ echo "[$NOW] [阶段四] 周期归档，BTC警报全部清零 | 归档规则数:
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段四] 完成执行（警报清零）" >> logs/daily-report-process.log
-echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/daily-report-process.log
+echo "[$NOW] [阶段四] 完成执行（警报清零）" >> logs/alt-${COIN}-process.log
+echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/alt-${COIN}-process.log
 ```
 
 **归档情况无需后续步骤，阶段四结束。**
@@ -160,7 +160,7 @@ echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/daily-r
 **定位并读取日报文件：**
 
 ```bash
-ls -t active/cycle-*/reports/btc-report-*.md 2>/dev/null | head -1
+ls -t active/alt-{COIN}-*/reports/alt-report-{COIN}-*.md 2>/dev/null | head -1
 ```
 
 **通读整篇日报，理解分析结论和操作建议。**
@@ -174,13 +174,13 @@ ls -t active/cycle-*/reports/btc-report-*.md 2>/dev/null | head -1
 
 ---
 
-### B.2 读取 BTC 现有警报规则
+### B.2 读取该币种现有警报规则
 
 ```bash
-ls -la skills/btc-alert/rules/20*.js 2>/dev/null
+ls -la skills/btc-alert/rules/${COIN}-*.js 2>/dev/null
 ```
 
-> ⚠️ 只列出日期前缀的 BTC 规则（`20*`），不包含山寨币规则。
+> ⚠️ 只列出以 `{COIN}-` 开头的规则。
 
 对每个规则文件了解：
 - 规则名称
@@ -432,8 +432,13 @@ set-alert.md 提供完整的警报规范：
 - 规则文件结构（name, interval, check, collect, trigger, lifetime）
 - 冷却机制（必须 ≥ 1 小时）
 - 异步触发（必须使用 spawn）
-- 规则文件命名：`YYYY-MM-DD-<类型>-<描述>.js`
 - 可用数据源和 API endpoint
+
+> ⚠️ **山寨命名覆盖（必读）：** `set-alert.md` 是 BTC 和山寨共用文件，其内部示例使用 BTC 命名约定（`YYYY-MM-DD-<type>-<描述>.js`）。**创建山寨币规则时，必须将所有命名改为 `{COIN}-<描述>.js` 格式**（如 `DOGE-price-breakout.js`、`PEPE-funding-extreme.js`）。不要被 `set-alert.md` 中的 BTC 示例带偏——规则文件名、name 字段、日志输出全部使用币种前缀。
+
+> ⚠️ **trigger() 模板覆盖（必读）：** `set-alert.md` 中的 `trigger()` 示例指向 BTC 即时分析（`tasks/instant-analysis-stage1.md`）。**创建山寨币规则时，`trigger()` 必须指向 `tasks/alt-instant-stage1.md`**，后续阶段指向 `alt-intel-stage2/3/4.md`。完整模板见 `tasks/set-alert.md` 第 14 节「山寨币 trigger() 参考」。
+
+> ⚠️ **collect() 必须返回 `coin` 字段：** 山寨币即时分析阶段一依赖 `coin` 字段定位周期。`collect()` 必须返回 `{ coin: '{COIN}', ... }`。
 
 **日志记录：**
 ```
@@ -453,9 +458,9 @@ set-alert.md 提供完整的警报规范：
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段四] 完成执行" >> logs/daily-report-process.log
-echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/daily-report-process.log
-echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-process.log
+echo "[$NOW] [阶段四] 完成执行" >> logs/alt-${COIN}-process.log
+echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/alt-${COIN}-process.log
+echo "[$NOW] ========== 山寨分析流程结束 ========== " >> logs/alt-${COIN}-process.log
 ```
 
 ---
@@ -475,9 +480,9 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 
 | 文件类型 | 路径 | 说明 |
 |---------|------|------|
-| 警报规则 | `skills/btc-alert/rules/20*.js` | 活跃规则（日期前缀区分 BTC） |
+| 警报规则 | `skills/btc-alert/rules/{COIN}-*.js` | 活跃规则（币种前缀隔离） |
 | 归档规则 | `skills/btc-alert/rules-archive/*.js` | 归档规则 |
-| 日报进程日志 | `logs/daily-report-process.log` | 所有阶段共用 |
+| 日报进程日志 | `logs/alt-${COIN}-process.log` | 所有阶段共用 |
 
 ---
 
@@ -494,7 +499,7 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 9. **禁止 FGI 触发**：恐惧贪婪指数不适合分钟级警报
 10. **使用连续数据**：K线区间而非瞬时价格（见 set-alert.md 规范）
 11. **触发模型从配置读取**：读取 `tasks/global-config.json` → `trigger.model`，`trigger()` 的 `cron add` 必须包含 `--model <该值>`
-12. **日志记录完整**：所有操作记录到 daily-report-process.log
+12. **日志记录完整**：所有操作记录到 alt-${COIN}-process.log
 
 ---
 
@@ -505,7 +510,7 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 | 参数 | 必须性 | 示例 |
 |------|-------|------|
 | 周期状态 | ✅ 必须 | `active` 或 `archived` |
-| 周期路径 | ✅ 必须 | `active/cycle-xxx` 或 `archived/cycle-xxx` |
+| 周期路径 | ✅ 必须 | `active/alt-{COIN}-YYYYMMDD-HHMM` 或 `archived/alt-{COIN}-YYYYMMDD-HHMM` |
 
 **不传递的参数：**
 - 持仓状态、最近平仓 → 不影响阶段四流程
@@ -526,10 +531,10 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 
 | 参数 | 查找逻辑 |
 |------|---------|
-| 活跃周期 | `ls -td active/cycle-* 2>/dev/null | head -1` |
-| 归档周期 | `ls -td archived/cycle-* 2>/dev/null | head -1` |
+| 活跃周期 | `ls -td active/alt-{COIN}-* 2>/dev/null | head -1` |
+| 归档周期 | `ls -td archived/alt-{COIN}-* 2>/dev/null | head -1` |
 | 周期状态 | 有活跃周期 → `active`；有归档周期 → `archived` |
-| 日报文件 | `${CYCLE_DIR}/reports/btc-report-*.md`（仅 active 状态需要） |
+| 日报文件 | `${CYCLE_DIR}/reports/alt-report-{COIN}-*.md`（仅 active 状态需要） |
 
 **保底日志记录：**
 - 必须记录 `⚠️ WARN: 上一步消息解析失败，使用保底路径查找`
@@ -575,6 +580,15 @@ echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-pro
 | ☐ 是否使用异步触发？ | spawn 创建隔离会话 | 使用 execSync 阻塞 |
 | ☐ lifetime 是否合理？ | 根据分析设定有效期 | 永久有效或立即过期 |
 | ☐ 是否使用K线数据而非瞬时价格？ | getKlines获取区间高低价 | getTicker单点比较 |
+
+### 山寨特有核对 ⚠️
+
+| 检查项 | 正确做法 | 易错点 |
+|-------|---------|-------|
+| ☐ trigger() 是否指向 `alt-instant-stage1.md`？ | **必须用山寨即时分析路径**，不能照抄 `set-alert.md` 的 BTC 路径 | 复制 BTC 模板未改路径 |
+| ☐ trigger() 后续阶段是否指向 `alt-intel-stage2/3/4.md`？ | 山寨四阶段路径，非 `daily-report-stage*` | 全部指向 BTC 流程 |
+| ☐ collect() 是否返回 `coin` 字段？ | `{ coin: '{COIN}', ... }` | 阶段一无法定位周期 |
+| ☐ 规则文件名是否使用币种前缀？ | `{COIN}-<描述>.js` | 用了日期前缀 `YYYY-MM-DD-*` |
 
 ### 禁止事项核对
 

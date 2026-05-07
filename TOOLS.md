@@ -51,8 +51,12 @@ okx-proxy.sh --profile live swap place --instId BTC-USDT-SWAP --side buy --ordTy
 # 设置杠杆
 okx-proxy.sh --profile live swap leverage --instId BTC-USDT-SWAP --lever 10 --mgnMode cross
 
-# 平仓
-okx-proxy.sh --profile live swap close --instId BTC-USDT-SWAP --mgnMode cross --posSide long
+# 平仓（关闭全部仓位）
+okx-proxy.sh --profile live swap close --instId BTC-USDT-SWAP --mgnMode isolated --posSide long
+
+# ⚠️ 减仓（部分平仓）—— 不能用 swap close！swap close 会全平！
+# 正确方式：反向市价单减少仓位
+okx-proxy.sh --profile live swap place --instId BTC-USDT-SWAP --side sell --ordType market --sz 0.13 --tdMode isolated --posSide long
 ```
 
 ### 技能文档
@@ -60,6 +64,23 @@ okx-proxy.sh --profile live swap close --instId BTC-USDT-SWAP --mgnMode cross --
 - `~/.agents/skills/okx-cex-trade/SKILL.md` - 交易命令
 - `~/.agents/skills/okx-cex-market/SKILL.md` - 市场数据
 - `~/.agents/skills/okx-cex-portfolio/SKILL.md` - 账户余额/持仓
+
+---
+
+## 警报器规则 API 合约 ⚠️
+
+创建警报规则时必须遵守引擎 API 合约（见 `skills/btc-alert/engine.js` `runRule()`）：
+
+| 方法 | 返回值类型 | 说明 |
+|------|-----------|------|
+| `check()` | `boolean` | 触发条件是否满足 |
+| `collect()` | `object` | 收集触发数据 |
+| `trigger(alert)` | `void` | 触发动作 |
+| `lifetime()` | **`'active'` \| `'expired'` \| `'completed'`** | ⚠️ 必须返回字符串，**不是 boolean！** |
+
+**常见错误**：`return ageHours < 72` ❌ → 应写 `return ageHours < 72 ? 'active' : 'expired'` ✅
+
+引擎会判断 `lifetime() !== 'active'`，返回 `true`/`false` 会导致被误判为过期 → 无限重载循环。
 
 ---
 
@@ -161,3 +182,115 @@ const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`,
   timeout: 20000
 });
 ```
+
+### ⚡ OKX Public API 速率限制（实测 2026-04-30）
+
+**实测结论：OKX 公开接口短窗口内约 40-50 个请求后触发 429 限流。**
+
+实测数据（通过代理 `127.0.0.1:7890`，单请求延迟 ~1.3s）：
+
+| 并发数 | 总请求 | 成功 | 429 | 首次429 | 安全？ |
+|--------|--------|------|-----|---------|--------|
+| 2-10 | 10-50 | 100% | 0 | - | ✅ |
+| 15 | 60 | 40 | 20 | #16 | ❌ |
+| 20 | 80 | 40 | 40 | #21 | ❌ |
+
+关键发现：
+- **安全阈值：≤ 5 req/s**，此范围内零限流
+- **限流恢复：10 秒后可恢复**（等待即可）
+- **警报器实际负载：~0.05 req/s**（3规则×5接口/5分钟），距离限流线 ~100 倍余量
+- 混合接口（ticker+klines+OI+taker 同时请求）不限流
+- 限流表现为 HTTP 429，不是连接拒绝
+- 测试脚本：`scripts/test_okx_ratelimit_v3.js`
+
+---
+
+## 🌐 Web Search 配置（2026-04-30）
+
+### 主力引擎：DuckDuckGo
+
+- **Provider**: `duckduckgo`
+- **费用**: 免费，无需 API Key
+- **方式**: HTML 网页抓取（非官方 API）
+- **国内**: 需通过代理 `127.0.0.1:7890` 访问
+- **代理配置**: 在 systemd service 中设置了 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 环境变量
+- **速度**: 英文 ~450ms，中文 ~1900ms
+- **特点**: 结果精准度高，噪音少，覆盖中英文源
+
+### 备用引擎：MiniMax
+
+- **Provider**: `minimax`
+- **费用**: 按量计费
+- **API Key**: 已配置在 `plugins.entries.minimax.config.webSearch.apiKey`
+- **国内**: 直连
+- **速度**: ~1800ms
+- **特点**: 对中文快讯更敏感，但结果噪音较多
+
+### 切换方式
+
+```bash
+# 编辑配置文件
+python3 -c "
+import json
+with open('/home/administrator/.openclaw/openclaw.json') as f:
+    c = json.load(f)
+c['tools']['web']['search']['provider'] = 'minimax'  # 或 'duckduckgo'
+with open('/home/administrator/.openclaw/openclaw.json', 'w') as f:
+    json.dump(c, f, indent=2, ensure_ascii=False)
+"
+# 重启服务
+systemctl --user restart openclaw-gateway.service
+```
+
+### ⚠️ 注意事项
+
+- `tools.web.search.provider` 是受保护路径，不能通过 `config.patch` 修改，必须直接编辑文件后重启
+- DuckDuckGo 依赖代理，如果代理挂了会自动不可用
+- 如需新增其他 provider（Brave/Tavily 等），参考 `plugins.entries.<provider>.config.webSearch` 模式
+- 配置日期：2026-04-30
+
+---
+
+## 🔗 OnchainOS 链上数据 CLI
+
+### 安装位置
+```bash
+onchainos --version  # 2.5.0
+which onchainos      # /home/administrator/.local/bin/onchainos
+```
+
+### 技能目录
+`~/.openclaw/onchainos-skills/`
+
+安装日期：2026-04-29
+
+### 常用命令
+
+```bash
+# 代币搜索
+onchainos token search --query DOGE
+
+# 持有人分布（Top 100，含 KOL/鲸鱼/聪明钱标签）
+onchainos token holders --address <addr>
+
+# 高级信息（风险等级、创建者、持仓集中度）
+onchainos token advanced-info --address <addr>
+
+# 持仓集群分析（集群集中度、跑路风险、新钱包占比）
+onchainos token cluster-overview --address <addr>
+
+# 近期 DEX 成交记录
+onchainos token trades --address <addr>
+```
+
+### 适用场景
+- 山寨币链上数据分析（持有人结构、筹码集中度、聪明钱动向）
+- 代币安全风险评估
+- 持仓集群跑路风险检测
+
+### API Key 配置
+- 凭证文件：`~/.onchainos/.env`
+- 备份路径：`~/.okx/onchainos.env`
+
+### 完整参考
+`~/.openclaw/onchainos-skills/skills/okx-dex-token/SKILL.md`

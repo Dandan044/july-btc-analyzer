@@ -70,6 +70,12 @@ test().catch(console.error);
 ```javascript
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
+const CONFIG = require('../../../../tasks/global-config.json');
+
+// ⚠️ COIN 决定触发时使用的模型
+//    'BTC' → trigger.btc.model (deepseek-v4-pro)
+//    其他   → trigger.altcoin.model (deepseek-v4-flash)
+const COIN = 'BTC';  // BTC 填 'BTC'，山寨币填具体币种如 'ZEC'、'DASH'
 
 // 警报创建日期（用于生命周期管理）
 const CREATED_DATE = 'YYYY-MM-DD';
@@ -124,10 +130,12 @@ module.exports = {
     const now = new Date().toISOString();
     const jobName = `alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -354,6 +362,21 @@ async check() {
 
 **如果连续多次只设定价格警报，说明思维已固化，需要主动打破。**
 
+### 3.5 ⭐ 延迟确认要求（必须）
+
+**多价位价格警报必须包含延迟确认逻辑，禁止所有价位使用 instant 策略。**
+
+假突破是警报器最频繁的误触发来源：价格在 K 线影线中短暂触及价位 → 警报触发 → 即时分析生成 → 模型误判"已突破"。
+
+**强制要求：**
+- 止损位 (SL) → `instant`, 0 min（唯一允许 instant 的价位类型）
+- 止盈位 (TP) → `touch`, 3-5 min
+- 入场触发位 / 结构位 → `hold`, 10-20 min
+- 整数关口 / 远处观测位 → `deep_hold`, 20-30 min
+- 创建多价位规则时，优先使用 §13 延迟确认模板
+
+**检查方法：** 规则代码中 `PRICE_LEVELS` 数组每个元素必须有 `confirmPolicy` 和 `confirmMs` 字段。
+
 ### 3.2 冷却机制（必须）
 
 每条规则都必须包含冷却机制，防止频繁触发：
@@ -393,9 +416,12 @@ execSync('openclaw agent ...', { timeout: 30000 });
 // ✅ 正确：异步方式，创建隔离会话执行即时分析
 const { spawn } = require('child_process');
 const now = new Date().toISOString();
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
 spawn('openclaw', [
   'cron', 'add',
   '--agent', 'july',
+  '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
   '--session', 'isolated',
   '--at', now,
   '--message', message,
@@ -600,9 +626,12 @@ module.exports = {
     const jobName = `alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -713,9 +742,12 @@ module.exports = {
     const now = new Date().toISOString();
     const jobName = `alert-volume-${Date.now()}`;
 
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', spawnMessage,
@@ -821,9 +853,12 @@ module.exports = {
     const jobName = `timer-alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -959,9 +994,12 @@ module.exports = {
     const jobName = `delayed-alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -1211,9 +1249,12 @@ module.exports = {
     const jobName = `alert-multi-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -1268,3 +1309,462 @@ module.exports = {
 使用格式：`YYYY-MM-DD-multi-price.js`
 
 例如：`2026-04-23-multi-price.js`
+
+---
+
+## 13. ⭐ 延迟确认多价位规则模板（强烈推荐）
+
+**为什么需要延迟确认？**
+
+价格经常在关键位附近产生「影线穿透」——短暂触达后立即弹回。如果立即触发分析，模型看到的是"已突破"，但实际只是假突破。
+
+**延迟确认解决：** 价格触及价位后不立即触发，而是等待一段时间观察：
+- 价格是否**站稳**在价位上方/下方？
+- 是否有**持续同向**走势？
+- 还是只是**影线探针**后弹回？
+
+### 13.1 确认策略分级
+
+每个价位必须指定 `confirmPolicy`，决定延迟策略：
+
+| 策略 | `confirmMs` | 适用场景 | 判断逻辑 |
+|------|------------|---------|---------|
+| **`instant`** | 0 | 止损位、紧急信号 | 一触即发，无需确认 |
+| **`touch`** | 3-5 分钟 | 止盈位、近期关键位 | 短暂确认，避免假TP |
+| **`hold`** | 10-20 分钟 | 结构位、突破确认、入场触发位 | 需站稳，避免影线假破 |
+| **`deep_hold`** | 20-30 分钟 | 远处观测位、低优先级价位 | 长确认，这类价位不急 |
+
+**确认策略选择指南：**
+
+| 价位类型 | 推荐策略 | 理由 |
+|---------|---------|------|
+| 止损位 (SL) | `instant` | 止损是最后防线，不能延迟 |
+| 止盈位 (TP) | `touch` | 到了就止盈，只需短暂确认 |
+| 入场触发位（开仓/加仓） | `hold` | **假突破高发区**，必须等待站稳 |
+| 关键支撑/阻力（有 action） | `hold` | 跌破/突破确认后才有操作意义 |
+| 整数关口（心理位） | `deep_hold` | 容易被假突破，且操作性弱 |
+| 远处观测位（14d高点等） | `deep_hold` | 不急，长确认后再分析 |
+| 非价格警报（Taker比等） | 按需选择 | 数据本身有延迟，可设 `touch` |
+
+### 13.2 稳定性检查（核心创新）
+
+延迟期间不仅仅是等时间，还检查价格稳定性：
+
+```javascript
+// 稳定性检查参数
+const STABILITY = {
+  maxRetracePercent: 0.1,    // 最大回穿幅度（%）：突破后价格最多允许回穿价位的 0.1%
+  minConfirmPercent: 0.05,   // 最小确认深度（%）：价格必须超过价位至少 0.05%
+  resetOnCrossback: true     // 价格回穿价位是否重置计时
+};
+```
+
+**稳定性检查逻辑：**
+
+```
+突破发生（price >= resistance 或 price <= support）
+  ├─ 记录 firstTouchTime
+  ├─ 每次 check() 检查：
+  │   ├─ 价格是否仍在「确认侧」？（突破后 > 价位，跌破后 < 价位）
+  │   │   ├─ 是 → 累计 elapsed，检查是否 >= confirmMs
+  │   │   │   ├─ 是 → 确认完成，触发
+  │   │   │   └─ 否 → 继续等待
+  │   │   └─ 否 → 价格回穿了
+  │   │       ├─ 回穿幅度 > maxRetracePercent → 假突破，重置计时
+  │   │       └─ 回穿幅度 < maxRetracePercent → 小幅回踩，继续计时
+```
+
+### 13.3 触发元数据增强
+
+确认完成后，传递给即时分析的元数据包含确认信息：
+
+```javascript
+return {
+  // ... 其他字段
+  
+  // ⭐ 确认增强字段
+  confirmation: {
+    policy: 'hold',
+    confirmMs: 20 * 60 * 1000,
+    firstTouchTime: '2026-04-29T14:31:00+08:00',
+    confirmedAt: '2026-04-29T14:51:00+08:00',
+    elapsedMs: 1200000,
+    stability: {
+      maxRetracePct: 0.08,      // 最大回穿 %
+      maxDeviation: -15,         // 最大偏移（美元）
+      crossbacks: 0,             // 回穿次数
+      breakoutDepth: {           // 突破深度统计
+        max: 77250,              // 突破后最高到达
+        current: 77180           // 当前价格
+      }
+    }
+  }
+};
+```
+
+这让阶段二的即时分析知道："这个突破不是刚发生的，已经确认了20分钟，回穿0次" vs "刚才碰了一下"。
+
+### 13.4 完整模板
+
+```javascript
+/**
+ * 延迟确认多价位监控警报（推荐）
+ * 每个价位有独立的确认策略和延迟时间
+ * 价格触及价位后等待确认，避免假突破误触发
+ *
+ * 来源：<报告路径>
+ * 报告观点：<核心判断摘要>
+ */
+
+const api = require('../../btc-market-lite/scripts/api');
+const { spawn } = require('child_process');
+
+const CREATED_DATE = '2026-04-29';
+const COOLDOWN_MS = 60 * 60 * 1000; // 整体冷却 1小时
+
+// ============================================================
+// ⭐ 多价位配置（每个价位带确认策略）
+// ============================================================
+const PRICE_LEVELS = [
+  // 上方价位
+  { price: 77304, type: 'resistance', label: 'BB中轨/多头确认位',
+    action: '站上确认多头，评估加仓', priority: 'high',
+    // ⭐ 新字段：确认策略
+    confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000 },
+    
+  { price: 77858, type: 'resistance', label: 'TP1/斐波那契78.6%',
+    action: '第一止盈(50%)', priority: 'high',
+    confirmPolicy: 'touch', confirmMs: 3 * 60 * 1000 },
+    
+  { price: 78500, type: 'resistance', label: 'TP2/筹码密集区上沿',
+    action: '第二止盈(全部)', priority: 'high',
+    confirmPolicy: 'touch', confirmMs: 3 * 60 * 1000 },
+  
+  // 下方价位
+  { price: 77050, type: 'support', label: '多头防线/近期低点',
+    action: '跌破评估减仓', priority: 'high',
+    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
+    
+  { price: 76800, type: 'support', label: '结构弱化位',
+    action: '减仓至50%', priority: 'high',
+    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
+    
+  { price: 76688, type: 'support', label: '止损位',
+    action: '全平止损', priority: 'critical',
+    confirmPolicy: 'instant', confirmMs: 0 }
+];
+
+// ============================================================
+// ⭐ 稳定性检查参数
+// ============================================================
+const STABILITY = {
+  maxRetracePercent: 0.1,     // 最大回穿幅度 %
+  resetOnCrossback: true      // 价格回穿超过阈值时重置计时
+};
+
+module.exports = {
+  name: '延迟确认多价位监控',
+  interval: 3 * 60 * 1000,
+  lastTriggered: 0,
+  
+  // ⭐ 每个价位的独立确认状态
+  // 格式: { "<price>": { firstTouch: ms, lastCheck: ms, touches: N, crossbacks: N } }
+  levelStates: {},
+  
+  // 本次触发的价位列表（供 collect 使用）
+  currentTriggeredLevels: [],
+  
+  // 突破深度追踪（供稳定性检查使用）
+  breakoutExtremes: {},
+
+  async check() {
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
+      return false;
+    }
+
+    try {
+      const klines = await api.getKlines('BTC', '1m', 3);
+      const periodHigh = Math.max(...klines.map(k => k.high));
+      const periodLow = Math.min(...klines.map(k => k.low));
+      const latestPrice = klines[klines.length - 1].close;
+
+      const now = Date.now();
+      const confirmedLevels = [];
+      const allLogs = [];
+
+      for (const level of PRICE_LEVELS) {
+        const key = String(level.price);
+        if (!this.levelStates[key]) {
+          this.levelStates[key] = { firstTouch: null, touches: 0, crossbacks: 0, confirmed: false };
+        }
+        const state = this.levelStates[key];
+
+        // ⭐ 检测是否触及
+        const wasTouched = (level.type === 'resistance' && periodHigh >= level.price) ||
+                          (level.type === 'support' && periodLow <= level.price);
+
+        if (!wasTouched) {
+          // 价格未触及 → 检查是否需要重置已开始的计时
+          if (state.firstTouch && !state.confirmed) {
+            // 价格回穿，检查回穿幅度
+            const isAboveLevel = (level.type === 'resistance' && latestPrice < level.price) ||
+                                 (level.type === 'support' && latestPrice > level.price);
+            if (isAboveLevel) {
+              const retrace = Math.abs((latestPrice - level.price) / level.price * 100);
+              if (retrace > STABILITY.maxRetracePercent) {
+                state.crossbacks++;
+                state.firstTouch = null; // 重置计时
+                allLogs.push(`${level.label}: 假突破，回穿${retrace.toFixed(2)}%，重置`);
+              }
+            }
+          }
+          continue;
+        }
+
+        // ⭐ 触及了 → 按确认策略处理
+        
+        // Instant: 直接触发
+        if (level.confirmPolicy === 'instant') {
+          confirmedLevels.push(level);
+          allLogs.push(`${level.label}: INSTANT触发`);
+          continue;
+        }
+
+        // ⭐ 延迟确认：记录首次触及时间
+        if (!state.firstTouch) {
+          state.firstTouch = now;
+          state.touches++;
+          allLogs.push(`${level.label}: 首次触及，开始${level.confirmMs/60000}分钟确认...`);
+          continue;
+        }
+
+        // 追踪突破深度
+        if (!this.breakoutExtremes[key]) {
+          this.breakoutExtremes[key] = level.type === 'resistance' ? latestPrice : latestPrice;
+        }
+        if (level.type === 'resistance') {
+          this.breakoutExtremes[key] = Math.max(this.breakoutExtremes[key], latestPrice);
+        } else {
+          this.breakoutExtremes[key] = Math.min(this.breakoutExtremes[key], latestPrice);
+        }
+
+        // ⭐ 检查确认时间是否达到
+        const elapsed = now - state.firstTouch;
+        if (elapsed >= level.confirmMs) {
+          if (!state.confirmed) {
+            state.confirmed = true;
+            confirmedLevels.push(level);
+            const elapsedMins = Math.floor(elapsed / 60000);
+            allLogs.push(`${level.label}: 确认完成(${elapsedMins}分钟)`);
+          }
+        } else {
+          const elapsedMins = Math.floor(elapsed / 60000);
+          const targetMins = Math.floor(level.confirmMs / 60000);
+          allLogs.push(`${level.label}: 确认中(${elapsedMins}/${targetMins}分钟)`);
+        }
+      }
+
+      // ⭐ 日志输出
+      const statusStr = allLogs.length > 0 ? allLogs.join(' | ') : '无触及';
+      console.log(`[🔍警报检查] [API] CryptoCompare获取BTC ${klines.length}根1分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0}`);
+
+      if (confirmedLevels.length > 0) {
+        this.currentTriggeredLevels = confirmedLevels;
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('[❌警报检查错误]', error.message);
+      throw error;
+    }
+  },
+
+  async collect() {
+    try {
+      const triggeredLevels = this.currentTriggeredLevels || [];
+      const now = Date.now();
+      
+      const ticker = await api.getTicker('BTC');
+      const klines15m = await api.getKlines('BTC', '15m', 8);
+      
+      let oiData = null, takerData = null;
+      try {
+        oiData = await api.getOKXOpenInterest();
+        takerData = await api.getOKXTakerRatio();
+      } catch (e) { /* 静默 */ }
+
+      return {
+        alertTime: new Date().toISOString(),
+        currentPrice: ticker.price,
+        
+        // ⭐ 确认增强字段
+        triggeredLevels: triggeredLevels.map(l => {
+          const key = String(l.price);
+          const state = this.levelStates[key] || {};
+          return {
+            price: l.price,
+            type: l.type,
+            label: l.label,
+            action: l.action,
+            priority: l.priority,
+            // ⭐ 确认元数据
+            confirmPolicy: l.confirmPolicy,
+            confirmMs: l.confirmMs,
+            firstTouchTime: state.firstTouch ? new Date(state.firstTouch).toISOString() : null,
+            confirmedAt: new Date(now).toISOString(),
+            elapsedMs: state.firstTouch ? now - state.firstTouch : 0,
+            stability: {
+              touches: state.touches || 0,
+              crossbacks: state.crossbacks || 0,
+              breakoutExtreme: this.breakoutExtremes[key] || ticker.price,
+              maxRetracePct: l.confirmPolicy === 'instant' ? null : 
+                Math.abs((ticker.price - l.price) / l.price * 100).toFixed(3)
+            }
+          };
+        }),
+        
+        periodRange: {
+          high: Math.max(...klines15m.slice(-3).map(k => k.high)),
+          low: Math.min(...klines15m.slice(-3).map(k => k.low))
+        },
+        
+        priceChange: { '1h': ticker.change1h, '24h': ticker.change24h },
+        openInterest: oiData?.currentOI,
+        takerBuyRatio: takerData?.currentRatio,
+        klines15m: klines15m.map(k => ({
+          time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume
+        })),
+        
+        alertType: '多价位触发（延迟确认）',
+        significance: this.buildSignificance(triggeredLevels)
+      };
+    } catch (error) {
+      console.error('[❌数据收集错误]', error.message);
+      throw error;
+    }
+  },
+
+  buildSignificance(levels) {
+    if (levels.length === 0) return '无触发';
+    if (levels.length === 1) {
+      const l = levels[0];
+      const confirmDesc = l.confirmPolicy === 'instant' ? '立即触发' : `确认${l.confirmMs/60000}分钟后触发`;
+      return l.action
+        ? `${l.label}($${l.price}) ${confirmDesc}，${l.action}`
+        : `${l.label}($${l.price}) ${confirmDesc}`;
+    }
+    const labels = levels.map(l => `${l.label}($${l.price}, ${l.confirmPolicy})`);
+    return `多价位确认触发: ${labels.join('、')}`;
+  },
+
+  async trigger(data) {
+    const now = new Date().toISOString();
+    const jobName = `alert-confirmed-${Date.now()}`;
+    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/instant-analysis-stage1.md 执行数据获取\n2. 读取 tasks/daily-report-stage2.md 执行技术分析\n3. 读取 tasks/daily-report-stage3.md 执行仓位管理\n4. 读取 tasks/daily-report-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
+
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], { detached: true, stdio: 'ignore' });
+
+    console.log(`[警报触发] 已派发即时分析全四阶段任务: ${jobName} | 确认触发价位: ${data.triggeredLevels.length}个 | 确认策略: ${data.triggeredLevels.map(l=>l.confirmPolicy).join(',')}`);
+    
+    // ⭐ 重置所有价位状态
+    this.lastTriggered = Date.now();
+    this.currentTriggeredLevels = [];
+    this.levelStates = {};
+    this.breakoutExtremes = {};
+  },
+
+  lifetime() {
+    const today = api.getLocalDate();
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired';
+  }
+};
+```
+
+### 13.5 与普通多价位规则的对比
+
+| 维度 | 普通多价位 (12节) | 延迟确认多价位 (13节) |
+|------|------------------|---------------------|
+| 触发时机 | 价格触及立即触发 | 价格触及 + 延迟确认后才触发 |
+| 假突破 | 高（影线即触发） | 低（需站稳确认） |
+| 分析元数据 | 仅传递被触发的价位 | 额外传递确认时长、稳定性数据 |
+| 适用场景 | 低波动环境 | **通用推荐**，尤其波动期 |
+| 复杂度 | 简单 | 中等（多了状态追踪） |
+
+**⚠️ 建议：新规则优先使用延迟确认模板（第13节）。仅在没有假突破风险的特殊场景才使用普通模板（第12节）。**
+
+---
+
+## 14. 山寨币 trigger() 参考
+
+创建山寨币警报规则时，`trigger()` 使用以下模板（与 BTC 的 `[SPAWN_INSTANT_ANALYSIS]` 前缀 + `cron add` 机制一致）：
+
+```javascript
+async trigger(alertData) {
+  const json = JSON.stringify(alertData);
+  const now = new Date().toISOString();
+  const jobName = `alert-${alertData.coin}-${Date.now()}`;
+  const message = `[SPAWN_INSTANT_ANALYSIS]${json}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/alt-instant-stage1.md 执行数据获取\n2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析\n3. 读取 tasks/alt-intel-stage3.md 执行仓位管理\n4. 读取 tasks/alt-intel-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
+
+    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
+    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
+  spawn('openclaw', [
+    'cron', 'add',
+    '--agent', 'july',
+    '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
+    '--session', 'isolated',
+    '--at', now,
+    '--message', message,
+    '--name', jobName,
+    '--delete-after-run',
+    '--no-deliver'
+  ], {
+    detached: true,
+    stdio: 'ignore'
+  });
+
+  console.log(`[${alertData.coin}警报触发] 已派发即时分析任务: ${jobName}`);
+  this.lastTriggered = Date.now();
+}
+```
+
+**⚠️ `collect()` 必须返回 `coin` 字段**，否则阶段一无法定位周期：
+
+```javascript
+async collect() {
+  return {
+    coin: 'DOGE',           // ← 必须
+    alertTime: new Date().toISOString(),
+    currentPrice: ...,
+    triggerPrice: ...,
+    // ...其他数据
+  };
+}
+```
+
+**与 BTC trigger() 的区别：**
+
+| | BTC | 山寨币 |
+|---|-----|--------|
+| 阶段一 | `instant-analysis-stage1.md` | `alt-instant-stage1.md` |
+| 阶段二 | `daily-report-stage2.md` | `alt-intel-stage2.md` |
+| 阶段三 | `daily-report-stage3.md` | `alt-intel-stage3.md` |
+| 阶段四 | `daily-report-stage4.md` | `alt-intel-stage4.md` |
+| 消息前缀 | `[SPAWN_INSTANT_ANALYSIS]` | **相同** |
+| 触发方式 | `cron add` | **相同** |
+| `collect().coin` | 不需要（固定 BTC） | **必须返回** |

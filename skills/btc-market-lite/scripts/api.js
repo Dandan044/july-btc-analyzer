@@ -3,7 +3,6 @@
  * 供警报器规则和其他模块复用
  */
 
-const https = require('https');
 const { execSync } = require('child_process');
 
 // OKX API 代理配置（从环境变量读取，默认 7890）
@@ -11,33 +10,24 @@ const PROXY_URL = process.env.http_proxy || process.env.HTTP_PROXY || 'http://12
 
 // ========== 工具函数 ==========
 
+/**
+ * 通用 fetch（通过代理访问，国内必需）
+ * 替代直连 https.request，统一走 curl --proxy
+ */
 function fetch(url) {
   return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const req = https.request({
-      hostname: parsed.hostname,
-      path: parsed.pathname + parsed.search,
-      method: 'GET',
-      headers: { 
-        'User-Agent': 'Mozilla/5.0', 
-        'Accept': 'application/json'
-      },
-      timeout: 30000
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        if (res.statusCode === 200) {
-          try { resolve(JSON.parse(data)); }
-          catch (e) { resolve(data); }
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}`));
-        }
+    try {
+      const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+        encoding: 'utf8',
+        timeout: 35000
       });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
-    req.end();
+      try { resolve(JSON.parse(result)); }
+      catch (e) { resolve(result); }
+    } catch (err) {
+      // curl 超时或连接失败
+      const msg = err.signal === 'SIGTERM' ? '请求超时' : (err.message || '请求失败');
+      reject(new Error(msg));
+    }
   });
 }
 
@@ -160,8 +150,8 @@ async function getFearGreedIndex(days = 30) {
  * @param {number} limit - 数据条数
  * @returns {Promise<Array>} K线数据数组，从新到旧
  */
-async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
-  const instId = `${symbol}-USDT`;
+async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instType = 'SPOT') {
+  const instId = instType === 'SWAP' ? `${symbol}-USDT-SWAP` : `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=${interval}&limit=${limit}`;
   const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
@@ -192,8 +182,8 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100) {
  * @param {string} symbol - 币种 (BTC)
  * @returns {Promise<Object>} 价格信息
  */
-async function getOKXTicker(symbol = 'BTC') {
-  const instId = `${symbol}-USDT`;
+async function getOKXTicker(symbol = 'BTC', instType = 'SPOT') {
+  const instId = instType === 'SWAP' ? `${symbol}-USDT-SWAP` : `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/ticker?instId=${instId}`;
   const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
     encoding: 'utf8',
@@ -464,6 +454,30 @@ async function getOKXLiquidation() {
 }
 
 /**
+ * 获取跨交易所全球24h交易量（CryptoCompare 聚合数据）
+ * 国内可用，无需代理，不需要 API Key
+ * @param {string} symbol - 币种 (BTC, ETH, etc.)
+ * @returns {Promise<Object>} { price, volume24h, totalVolume24hBtc, topTierVolume24h }
+ */
+async function getGlobalVolume(symbol = 'BTC') {
+  const data = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbol}&tsyms=USD`);
+  const raw = data.RAW?.[symbol]?.USD;
+  if (!raw) throw new Error(`CryptoCompare 返回数据异常: 缺少 ${symbol}`);
+  return {
+    symbol,
+    price: raw.PRICE,
+    volume24h: raw.TOTALVOLUME24HTO,        // 跨交易所总成交额(USD)
+    totalVolume24hBtc: raw.TOTALVOLUME24H,   // 跨交易所总成交量(BTC)
+    topTierVolume24h: raw.VOLUME24HOURTO,    // TopTier 交易所成交额(USD)
+    change24h: ((raw.PRICE - raw.OPEN24HOUR) / raw.OPEN24HOUR * 100).toFixed(2),
+    change1h: ((raw.PRICE - raw.OPENHOUR) / raw.OPENHOUR * 100).toFixed(2),
+    high24h: raw.HIGH24HOUR,
+    low24h: raw.LOW24HOUR,
+    timestamp: new Date().toISOString()
+  };
+}
+
+/**
  * 获取本地时区(Asia/Shanghai)的今日日期字符串
  * 修复 lifetime() 中的时区问题：toISOString()返回UTC日期，导致UTC+8下日期不匹配
  * @returns {string} 格式 "YYYY-MM-DD"
@@ -491,5 +505,6 @@ module.exports = {
   getOKXLongShortRatio,
   getOKXTopTraderRatio,
   getOKXLiquidation,
+  getGlobalVolume,
   getLocalDate
 };

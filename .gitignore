@@ -20,11 +20,15 @@ data/*.json
 
 # 动态运行时数据（不需要版本控制）
 active/cycle-*/
+active/alt-*/
 archived/cycle-*/
+archived/alt-*/
 skills/btc-alert/rules-archive/
+.openclaw/workspace-state.json
+.openclaw/workspace-state-backup.json
 
 # 临时文件
 *.tmp
 *.bak
 node_modules/
-.cache/
+.cache/.env

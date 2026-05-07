@@ -1,0 +1,14 @@
+{
+  "_schema": "全局参数配置。各阶段任务文件、AGENTS.md、警报规则、cron job 均读取本文件获取默认参数，避免参数分散硬编码。",
+  "maxAltcoinCycles": 10,
+  "trigger": {
+    "btc": {
+      "model": "deepseek/deepseek-v4-pro",
+      "_note": "BTC 即时分析使用 pro 模型，分析深度更高"
+    },
+    "altcoin": {
+      "model": "deepseek/deepseek-v4-flash",
+      "_note": "山寨币即时分析使用 flash 模型，速度快成本低"
+    }
+  }
+}

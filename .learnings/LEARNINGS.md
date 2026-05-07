@@ -68,3 +68,53 @@
    - 做空条件：压力受阻、下跌信号、情绪恶化
 2. 每次报告必须回答：当前更适合做多还是做空？
 3. 当趋势明确向下时，优先考虑做空建议
+## 2026-04-29: 警报器假突破问题与延迟确认方案
+
+**问题：** 多价位警报规则没有延迟确认机制，价格在 K 线影线中短暂触及价位就立即触发分析。今天 4 次触发中有多次是假突破（摸了一下就弹回来），导致：
+1. 浪费分析资源（频繁的即时分析）
+2. 模型误判（报告里写着"突破"但实际只是影线）
+3. 在 15:00 触发时报告建议减仓，最终全平了仓位（同时暴露了 swap close 的 bug）
+
+**根因：** 多价位规则模板（set-alert.md §12）的 check() 是从 K 线区间高低价判断触及，但没有 waiting/confirmation 阶段，碰到就触发。
+
+**解决方案：**
+1. 新增 §13 延迟确认多价位规则模板，每个价位带 `confirmPolicy` 和 `confirmMs`
+2. 确认策略四级：instant(0min) / touch(3-5min) / hold(10-20min) / deep_hold(20-30min)
+3. 稳定性检查：延迟期间持续监控价格是否回穿，回穿超过 0.1% 则重置计时
+4. 触发元数据增强：传递 firstTouchTime、elapsedMs、stability 等给即时分析
+5. 阶段四新增 B.5.5"分配价位确认策略"步骤，创建规则时强制选择策略
+6. 阶段四自查清单新增"延迟确认核对"章节
+
+**关键原则：**
+- SL 用 instant（不能延迟止损）
+- TP 用 touch（短暂确认）
+- 入场触发位用 hold（假突破高发区，必须站稳）
+- 整数关口 / 远处观测位用 deep_hold（不急）
+
+## 2026-05-01: 警报规则 lifetime() 必须是字符串，不是 boolean
+
+**来源**: 排查无限重载循环时发现（ERRORS.md 5月1日记录）
+
+**核心教训**: 创建警报规则时，`lifetime()` 必须返回 `'active'` / `'expired'` / `'completed'` 字符串。
+返回 boolean 会导致引擎将其误判为过期 → 无限加载-卸载循环（引擎判断 `true !== 'active'`）。
+
+**自检**: 任何新创建的 `.js` 规则文件，检查 `lifetime()` 的 `return` 语句后是否有 `? 'active' : 'expired'`。
+
+---
+
+## 2026-04-30: Web Search 多引擎配置
+
+### 背景
+原有的 Kimi (Moonshot) web_search 出现 401 认证失败，需要替换搜索引擎。
+
+### 发现
+1. OpenClaw 支持 11 种搜索引擎：DuckDuckGo（免费）、Brave、MiniMax、SearXNG 等
+2. `tools.web.search.provider` 是受保护配置路径，只能通过直接编辑 JSON + 重启修改
+3. web_search 不支持多 provider 自动 fallback，只有单 provider 模式
+4. DuckDuckGo 是免费的内置插件，provider ID 为 "duckduckgo"
+5. 国内环境 DuckDuckGo 需走代理，需在 systemd service 中注入代理环境变量
+
+### 最终方案
+- **主力**: DuckDuckGo（免费、精准、中英文覆盖）
+- **备用**: MiniMax（国内直连、有 API Key 已配置）
+- 切换需手动改 config + restart

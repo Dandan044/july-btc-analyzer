@@ -1,12 +1,15 @@
 # 实盘持仓同步任务
 
-此任务从 OKX 实盘获取 BTC 逐仓持仓数据，同步到本地持仓文件。
+此任务从 OKX 实盘获取持仓数据，同步到本地持仓文件。
+
+支持 BTC 及任意山寨币的合约持仓同步，支持逐仓和全仓两种模式。
 
 ---
 
 ## 触发方式
 
-- 由工作流路由调用（阶段一步骤 2.5）
+- 由 BTC 工作流路由调用（日产阶段一步骤 2.5）
+- 由山寨币工作流路由调用（山寨阶段一步骤 3）
 - 或由其他工作流显式调用
 
 ---
@@ -17,8 +20,14 @@
 
 | 参数 | 说明 | 示例 |
 |------|------|------|
-| 周期文件夹路径 | 当前活跃周期文件夹 | `active/cycle-20260419-001` |
-| 日志文件路径 | 日报流程日志文件 | `logs/daily-report-process.log` |
+| 币种 | 要同步的币种 | `BTC` / `DOGE` / `PEPE` |
+| 周期文件夹路径 | 当前活跃周期文件夹 | BTC: `active/cycle-20260419-001`<br>山寨: `active/alt-DOGE-20260503-1200` |
+| 日志文件路径 | 流程日志文件 | `{LOG_FILE}` |
+| 仓位模式 | `isolated`（逐仓）或 `cross`（全仓） | `isolated` / `cross` |
+
+> **指定币种和仓位模式后，只同步该币种的对应模式持仓**（`{COIN}-USDT-SWAP`）。
+> - BTC 工作流：`isolated`（逐仓）
+> - 山寨工作流：`cross`（全仓）
 
 ---
 
@@ -26,7 +35,7 @@
 
 | 文件 | 路径 | 说明 |
 |------|------|------|
-| 持仓文件 | `active/cycle-*/positions.json` | BTC 逐仓持仓数据 |
+| 持仓文件 | `active/{CYCLE_DIR}/positions.json` | 该币种持仓数据 |
 
 ---
 
@@ -34,21 +43,21 @@
 
 ### 1. 获取实盘持仓数据
 
-**⚠️ 严格约束：只能获取 BTC-USDT-SWAP 逐仓仓位，绝对不能同步全仓仓位**
+**⚠️ 严格约束：只能获取 {COIN}-USDT-SWAP 的指定模式仓位**
 
-- 即使 API 返回了 BTC 全仓持仓，也必须忽略
-- 如果没有 BTC 逐仓持仓，`当前持仓` 直接置为空数组 `[]`
-- 不能将全仓数据（无论是 BTC 还是其他币种）写入 positions.json
+- 根据入参「仓位模式」筛选：`isolated` 只保留逐仓，`cross` 只保留全仓
+- 如果没有该模式下的 {COIN} 持仓，`当前持仓` 直接置为空数组 `[]`
+- 不能将其他模式的仓位数据写入 positions.json
 
 **使用 okx 工具获取当前持仓、止盈止损订单和账单记录：**
 
 ```bash
-# 获取当前持仓（必须筛选 BTC-USDT-SWAP 逐仓）
-okx-proxy.sh --profile live account positions --instType SWAP --instId BTC-USDT-SWAP --tdMode isolated --json
+# 获取当前持仓（筛选 {COIN}-USDT-SWAP，指定仓位模式）
+okx-proxy.sh --profile live account positions --instType SWAP --instId {COIN}-USDT-SWAP --tdMode {MARGIN_MODE} --json
 
-# 获取委托订单（止盈止损，仅逐仓）
-okx-proxy.sh --profile live swap orders --instId BTC-USDT-SWAP --tdMode isolated --json
-okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated --json
+# 获取委托订单（止盈止损，指定仓位模式）
+okx-proxy.sh --profile live swap orders --instId {COIN}-USDT-SWAP --tdMode {MARGIN_MODE} --json
+okx-proxy.sh --profile live swap algo orders --instId {COIN}-USDT-SWAP --tdMode {MARGIN_MODE} --json
 
 # 获取账单记录（当前持仓的操作历史）
 okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100 --json
@@ -58,11 +67,11 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 
 | 步骤 | 筛选条件 | 说明 |
 |------|---------|------|
-| 1 | `instId` = `BTC-USDT-SWAP` | 只保留 BTC 合约 |
-| 2 | `tdMode` 或 `mgnMode` = `isolated` | 只保留逐仓模式 |
-| 3 | 忽略全仓数据 | 即使有全仓仓位也忽略 |
+| 1 | `instId` = `{COIN}-USDT-SWAP` | 只保留该币种合约 |
+| 2 | `tdMode` 或 `mgnMode` = `{MARGIN_MODE}` | 只保留指定模式仓位 |
+| 3 | 忽略其他模式的仓位数据 | 跨模式不混淆 |
 
-**⚠️ 绝对禁止：将全仓数据写入 positions.json**
+**⚠️ 绝对禁止：将非指定模式的仓位数据写入 positions.json**
 
 ---
 
@@ -99,15 +108,16 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 
 ```json
 {
-  "周期ID": "cycle-YYYYMMDD-XXX",
+  "周期ID": "{CYCLE_DIR}",
+  "币种": "{COIN}",
   "同步时间": "YYYY-MM-DDTHH:MM:SS+08:00",
   "数据来源": "OKX实盘账户",
   
   "当前持仓": [
     {
       "持仓ID": "3429443563167604736",
-      "合约": "BTC-USDT-SWAP",
-      "保证金模式": "isolated",
+      "合约": "{COIN}-USDT-SWAP",
+      "保证金模式": "{MARGIN_MODE}",
       "持仓方向": "long",
       "持仓张数": "0.01",
       "可用张数": "0.01",
@@ -190,7 +200,7 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 {
   "最近平仓": {
     "持仓ID": "3429443563167604736",
-    "合约": "BTC-USDT-SWAP",
+    "合约": "{COIN}-USDT-SWAP",
     "持仓方向": "long",
     "开仓均价": "74767.8",
     "平仓价格": "78000",
@@ -215,7 +225,7 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 ---
 
 **说明：**
-- `当前持仓`：当前活跃的 BTC 逐仓仓位列表
+- `当前持仓`：当前活跃的 {COIN} 仓位列表
 - `最近平仓`：本周期最近一次平仓记录（仅当从有仓位变为空仓位时记录）
 - `委托订单`：止盈止损订单
 - `操作记录`：每个仓位从开仓开始的操作
@@ -228,7 +238,7 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 
 ```
 1. 获取 OKX 实盘当前持仓数据
-2. 筛选 BTC 逐仓仓位（instId = BTC-USDT-SWAP, mgnMode = isolated）
+2. 筛选 {COIN} 仓位（instId = {COIN}-USDT-SWAP, mgnMode = {MARGIN_MODE}）
 3. 检查持仓文件是否存在
    - 若存在，读取旧持仓 → 判断是否有仓位变化
    - 若旧持仓有仓位，新持仓为空 → 检测到平仓
@@ -252,7 +262,7 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 |------|---------|
 | 持仓文件已存在 | `positions.json` 文件存在 |
 | 旧持仓有仓位 | 旧文件 `当前持仓` 数组不为空 |
-| 新持仓为空 | API 返回的 BTC 逐仓持仓为空 |
+| 新持仓为空 | API 返回的 {COIN} 持仓为空 |
 
 **满足以上条件 → 本周期曾开仓现已平仓**
 
@@ -262,10 +272,10 @@ okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 100
 
 ```bash
 # 查询历史持仓（已平仓）
-okx-proxy.sh --profile live account positions-history --instId BTC-USDT-SWAP --tdMode isolated --json
+okx-proxy.sh --profile live account positions-history --instId {COIN}-USDT-SWAP --tdMode {MARGIN_MODE} --json
 
 # 或查询账单中的平仓记录（type=2, 平仓方向与持仓相反）
-okx-proxy.sh --profile live account bills --instId BTC-USDT-SWAP --ccy USDT --limit 50 --tdMode isolated --json
+okx-proxy.sh --profile live account bills --instId {COIN}-USDT-SWAP --ccy USDT --limit 50 --tdMode {MARGIN_MODE} --json
 ```
 
 **从历史持仓 API 获取平仓信息：**
@@ -296,8 +306,8 @@ okx-proxy.sh --profile live account bills --instId BTC-USDT-SWAP --ccy USDT --li
 
 | 订单类型 | API 命令 | 筛选条件 |
 |---------|--------|---------|
-| **止盈订单** | `swap orders` | `instId=BTC-USDT-SWAP`, `tdMode=isolated`, `reduceOnly=true`, `ordType=limit` |
-| **止损订单** | `swap algo orders` | `instId=BTC-USDT-SWAP`, `tdMode=isolated`, `ordType=conditional` |
+| **止盈订单** | `swap orders` | `instId={COIN}-USDT-SWAP`, `tdMode={MARGIN_MODE}`, `reduceOnly=true`, `ordType=limit` |
+| **止损订单** | `swap algo orders` | `instId={COIN}-USDT-SWAP`, `tdMode={MARGIN_MODE}`, `ordType=conditional` |
 
 **止盈订单特征：**
 - `ordType` = `limit`（限价订单）
@@ -320,8 +330,8 @@ okx-proxy.sh --profile live account bills --instId BTC-USDT-SWAP --ccy USDT --li
 | OKX API 字段 | 中文字段名 | 说明 |
 |------------|----------|------|
 | `posId` | 持仓ID | 唯一标识 |
-| `instId` | 合约 | BTC-USDT-SWAP |
-| `tdMode` 或 `mgnMode` | 保证金模式 | isolated |
+| `instId` | 合约 | {COIN}-USDT-SWAP |
+| `tdMode` 或 `mgnMode` | 保证金模式 | {MARGIN_MODE} |
 | `posSide` | 持仓方向 | long/short |
 | `pos` | 持仓张数 | 当前持仓量 |
 | `notionalUsd` | 名义价值USD | 名义仓位价值 |
@@ -335,14 +345,14 @@ okx-proxy.sh --profile live account bills --instId BTC-USDT-SWAP --ccy USDT --li
 
 **操作记录筛选（严格）：**
 
-OKX 账单 API 返回所有逐仓操作，需严格筛选当前仓位：
+OKX 账单 API 返回所有指定模式操作，需严格筛选当前仓位（按仓位模式 {MARGIN_MODE}）：
 
 | 筛选条件 | 说明 |
 |---------|------|
 | `posId` 匹配当前仓位 | 只记录本仓位的操作 |
 | `ts` ≥ `cTime`（开仓时间） | 从开仓开始，不含历史仓位 |
-| `instId` = BTC-USDT-SWAP | 限定币种 |
-| `mgnMode` = isolated | 限定逐仓 |
+| `instId` = {COIN}-USDT-SWAP | 限定币种 |
+| `mgnMode` = {MARGIN_MODE} | 限定仓位模式 |
 
 ---
 
@@ -391,18 +401,18 @@ OKX 账单 API 返回所有逐仓操作，需严格筛选当前仓位：
 
 **筛选规则：**
 
-OKX 账单 API 返回所有逐仓操作记录，需严格筛选：
+OKX 账单 API 返回所有指定模式操作记录，需严格筛选：
 
 | 筛选条件 | 说明 |
 |---------|------|
 | `posId` 匹配当前仓位 | 只记录本仓位的操作 |
 | `ts` ≥ 开仓时间 | 从开仓开始，不含历史仓位 |
-| `instId` = BTC-USDT-SWAP | 限定币种 |
+| `instId` = {COIN}-USDT-SWAP | 限定币种 |
 
 **正确做法：**
 
 1. 从当前持仓获取 `开仓时间` 和 `持仓ID`
-2. 筛选账单：`持仓ID` 匹配，`时间` ≥ `开仓时间`，`合约` = BTC-USDT-SWAP，`保证金模式` = isolated
+2. 筛选账单：`持仓ID` 匹配，`时间` ≥ `开仓时间`，`合约` = {COIN}-USDT-SWAP，`保证金模式` = {MARGIN_MODE}
 
 **此任务只从 API 获取数据并记录，不做任何事件推断。**
 
@@ -414,15 +424,15 @@ OKX 账单 API 返回所有逐仓操作记录，需严格筛选：
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
 
 # 记录同步结果
-if [ 有BTC逐仓持仓 ]; then
-  echo "[$NOW] [阶段一] 实盘持仓同步: BTC逐仓 X 个 (活跃 X, 已平仓 X)" >> logs/daily-report-process.log
+if [ 有{COIN}持仓 ]; then
+  echo "[$NOW] [阶段一] 实盘持仓同步: {COIN}({MARGIN_MODE}) X 个 (活跃 X, 已平仓 X)" >> {LOG_FILE}
 else
-  echo "[$NOW] [阶段一] 实盘持仓同步: 无BTC逐仓持仓" >> logs/daily-report-process.log
+  echo "[$NOW] [阶段一] 实盘持仓同步: 无{COIN}({MARGIN_MODE})持仓" >> {LOG_FILE}
 fi
 
 # 记录异常
 if [ API获取失败 ]; then
-  echo "[$NOW] [阶段一] ⛔ ERROR: 实盘持仓获取失败 - [错误信息]" >> logs/daily-report-process.log
+  echo "[$NOW] [阶段一] ⛔ ERROR: 实盘持仓获取失败 - [错误信息]" >> {LOG_FILE}
 fi
 ```
 
@@ -445,14 +455,14 @@ fi
 | 异常类型 | 级别 | 处理方式 |
 |---------|------|---------|
 | OKX API 返回错误 | `⚠️ WARN` | 记录异常，持仓文件标记 `备注: "API获取失败"` |
-| 无 BTC 逐仓持仓 | 正常 | 持仓文件 `当前持仓: []` |
+| 无 {COIN} 持仓 | 正常 | 持仓文件 `当前持仓: []` |
 | 持仓文件写入失败 | `⛔ ERROR` | 记录异常，继续执行 |
 
 ---
 
 ### 8. 无仓位时的文件格式
 
-**当实盘无 BTC 逐仓持仓时，根据历史状态分为两种情况：**
+**当实盘无 {COIN} 持仓时，根据历史状态分为两种情况：**
 
 ---
 
@@ -460,7 +470,8 @@ fi
 
 ```json
 {
-  "周期ID": "cycle-YYYYMMDD-XXX",
+  "周期ID": "{CYCLE_DIR}",
+  "币种": "{COIN}",
   "同步时间": "YYYY-MM-DDTHH:MM:SS+08:00",
   "数据来源": "OKX实盘账户",
   
@@ -474,7 +485,7 @@ fi
     "已实现盈亏总计": 0
   },
   
-  "备注": "当前无BTC-USDT-SWAP逐仓持仓"
+  "备注": "当前无{COIN}-USDT-SWAP持仓"
 }
 ```
 
@@ -484,7 +495,8 @@ fi
 
 ```json
 {
-  "周期ID": "cycle-YYYYMMDD-XXX",
+  "周期ID": "{CYCLE_DIR}",
+  "币种": "{COIN}",
   "同步时间": "YYYY-MM-DDTHH:MM:SS+08:00",
   "数据来源": "OKX实盘账户",
   
@@ -492,7 +504,7 @@ fi
   
   "最近平仓": {
     "持仓ID": "3429443563167604736",
-    "合约": "BTC-USDT-SWAP",
+    "合约": "{COIN}-USDT-SWAP",
     "持仓方向": "long",
     "开仓均价": "74767.8",
     "平仓价格": "78000",
@@ -533,7 +545,7 @@ fi
 ## 核心原则
 
 1. **每次覆写**：交易所数据是权威来源
-2. **筛选严格**：只同步 BTC-USDT-SWAP 逐仓仓位
+2. **筛选严格**：只同步 {COIN}-USDT-SWAP 指定模式仓位
 3. **中文字段名**：便于阅读理解
 4. **只记录当前持仓**：无需历史持仓列表
 5. **操作记录严格筛选**：只包含当前仓位从开仓开始的操作
@@ -542,4 +554,4 @@ fi
 
 ---
 
-sync-positions-v1.0
+sync-positions-v1.1
