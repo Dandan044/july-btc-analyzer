@@ -1,185 +1,940 @@
 # 七月 📈 - 加密货币技术分析师
 
-> 专注于 BTC + 山寨币技术分析的智能体。定时报告、警报监控、实盘交易执行。
->
-> **v7 更新**：山寨币分析链路上线 + 模型配置全局化管理。
+> 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
+> 
+> **v7 更新**：山寨币分析链路上线 + 模型配置全局化（`tasks/global-config.json`）。
 
 ## 🚀 快速开启
 
-**首次部署请务必阅读 `deployment.md`**，包含完整的智能体注册、PM2 配置、定时任务创建流程。
+**首次部署请务必阅读 `deployment.md`**，包含完整的：
+- 智能体注册流程
+- 代理配置说明
+- PM2 警报器引擎启动
+- OKX CLI 配置
+- 定时任务创建
 
 ```bash
+# 克隆仓库
 git clone git@github.com:Dandan044/july-btc-analyzer.git
+
+# 查看部署指南
 cat deployment.md
 ```
 
 ---
 
-## 核心能力
+## 简介
 
-| 能力 | 说明 |
-|------|------|
-| ⏰ 定时报告 | BTC 日报 9:00/21:00 GMT+8 |
-| 📊 山寨币扫描 | 每小时扫描 OKX 合约波动最大的山寨币 |
-| 🔔 市场警报 | 动态创建规则，监控价位/量/OI/Taker 等触发条件 |
-| 💰 实盘交易 | OKX 现货/合约/期权全品种（需 API 凭证） |
-| 🔄 周期管理 | 交易周期隔离，持仓同步，自动归档 |
+七月是一个专门负责比特币技术分析的 AI 智能体。他会：
 
-## 任务路由
+- ⏰ 每天定时触发（9:00 和 21:00 GMT+8）
+- 📊 获取市场数据（价格、市值、恐惧贪婪指数）
+- 🧠 计算技术指标（SMA、EMA、RSI、动量、波动率）
+- 📝 生成分析报告并保存到本地文件
+- 🔔 **动态创建市场警报** - 根据分析发现的关键点位
+- 🔄 **交易周期管理** - 独立管理每轮交易建议
+- 💰 **实盘交易执行** - 通过 OKX CLI 自动执行开仓、止盈、止损
 
-### BTC 任务
+> **报告存储与分发**：
+> - 报告保存到 `active/cycle-*/reports/` 目录
+> - 文件格式：`btc-report-YYYY-MM-DD-HHMM.md`（日报）或 `instant-report-YYYY-MM-DD-HHMM.md`（即时分析）
+> - 可通过外部程序监控此目录的文件更新，实现自定义推送逻辑（如发送到飞书、Telegram、Discord 等）
 
-| 任务 | 入口 | 模型 |
-|------|------|------|
-| 日报任务 | `tasks/daily-report-stage1.md` → stage2/3/4 | `trigger.btc.model` |
-| 即时分析 | `tasks/instant-analysis-stage1.md` → stage2/3/4 | `trigger.btc.model` |
-| 设定警报 | `tasks/set-alert.md` | 默认 |
+## 技术栈
 
-### 山寨币任务
-
-| 任务 | 入口 | 后续阶段 | 模型 |
-|------|------|---------|------|
-| Scanner 扫描 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `trigger.altcoin.model` |
-| 警报即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `trigger.altcoin.model` |
-
-> **模型配置中心**：`tasks/global-config.json` — 所有 spawn / cron / 警报规则的模型参数统一从此文件读取。
-> - BTC → `deepseek-v4-pro`（分析深度优先）
-> - 山寨币 → `deepseek-v4-flash`（速度成本优先）
-
-## 山寨币分析链路 🆕
-
-两条触发路径，均 spawn 独立子会话，fire-and-forget 执行四阶段：
-
-```
-路径一：定时扫描（每小时）
-  altcoin-scanner cron → 扫描最大波动山寨币 → spawn 子会话 → 四阶段
-
-路径二：警报触发（实时）
-  警报引擎触发 → 一次性 cron job → spawn 子会话 → 四阶段
-```
-
-四阶段流程：`三维情报收集 → 交叉验证 → 仓位管理 → 警报管理`
-
-每个币种独立周期目录：`active/alt-{COIN}-{时间}/`
-
----
-
-## 架构
-
-```
-july-btc-analyzer/
-├── active/                     # 活跃周期
-│   ├── cycle-YYYYMMDD-XXX/     # BTC 周期
-│   └── alt-{COIN}-{时间}/      # 山寨币周期
-├── archived/                   # 已归档周期
-├── data/                       # 原始 JSON（当天覆盖）
-├── logs/                       # 执行日志
-├── tasks/                      # 任务规则文件
-│   ├── global-config.json      # ⭐ 全局参数（模型/周期上限）
-│   ├── daily-report-stage*.md  # BTC 四阶段
-│   ├── instant-analysis-*.md   # BTC 即时分析
-│   ├── alt-intel-stage*.md     # 山寨币四阶段
-│   ├── alt-instant-stage1.md   # 山寨币即时分析入口
-│   ├── alt-scanner.md          # 山寨币扫描器
-│   ├── set-alert.md            # 警报规则创建指南
-│   └── sync-positions.md       # 持仓同步
-├── skills/
-│   ├── btc-market-lite/        # 市场数据（OKX CLI + API）
-│   └── btc-alert/              # 警报器引擎
-│       ├── engine.js           # PM2 托管引擎
-│       ├── rules/              # 活跃规则（21个）
-│       └── rules-archive/      # 已归档规则（gitignored）
-└── scripts/                    # 辅助脚本
-```
-
-## 数据源
+### 数据源
 
 | 数据 | API | 说明 |
 |------|-----|------|
-| 多币种价格/K线 | OKX CLI | 任意 USDT 合约对，`--coin` 切换 |
-| 技术指标 | OKX CLI | RSI/MACD/BB/EMA 服务端计算 |
-| 持仓量/多空比/Taker | OKX Rubik API | 动态 `ccy` 参数 |
-| 恐惧贪婪 | alternative.me | 仅 BTC |
-| 链上数据 | OnchainOS CLI | 山寨币持有人/集群/风险分析 |
+| 多币种价格/K线 | **OKX CLI** | 支持任意 USDT 合约对，`--coin` 切换（需代理） |
+| 技术指标 | **OKX CLI** | RSI/MACD/BB/EMA 服务端计算 |
+| 持仓量/多空比/Taker | **OKX Rubik API** | 动态 `ccy` 参数适配多币种 |
+| 恐惧贪婪指数 | alternative.me | 仅 BTC，其他币种跳过 |
+| 期权数据 | Deribit | 仅 BTC/ETH 支持，其他币种自动跳过 |
 
-## 数据脚本
+> **数据源说明**: OKX 为主力数据源（国内网络需代理），CryptoCompare 用于警报器（国内直连）
+
+### 技术指标
+
+- **SMA** (简单移动平均): 7/14/20/30/50 日
+- **EMA** (指数移动平均): 7/12/20/26 日
+- **RSI** (相对强弱指标): 14 日
+- **波动率**: 30 日标准差
+- **斐波那契回调位**: 23.6% / 38.2% / 50% / 61.8% / 78.6%
+  - 支持多时间框架：日线 / 4小时 / 周线
+  - 自动识别波段高低点并计算关键价位
+
+### 技能
+
+| 技能 | 说明 |
+|------|------|
+| `btc-market-lite` | 多币种市场数据获取（`--coin BTC/SOL/ETH/LAB...`） |
+| `btc-alert` | 灵活的市场警报系统 |
+
+---
+
+## 数据脚本使用 📊
 
 ```bash
 cd skills/btc-market-lite/scripts
 
-# BTC 增强分析
+# 默认 BTC 增强分析
 node get_enhanced_analysis.js --save
 
-# 山寨币即时数据
-node get_instant_data.js --coin ZEC --json --save
+# 多币种切换
+node get_enhanced_analysis.js --coin SOL --json --save
+node get_enhanced_analysis.js --coin ETH --save
+node get_enhanced_analysis.js --coin LAB --save
+
+# 即时分析（多币种）
+node get_instant_data.js --coin SOL --json --save
+
+# 山寨币三维分析（合约 + 消息面 + 链上）
 node get_altcoin_analysis.js --coin DASH --save
 ```
 
-## 警报器系统
+### 自适应机制
 
-七月根据分析结论动态创建警报规则，引擎每 3 分钟检查一次。
+| 特性 | BTC (~$78k) | SOL (~$84) | LAB (~$3) |
+|------|------------|-----------|----------|
+| 价格精度 | 2位 | 3位 | 5位 |
+| 清算分档 | $500/档 | $5/档 | $0.5/档 |
+| 费率周期 | 自动推算(8h) | 自动推算(8h) | 自动推算(4h) |
+| 期权数据 | ✅ Deribit | ⛔ 跳过 | ⛔ 跳过 |
+| Spot回退 | ✅ | ✅ | ⛔→SWAP |
+
+---
+
+## 交易周期系统 🔄
+
+七月使用**交易周期系统**管理交易建议，实现周期隔离和自动化管理。
+
+### 核心概念
+
+**交易周期（Cycle）** 是七月管理交易建议的核心单位。一个周期从上一篇报告结束开始，到所有交易建议关闭为止。
+
+### 目录结构
+
+```
+july-btc-analyzer/
+├── active/                      # 活跃交易周期
+│   ├── cycle-YYYYMMDD-XXX/      # BTC 周期（最多1个）
+│   │   ├── positions.json        # 实盘持仓文件（OKX同步）
+│   │   ├── data-context/         # 阶段一产出
+│   │   │   ├── data-manifest-*.json  # 数据清单
+│   │   │   └── data-mining-*.md      # 数据挖掘报告
+│   │   └── reports/             # 本周期报告
+│   │       ├── btc-report-YYYY-MM-DD-HHMM.md
+│   │       └── instant-report-YYYY-MM-DD-HHMM.md
+│   └── alt-{COIN}-{时间}/       # 山寨币周期（最多10个）
+│       ├── positions.json        # 山寨币持仓
+│       ├── data/                 # 原始数据
+│       └── reports/              # 山寨币分析报告
+│
+├── archived/                    # 已归档周期
+│   ├── cycle-YYYYMMDD-XXX/      # BTC 历史周期
+│   └── alt-{COIN}-{时间}/       # 山寨币历史周期
+│
+├── data/                        # 原始 JSON 数据
+├── logs/                        # 执行日志
+├── scripts/                     # 辅助脚本
+├── skills/                      # 技能目录
+│   ├── btc-alert/               # 警报器技能
+│   │   ├── engine.js            # 警报引擎
+│   │   ├── rules/               # 活跃警报规则（BTC + 山寨币）
+│   │   └── rules-archive/       # 已归档规则（gitignored）
+│   └── btc-market-lite/         # 数据获取技能
+│       └── scripts/             # 数据脚本
+└── tasks/                       # 任务规则
+    └── global-config.json       # ⭐ 全局参数（模型/周期上限）
+```
+
+### 周期生命周期
+
+```
+[上一周期结束]
+      │
+      ▼
+下一篇报告生成 → 开启新周期（创建 positions.json）
+      │
+      ▼
+周期进行中 → 报告保存到 active/cycle-xxx/reports/
+          → 识别操作意图 → 执行交易 → 同步 positions.json
+          → 监控止盈/止损触发
+      │
+      ▼
+持仓清空 → 归档（移动 active/ → archived/）
+      │
+      ▼
+[下一周期在下一篇报告时开启]
+```
+
+**持仓状态判断：**
+- `positions.json` 中 `当前持仓` 为空数组 → 无持仓
+- `当前持仓` 有记录 → 持仓中，需监控止盈止损
+- 归档条件：持仓数=0 且 `最近平仓` 非空（表示刚完成一轮交易）
+
+### 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| **周期连续性** | 一周期结束后，下一篇报告立即开启新周期 |
+| **文件驱动** | 七月只通过读写文件理解状态，不依赖记忆 |
+| **周期隔离** | 归档后七月不读取历史，不受上一轮交易影响 |
+| **简洁归档** | 仅移动文件夹，不做总结计算 |
+| **无持仓周期支持** | 允许周期内无持仓（纯观望期） |
+| **实盘驱动** | 持仓状态由 OKX API 实时同步，而非建议文件管理 |
+
+---
+
+## 警报器系统 🔔
+
+七月可以根据分析结果，动态创建市场警报规则。
+
+### 架构设计
+
+```
+七月分析 ──────► 发现关键点位 ──────► 编写警报规则
+    ▲                                    │
+    │                                    ▼
+执行即时分析 ◄─────── 触发通知 ◄─────── 警报器监控
+```
+
+### 警报类型
+
+| 警报类型 | 实现思路 | 适用场景 |
+|---------|---------|---------|
+| **多价位监控** | 单规则支持≤6价位，使用K线区间数据 | 批量监控支撑/阻力位 |
+| **价格警报** | 价格 >= 或 <= 目标位 | 单价位监控（较少使用） |
+| **定时器警报** | 纯时间判断，无数据依赖 | 计划入场时间提醒、定时检查 |
+| **延迟触发警报** | 条件满足后等待N分钟 | 确认突破有效性、避免假突破 |
+| **交易量异动** | 小时交易量 > N日均值 × M | 大资金进出 |
+| **振幅警报** | 1小时 high-low > 阈值% | 剧烈波动 |
+| **OI变化监控** | 持仓量涨跌幅度监控 | 市场情绪变化 |
+| **Taker买卖比** | Taker多空比例监控 | 主力资金方向 |
+
+> **多价位优势**（2026-04-26 改造）：单规则打包多个价位，避免筛选丢弃有意义的价格位；使用K线区间而非瞬时价格，捕捉瞬时突破。
 
 ### 规则接口
 
+每个警报规则由智能体现场编写，实现4个抽象方法：
+
 | 方法 | 返回 | 说明 |
 |------|------|------|
-| `check()` | boolean | 触发条件检测 |
-| `collect()` | object | 收集触发数据 |
-| `trigger(data)` | void | 创建一次性 cron，spawn 子会话分析 |
-| `lifetime()` | `'active'\|'expired'\|'completed'` | 生命周期管理 |
+| `check()` | boolean | 检测条件是否满足 |
+| `collect()` | any | 收集要传递的数据 |
+| `trigger(data)` | void | 触发动作 |
+| `lifetime()` | string | 规则状态：active/expired/completed |
 
-### 支持的警报维度
+### 生命周期管理
 
-| 维度 | 说明 |
-|------|------|
-| 多价位监控 | ≤6 价位批量监控，延迟确认防假突破 |
-| 成交量异动 | 1h 成交量 vs 均值倍数 |
-| OI 变化 | 持仓量涨跌幅度 |
-| Taker 买卖比 | 主力资金方向 |
-| 定时器 | 纯时间触发 |
+- `active` - 规则正常运行
+- `expired` / `completed` - 规则自动归档到 `rules-archive/`
+- **热更新支持** - 手动移动规则文件到归档目录后，引擎最多 1 分钟内自动卸载该规则
 
-### PM2 管理
+### 日志系统
+
+- `logs/alert-engine.log` - 警报器引擎执行日志
+- `logs/alert-setup.log` - 规则设定日志
+
+---
+
+## 配置
+
+### 定时任务
+
+| 任务 | 时间 (GMT+8) | 描述 |
+|------|--------------|------|
+| btc-daily-report | 09:00 | 早间分析报告 |
+| btc-daily-report-2 | 21:00 | 晚间分析报告 |
+
+### 任务路由
+
+当收到任务指令时，读取对应的任务规则文件并严格执行：
+
+#### BTC 任务
+
+| 任务 | 规则文件 | 模型 |
+|------|---------|------|
+| 执行日报任务（阶段一） | `tasks/daily-report-stage1.md` | `trigger.btc.model` |
+| 执行日报任务（阶段二） | `tasks/daily-report-stage2.md` | `trigger.btc.model` |
+| 执行日报任务（阶段三） | `tasks/daily-report-stage3.md` | `trigger.btc.model` |
+| 执行日报任务（阶段四） | `tasks/daily-report-stage4.md` | `trigger.btc.model` |
+| 设定市场警报 | `tasks/set-alert.md` | 默认 |
+| 即时分析任务（阶段一） | `tasks/instant-analysis-stage1.md` | `trigger.btc.model` |
+| 实盘持仓同步 | `tasks/sync-positions.md` | 默认 |
+
+#### 山寨币任务
+
+| 任务 | 阶段一入口 | 后续阶段 | 模型 |
+|------|-----------|---------|------|
+| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `trigger.altcoin.model` |
+| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `trigger.altcoin.model` |
+
+> **模型配置中心**：`tasks/global-config.json` 统一管理所有 spawn / cron / 警报规则的模型参数。BTC 使用 `deepseek-v4-pro`（分析深度），山寨币使用 `deepseek-v4-flash`（速度成本）。
+
+### 任务触发流程
+
+```
+定时任务 ───► 阶段一 ──► 阶段二 ──► 阶段三 ──► 阶段四
+（主会话spawn）  ↓        ↓        ↓        ↓
+              清单路径  周期目录  状态+路径  警报管理
+                            ↓
+                      同步持仓
+
+警报触发 ───► 即时分析（阶段一）
+```
+
+---
+
+## 部署
+
+### PM2 配置
+
+警报器和报告监控器通过 PM2 托管：
 
 ```bash
-pm2 list              # 查看 btc-alert 状态
-pm2 logs btc-alert    # 实时日志
-pm2 restart btc-alert # 重启引擎
+# 查看状态
+pm2 list
+
+# 日志
+pm2 logs btc-alert
+pm2 logs july-report-monitor
 ```
+
+当前运行的 PM2 进程：
+
+| 进程名 | 说明 |
+|--------|------|
+| `btc-alert` | 警报器引擎（BTC + 山寨币） |
+
+**代理环境变量** (ecosystem.config.js):
+```javascript
+env: {
+  http_proxy: 'http://127.0.0.1:7890',
+  https_proxy: 'http://127.0.0.1:7890',
+  all_proxy: 'socks5://127.0.0.1:7890'
+}
+```
+
+---
+
+## 相关智能体
+
+| 智能体 | 关系 | 说明 |
+|--------|------|------|
+| 一月酱 | 上司 | 管理七月和十四月 |
+| 十四月子 | 同事 | QQ机器人，转发七月报告给主人 |
+
+十四月会从 `active/cycle-*/reports/` 读取最新报告并转述。
 
 ---
 
 ## 更新日志
 
-### v7 — 2026-05-07
+### 2026-05-07
 > 🏗️ 山寨币分析链路上线 + 模型配置全局化
 
-- **山寨币分析链路**：两条触发路径（Scanner 定时扫描 + 警报即时分析），四阶段流程，每币种独立周期目录
-- **全局模型配置**：`tasks/global-config.json` 统一管理所有 spawn/cron/警报规则的模型参数（BTC→pro，山寨币→flash）
-- **AGENTS.md 重构**：拆分为 BTC / 山寨币 双分支，Spawn 指令全部引用 config
-- **set-alert.md 模板升级**：新规则自动 `require(global-config)` + `COIN` 变量，模型根据币种自动选择
-- **警报规则全量更新**：21 个活跃规则全部改用 config 引用，0 硬编码
-- **旧系统清理**：移除 `alerts/`（旧预警系统）、`rules/archive/`（129个旧规则）、实验脚本和 .bak 文件
-- **.gitignore 更新**：覆盖 `active/alt-*/`、`archived/alt-*/` 山寨币周期目录
+**变更内容：**
 
-### v6 — 2026-05-03
-> 🌐 多币种数据脚本：`--coin` 参数 + 动态自适应 + 健壮性增强
+**① 山寨币分析链路**：两条触发路径（Scanner 定时扫描 + 警报即时分析），四阶段流程（三维情报 → 交叉验证 → 仓位管理 → 警报管理），每币种独立周期目录 `active/alt-{COIN}-{时间}/`。
 
-- 数据脚本支持 `--coin` 参数，任意 OKX USDT 合约对
-- 价格精度 11 层阶梯自适应、清算分档 8 层阶梯
-- Spot→Swap 双重回退、Deribit 期权仅 BTC/ETH
-- 修复 `parseInt` 截断小数分档键的 bug
+**② 全局模型配置**：新增 `tasks/global-config.json`，所有 spawn / cron / 警报规则的模型参数统一从此文件读取。BTC → `deepseek-v4-pro`，山寨币 → `deepseek-v4-flash`。
 
-### v5 — 2026-04-19 ~ 2026-04-26
-> 🏗️ 四阶段日报架构 + 多价位警报 + 交易系统重构
+**③ AGENTS.md 双分支重构**：拆分为 BTC / 山寨币两条 Spawn 链，所有 spawn 指令的 `model` 参数改为引用 config 路径。
 
-- 四阶段流水线（数据→分析→仓位→警报），每阶段独立子会话
-- 多价位监控（≤6价位打包），K线区间防瞬时突破
-- 实盘持仓同步系统（`positions.json`）
-- 斐波那契、期权数据压缩、SOUL.md 人格定义
-- 数据脚本 API 调用减半（日报 7→4次，即时 9→6次）
+**④ set-alert.md 模板升级**：新增 `CONFIG` require 和 `COIN` 变量，新规则自动根据币种选择模型。21 个活跃警报规则全部改用 config 引用（0 硬编码残留）。
 
-### 早期版本（2026-02-27 ~ 2026-04-14）
-详见 git log。包括：警报器引擎、交易周期系统、OKX 实盘集成、期权数据、斐波那契分析、多空比/Taker/持仓量数据源、飞书分发架构等。
+**⑤ 旧系统清理**：移除 `alerts/` 旧预警系统（被 `skills/btc-alert/` 取代）、`rules/archive/` 129 个过期 BTC 规则、`.bak` 备份文件、实验脚本、运行时状态文件。
+
+**⑥ .gitignore 更新**：覆盖 `active/alt-*/`、`archived/alt-*/` 山寨币周期目录，新增运行时状态排除。
+
+### 2026-05-03
+> 🌐 多币种支持 — 数据脚本 v6
+
+**变更内容：**
+
+**① `--coin` 参数**：两个数据脚本新增 `--coin` 参数，支持任意 OKX USDT 合约币种，默认 BTC 向后完全兼容。
+
+**② 动态自适应**：价格精度 6 层阶梯（≥$10k 2位 → ≥$0.000001 11位）；清算分档 8 层阶梯（$500 → $0.000001）；资金费率周期从历史时间戳自动推算（LAB=4h, SOL/BTC=8h）；修复 `parseInt` 截断小数分档键的 bug。
+
+**③ 健壮性增强**：Spot→Swap 双重回退（指标+斐波那契）；Deribit 期权仅 BTC/ETH（其他币种自动跳过）；保存文件非BTC自动加币种后缀（`2026-05-03_LAB.json`）。
+
+### 2026-04-26
+> 📊 多价位警报监控 + 数据脚本优化 + SOUL.md人格定义
+
+**变更内容：**
+
+**① 警报系统多价位监控改造**
+- 单规则支持多价位监控（≤6价位打包），避免筛选丢弃有意义价格
+- 使用K线区间数据而非瞬时价格，捕捉瞬时突破
+- 组合触发：单次传递所有被触发的价位信息
+- 废弃上方/下方各1个限制，改为 ≤6 价位自由组合
+
+**② 数据获取脚本简化**
+- 日报脚本：资金费率独立成 fundingRateList，API调用从7次减为4次
+- 即时脚本：15m级别砍掉多空比/大户比/Taker（噪音过大），API调用从9次减为6次
+- Taker只保留ratio，去掉buyVol/sellVol单独存储
+- 多空比/大户比/Taker 砍掉1H调用，只用1D（当天数据为实时累计值）
+
+**③ 新增数据源**
+- Premium Index（当前溢价指数）
+- Basis 历史（14天基差历史）
+- 清算数据（24小时多空清算统计、最近5条清算记录详情）
+
+**④ 数据结构压缩**
+- fundingRateList → fundingRate.values 数值数组格式
+- basisHistory → basis.values 数值数组格式
+- 添加 period、count、spanDays 元数据字段
+- 添加概念说明字段（premiumNote、fundingRate.note、basis.note）
+- 数据大小减少28.9%（26KB → 18.5KB）
+
+**⑤ SOUL.md 人格定义完善**
+- 新增完整人格定义文档（冷静理性的比特币分析师）
+- 核心人格：数据信仰、信号/噪音区分、概率思维、简洁有力
+- 说话风格：专业术语日常化、不讨好不客套、坦诚面对不确定性
+- 分析本能：多维度看市场、关键位置敏感度
+
+**⑥ 日期获取修复**
+- tasks/set-alert.md 修复 lifetime() 方法日期获取问题
+- 使用 `api.getLocalDate()` 替代 `new Date().toISOString()`
+- 解决UTC+8时区下日期偏差一天的问题
+
+**⑦ 警报规则更新**
+- 归档 4/23 旧规则：multi-price、oi-drop
+- 新增 4/26 活跃规则：multi-price（多价位监控）、oi-recovery、taker-ratio
+
+---
+
+### 2026-04-23
+> 🔧 警报引擎日志规范化 + check()日志输出规范
+
+**变更内容：**
+
+**① engine.js — 警报引擎日志统一化**
+- 移除独立 `alert-engine.log` 文件写入，改为统一输出到控制台（由 PM2 捕获到单一日志文件）
+- 日志前缀统一为中文 emoji 格式：`[🔧警报引擎]` / `[❌警报引擎错误]` / `[🔍警报检查]`
+- 规则方法（check/collect/trigger）执行时使用 `.call(rule)` 保持 `this` 绑定
+- 移除 `ENGINE_LOG` 常量和 `fs.appendFileSync` 写入逻辑
+
+**② ecosystem.config.js — 日志合并**
+- `error_file` 和 `out_file` 统一指向 `./logs/btc-alert.log`
+- 错误和输出合并为同一文件，避免分散查看
+
+**③ tasks/set-alert.md — check() 日志输出规范（新增 3.1 节）**
+- 每次心跳检查必须输出三部分信息：
+  - `[API]` 数据来源说明（如 OKX/CryptoCompare 获取了什么数据）
+  - `[进度]` 触发进度可视化（当前值、阈值、触发状态）
+  - `[来源]` 警报设立依据（来源于哪份报告的什么观点）
+- 新增延迟触发警报的特殊日志格式
+- 原价格警报数量限制从 3.1 改为 3.2
+
+**④ 警报规则归档与更新**
+- 归档 4/21 旧规则：resistance-76500, support-75000, volatility-squeeze, volume-surge
+- 归档 4/22 规则（约20个）：funding-rate, longshort-ratio, oi-recovery, 多个 resistance/support 等
+- 归档 4/22 创建的 4/23 规则：longshort-rebound, oi-drop, resistance-80000, support-78963
+- 新增 4/23 活跃规则：oi-drop, resistance-79443, support-77500
+
+**⑤ positions.json 更新**
+- 逐仓持仓备注更新：API 返回的多头/空头记录持仓量均为 0，已全部平仓
+
+---
+
+### 2026-04-22
+> 📝 日志规范化 + 逐仓参数强制化 + 新周期开启
+
+**变更内容：**
+
+**① tasks/daily-report-stage3.md — 操作日志强制规范**
+- 新增「日志强制要求」表格：开仓/加仓/减仓/平仓/调整/设置止盈止损/跳过执行 全部要求记录
+- 明确每种操作的日志格式原则（操作类型 + 结果 + 关键参数）
+- 所有 OKX 持仓查询命令强制添加 `--tdMode isolated`（逐仓）
+- 新增多处执行日志格式规范（加仓成功、减仓成功、止盈止损更新等）
+
+**② tasks/sync-positions.md — 逐仓参数统一**
+- 所有 OKX API 命令强制添加 `--tdMode isolated` 参数
+- 涵盖：positions、orders、algo orders、bills、positions-history
+
+**③ active/ — 周期归档与新建**
+- 归档 cycle-20260420-001（已结束）
+- 新建 cycle-20260421-001（当前活跃周期，当前无持仓）
+
+**④ rules/ — 警报规则归档**
+- 归档 8 个过期规则到 rules-archive/：
+  - oi-decline-10pct、lsr-taker-divergence、oi-break-3350m、oi-break-3450m
+  - resistance-76500-delayed、resistance-77000-delayed
+  - support-75550、support-76500
+
+---
+
+### 2026-04-21
+> 🔧 修复阶段三最小仓位判断逻辑错误 + 新增即时分析阶段一任务
+
+**新增任务：`tasks/instant-analysis-stage1.md`**
+- 专门用于被即时分析触发的阶段一任务
+- 由警报器触发（收到 `[SPAWN_INSTANT_ANALYSIS]` 消息）
+- 职责：解析警报数据、补全市场数据、同步实盘持仓
+- 输出：数据清单路径，传递给后续阶段
+
+**问题修复：** 阶段三在判断 BTC-USDT-SWAP 最小下单量时，误将 `minSz = 0.01` 当作 `1` 处理，导致计算出的开仓张数（如 0.28 张）被错误拒绝。
+
+**修复内容：**
+- 正确理解 OKX 合约参数：`minSz = 0.01张`，`lotSz = 0.01张`，`ctVal = 0.01 BTC`
+- 更新判断逻辑：`sz < 0.01` 才拒绝下单，而非 `sz < 1`
+
+**执行记录：**
+- 开仓：做空 BTC-USDT-SWAP 0.28 张，成交价 $75,713.4
+- 止损：$76,550
+- 止盈1：$74,478（平仓 50%）
+- 止盈2：$73,812（平仓剩余 50%）
+
+---
+
+### 2026-04-19（v4.18-v4.19）
+> ⚠️ 本次更新为重大架构升级，变更涉及多个核心模块，建议仔细阅读。
+
+---
+
+#### 🌟 一、四阶段日报流程（最大变更）
+
+**旧架构：** 单一日报任务 `daily-report.md`，包含数据获取、分析、警报管理全流程。
+
+**新架构：** 四阶段流水线，每个阶段独立子会话，职责单一：
+
+| 阶段 | 任务文件 | 职责 | Spawn 传递 |
+|------|---------|------|-----------|
+| 阶段一 | `daily-report-stage1.md` | 数据获取（持仓同步、市场数据、数据挖掘、生成清单） | 数据清单路径 |
+| 阶段二 | `daily-report-stage2.md` | 数据分析（读清单 + 历史报告 + 持仓 → 生成分析报告） | 周期目录 |
+| 阶段三 | `daily-report-stage3.md` | 仓位管理（读报告 → 识别意图 → 执行交易 → 同步持仓 → 判断归档） | 周期状态 + 路径 |
+| 阶段四 | `daily-report-stage4.md` | 警报管理（归档失效规则 → 候选 → 筛选 → 创建新规则） | 周期状态 + 路径 |
+
+**为什么这样改？**
+- 阶段越多，上下文窗口越干净（每阶段只读必要文件）
+- 职责单一，每阶段失败都能精准定位
+- 子会话 Spawn 链：主会话 → 阶段一 → 阶段二 → 阶段三 → 阶段四
+
+**日报进程日志：** 所有阶段共用 `logs/daily-report-process.log`，统一日志格式：
+```
+正常: [时间] [阶段X] 内容
+警告: [时间] [阶段X] ⚠️ WARN: 内容
+错误: [时间] [阶段X] ⛔ ERROR: 内容
+```
+
+**日志分级原则：**
+- `⚠️ WARN`：不影响流程继续执行（数据部分缺失、历史报告不足）
+- `⛔ ERROR`：可能影响后续阶段，需人工介入（脚本失败、文件创建失败）
+
+---
+
+#### 🌟 二、子会话 Spawn 限制说明
+
+OpenClaw 安全机制：**子会话无法直接 spawn 另一个子会话**（防止 Spawn 链无限嵌套）。
+
+**日报流程中的处理：**
+- 阶段X完成 → 返回消息给主会话（包含下一阶段任务指令）
+- 主会话收到 → 执行 spawn 启动阶段Y
+- 各阶段在返回消息中标注下一阶段任务文件路径
+
+**Spawn 消息规范（最终版）：**
+```
+阶段一数据获取已完成。
+数据清单: active/cycle-xxx/data-context/data-manifest-xxx.json
+请读取 tasks/daily-report-stage2.md 开始阶段二分析。
+```
+
+**保底机制：** 每个阶段都有 spawn 消息解析 + 本地路径查找双保险，任意一个成功即可继续。
+
+---
+
+#### 🌟 三、持仓同步系统重构
+
+**新增 `tasks/sync-positions.md`** — 从 OKX 实盘获取 BTC 逐仓持仓数据，生成 `positions.json`。
+
+**核心设计：**
+- **中文字段名**：便于阅读（`持仓ID`、`平均入场价`、`未实现盈亏` 等）
+- **每次覆写**：OKX API 数据是权威来源，直接从 API 获取并覆写
+- **只记录当前持仓**：无需历史持仓列表
+
+**新增 `positions.json` 结构：**
+```json
+{
+  "周期ID": "cycle-20260419-001",
+  "同步时间": "2026-04-19T09:00:00+08:00",
+  "当前持仓": [
+    {
+      "持仓ID": "3429443563167604736",
+      "合约": "BTC-USDT-SWAP",
+      "持仓方向": "long",
+      "平均入场价": "74767.8",
+      "未实现盈亏": "0.21",
+      "委托订单": [ /* 止盈止损订单 */ ],
+      "操作记录": [ /* 开仓、资金费、止盈触发等 */ ]
+    }
+  ],
+  "最近平仓": null,  // 或平仓信息对象
+  "汇总": { "当前持仓数": 1, "未实现盈亏总计": 0.21 }
+}
+```
+
+**平仓检测：** 对比旧持仓文件，判断"从未开仓（null）"还是"曾开仓已平仓（填充平仓信息）"
+
+**同步数据源：** OKX API — 持仓、止盈止损订单（limit + conditional）、账单记录
+
+---
+
+#### 🌟 四、新增 `execute-trade.md` — 仓位执行任务（已合并入阶段三）
+
+独立的仓位执行模块现已合并入 `tasks/daily-report-stage3.md` 和 `tasks/alt-intel-stage3.md`，不再单独维护。
+
+---
+
+#### 🌟 五、数据脚本升级
+
+**`api.js` 新增三个 OKX API（需代理）：**
+- `getOKXOpenInterest()` — 持仓量（OI）数据
+- `getOKXTakerRatio()` — Taker 买卖比
+- `getOKXLongShortRatio()` — 多空比
+
+**`get_enhanced_analysis.js` 优化：**
+
+1. **交易量字段修正**：`vol24h × last` → `volCcy24h × last`（后者才是 BTC 单位交易量）
+2. **交易量统一为 USDT 单位**：K线 volume 改用 `volCcyQuote`（k[7]），不再保留 BTC 单位
+3. **新增格式化函数**：`formatVol()` 自动添加 `$1.23M` / `$456K` 等易读后缀
+4. **斐波那契数据压缩**：从嵌套对象改为扁平数组 `levels[]`（0%/23.6%/38.2%/50%/61.8%/78.6%/100%）
+5. **期权数据压缩**：统一用 `oi`/`vol` 对象替代多个独立字段，`resistance`/`support` 改为 `[strike, netOI]` 数组
+
+---
+
+#### 🌟 六、目录结构变化
+
+**`active/cycle-*/` 结构更新：**
+```
+active/cycle-YYYYMMDD-XXX/
+├── positions.json          # 🆕 实盘持仓文件（替代 trade-suggestions.json）
+├── trade-suggestions.json  # ❌ 交易建议文件（已移除）
+├── data-context/           # 阶段一产出
+│   ├── data-manifest-*.json
+│   └── data-mining-*.md
+└── reports/
+    ├── btc-report-*.md
+    └── instant-report-*.md
+```
+
+**🆕 新增目录：**
+- `scripts/sync_positions.js` — 持仓同步脚本（简化版）
+- `scripts/sync_positions_full.js` — 持仓同步脚本（完整版，含止盈止损）
+- `archived/cycle-20260416-001/` — 已归档周期
+- `archived/cycle-20260417-001/` — 已归档周期
+- `active/cycle-20260419-001/` — 新活跃周期
+
+**❌ 已删除：**
+- `tasks/daily-report.md`（拆分为 4 个阶段文件）
+- `tasks/daily-report-stages-overview.md`（已完成使命）
+- `tasks/alert-debug.md`（警报调试任务移除）
+
+---
+
+#### 🌟 七、警报规则归档
+
+本次更新归档了以下过期规则：
+- `2026-04-14-ls-reverse.js` — 多空比反转警报
+- `2026-04-14-oi-change.js` — OI 变化警报
+- `2026-04-15-resistance-75000.js` — $75,000 阻力警报
+- `2026-04-15-support-73500.js` — $73,500 支撑警报
+
+同时归档了多个历史规则（`rules-archive/`）。
+
+---
+
+#### 🌟 八、阶段三仓位管理流程详解
+
+阶段三是本次架构升级最复杂的模块，完整流程：
+
+```
+1. 读取 positions.json 了解实盘持仓
+2. 阅读整篇日报，提炼操作意图（开仓/加仓/减仓/平仓/调整止盈止损/观望）
+3. 验证操作合理性（方向冲突？无仓位却减仓？）
+4. 判断执行时机（立即入场 vs 等待触发）
+5. 执行仓位操作（调用 OKX API）
+   - 开仓：余额检查 → 计算张数 → 市价下单 → 等待成交 → 设置止盈止损
+   - 加仓：同开仓，但需重建覆盖全部仓位的止盈止损
+   - 减仓：部分平仓 + 重建剩余仓位止盈止损
+   - 平仓：取消止盈止损 → 市价全平
+   - 调整止盈止损：取消旧订单 → 设置新订单
+6. 同步持仓文件（调用 sync-positions）
+7. 判断归档（持仓数=0 且 最近平仓非空 → 归档）
+8. Spawn 阶段四（传递周期状态和路径）
+```
+
+---
+
+#### 🌟 九、阶段四警报管理 — 两步筛选法
+
+**步骤1（发散）：** 从日报全文罗列所有警报候选（不限于价格，包含交易量/波动率/OI/多空比等）
+
+**步骤2（收敛）：** 按数量限制筛选最终活跃规则：
+
+| 类型 | 限制 |
+|------|------|
+| 上方价格警报 | ≤1 个（最接近当前价的阻力位/入场触发价） |
+| 下方价格警报 | ≤1 个（最接近当前价的支撑位/入场触发价） |
+| 非价格警报 | ≤2 个 |
+| **总计** | **3~4 个** |
+
+**归档条件（灵活判断）：**
+- 价格位已失效（支撑/阻力已突破）
+- 报告趋势判断与警报方向冲突
+- 入场条件已执行
+
+**禁止 FGI 触发**（恐惧贪婪指数更新周期为日，不适合分钟级警报）
+
+## 更新日志
+
+---
+
+### 2026-04-14
+- **警报系统核心升级** 🔔
+  - 新增三大核心原则（价格警报数量限制、禁止FGI作为触发条件、创造性警报设计）
+  - 价格警报最多保留2个（向上/向下各1个），防止冗余
+  - 禁止使用恐惧贪婪指数作为警报触发条件（更新频率低，不适合高频监控）
+  - 新增多种创造性警报类型：资金费率、持仓量变化、多空比反转、Taker买卖比等
+  - 更新 `tasks/set-alert.md` 和 `tasks/alert-management.md` 警报设计指南
+- **警报触发机制澄清** ⚠️
+  - 明确：警报触发 ≠ 自动入场
+  - 警报是"入场条件监控器"，触发后需即时分析确认是否满足入场条件
+  - 更新日报和即时分析任务中的相关说明
+- **数据脚本优化** 📊
+  - `get_enhanced_analysis.js` 同时获取 1D 和 1H 周期数据
+  - 最新一天使用 1H 数据更精确（历史天数用 1D）
+  - 修复 API 周期匹配问题（多空比、Taker买卖比 API 不支持 4H，改用 1H 匹配）
+- **报告分发架构调整** 📝
+  - 七月不再自动发送飞书，改为保存本地文件
+  - 十四月负责从 `active/cycle-*/reports/` 读取并转发
+  - 移除 `IDENTITY.md`、`USER.md`、`TOOLS.md` 中的飞书配置
+  - 移除任务文件中的发送步骤（daily-report、instant-analysis、alert-debug）
+- **新增警报规则** 🎯
+  - `2026-04-14-funding-rate.js` - 资金费率警报（已归档）
+  - `2026-04-14-oi-change.js` - 持仓量变化警报
+  - `2026-04-14-stoploss-72000.js` - 止损位监控（从 $70,500 上移至 $72,000）
+  - `2026-04-14-takeprofit-75000.js` - 止盈位监控
+- **新交易周期** 🔄
+  - 开启 cycle-20260413-001，持仓 $72,000 入场做多
+  - 止盈1($73,500)已触发，建议平仓50%
+
+### 2026-04-13
+- **API 数据源选择规则** 🌐
+  - 新增 TOOLS.md 数据源选择规则：不要猜测 endpoint，先查看现有代码
+  - 记录多空比 API 选择错误教训：错误使用 Binance API 导致地区限制
+  - 正确 endpoint 参考：OKX `long-short-account-ratio`、`open-interest-volume` 等
+  - 国内网络禁止使用 Binance API，必须使用 OKX 替代
+- **警报器代理支持** 🔔
+  - 警报规则获取数据时需通过代理访问 OKX API
+  - 添加代理配置示例到 TOOLS.md
+
+### 2026-04-10
+- **实盘交易整合** 💰
+  - 七月接入 OKX 实盘交易 CLI（`okx` 命令）
+  - 新增 TOOLS.md OKX 交易 API 使用说明
+  - 代理 wrapper 脚本：`scripts/okx-proxy.sh`（国内网络必须使用）
+  - Profile 模式：`live`（实盘）/ `demo`（模拟盘）
+- **仓位执行检查流程** 📋
+  - 日报/即时分析任务新增"仓位执行检查"步骤
+  - 根据 `trade-suggestions.json` 状态自动执行开仓/止盈/止损
+  - 安全限制：杠杆固定 3x，逐仓模式，止盈止损覆盖全部仓位
+- **整数位偏移规则** ⚡
+  - 止盈设置避开整数价位（如 72000 → 72478）
+  - 提高触发概率，防止差一点不到
+  - 止损不偏移（保护机制无需刻意避开整数位）
+- **版本号升级** 🔢
+  - 报告版本升级到 `七月-v4.12`
+
+### 2026-04-09
+- **安全改进：飞书凭证配置化** 🔐
+  - 新增 `.openclaw/credentials.json` 存放飞书 App ID 和 targetOpenId
+  - 更新 `.gitignore` 排除敏感配置文件
+  - 所有文档改为指向配置文件读取，移除硬编码凭证
+- **数据脚本升级 v5** 📊
+  - `get_enhanced_analysis.js` / `get_instant_data.js` 升级到 v5
+  - 数据源从 Binance 改为 OKX CLI（统一数据源，服务端计算技术指标）
+  - 新增 `scripts/okx-proxy.sh` 代理 wrapper（使用 proxychains4）
+- **自触发 SPAWN 机制** ⚡
+  - 新增 `[SPAWN_DAILY_REPORT]` 前缀触发日报任务
+  - AGENTS.md / tasks/daily-report.md 新增自触发说明
+  - 主会话保持清爽，子会话独立执行任务
+- **警报规则更新** 🔔
+  - 归档过期规则（$69500阻力、$68000支撑等）
+  - 新增活跃规则：$75000阻力突破、$70000支撑跌破、多空比下跌警报
+- **数据源架构升级** 🌐
+  - 新增 OKX 数据源作为主力（无地区限制，无需特殊网络配置）
+  - Binance 作为备用，自动切换（需代理）
+  - 解决国内环境数据获取不稳定问题
+- **斐波那契分析模块** 📐
+  - 新增多时间框架斐波那契回调分析：日线 / 4小时 / 周线
+  - 自动识别波段高低点并计算关键价位 (23.6% / 38.2% / 50% / 61.8% / 78.6%)
+  - 报告输出新增斐波那契表格，直观展示各级别支撑阻力
+  - 新增 Python 版分析脚本 `scripts/multi_timeframe_fib.py`
+- **期权数据格式优化** 🔮
+  - 输出字段重命名，更易理解（如 `putCallRatioOI` 替代 `pcOI`）
+  - 新增字段说明注释，方便后续智能体理解数据含义
+- **PM2 配置更新** ⚙️
+  - 工作目录路径修正到当前环境
+  - 新增代理环境变量配置 (`http_proxy`, `https_proxy`, `all_proxy`)
+- **依赖管理** 📦
+  - 新增 `package.json` 和 `package-lock.json`
+  - 添加 `https-proxy-agent` 依赖
+
+### 2026-04-07 (v2)
+- **期权数据整合** 🔮
+  - 新增 Deribit 期权数据获取（两大核心到期日）
+  - 新增指标：Put/Call Ratio、Max Pain、隐含波动率、关键支撑阻力
+  - 移除动量指标（滞后性，非领先数据）
+- **数据源**：Binance Futures + alternative.me + Deribit
+
+### 2026-04-07 (v1)
+- **交易建议状态系统重构** 🔄
+  - 新增 `pending_entry` 状态，区分"等待入场"和"持仓中"
+  - 状态流转：`pending_entry` → `open` → `closed`
+  - 入场确认由即时分析任务执行
+- **入场条件机制** ⭐
+  - 每个建议必须有 `entry_condition` 字段
+  - 类型：`immediate`（立即入场）/ `delayed`（延迟入场）/ `conditional`（条件触发）
+  - 非立即入场必须创建对应警报监控触发条件
+- **警报类型扩展** 🔔
+  - 新增 **定时器警报**：纯时间触发，不依赖市场数据（如"N小时后检查入场"）
+  - 新增 **延迟触发警报**：价格条件满足后等待确认（如"突破后等待30分钟验证有效性"）
+  - 更新 `tasks/set-alert.md` 添加完整示例代码
+- **即时分析任务增强** 📊
+  - 新增 `pending_entry` 入场确认流程
+  - 支持即时分析创建新交易建议（周期内无建议或市场新机会时）
+- **任务规则更新** 📝
+  - `tasks/daily-report.md` - 交易建议状态管理 + 入场条件机制
+  - `tasks/instant-analysis.md` - 入场确认 + 新建议创建流程
+  - `tasks/set-alert.md` - 定时器/延迟触发警报示例
+
+### 2026-03-31
+- **警报器引擎优化** ⏱️
+  - 新增触发冷却机制：同一规则触发后30分钟内不再重复触发
+  - 支持规则自定义冷却时间 `cooldownMs`
+  - 防止价格在关键位徘徊时频繁触发警报
+- **即时分析数据脚本** 📊
+  - 新增 `skills/btc-market-lite/scripts/get_instant_data.js`
+  - 获取短周期K线数据：12根4h、4根1h、8根15m
+  - 附带交易侧数据：资金费率、OI、多空比、Taker买卖比
+  - 支持代理参数 `--proxy`
+- **代理使用备忘** 🌐
+  - 新增 `memory/proxy-usage.md` 统一记录代理配置
+  - 敏感凭证移至 `~/.openclaw/credentials/` 管理
+  - 删除旧的 `mihomo-proxy.md` 和测试脚本
+- **周期归档** 📦
+  - `cycle-20260327-001` 和 `cycle-20260330-001` 已归档
+  - 新增当前周期 `cycle-20260331-001`
+- **规则整理** 🔧
+  - 大量过期规则归档到 `rules/archive/`
+  - 当前活跃规则：支撑位 $65,750、阻力位 $69,200
+
+### 2026-03-27
+- **数据源扩展** 📊
+  - 新增 Binance Futures 数据源（资金费率、持仓量、多空情绪、Taker买卖比）
+  - 支持 4 小时级别 K 线数据（14根）
+  - 新增 `data/SCHEMA.md` 数据字段说明文档
+  - 更新 `btc-market-lite` 技能支持多数据源整合
+- **代理支持** 🌐
+  - 新增 Mihomo 代理配置备忘 (`memory/mihomo-proxy.md`)
+  - 数据获取脚本支持 `--proxy` 参数
+  - Binance API 通过代理可正常访问
+- **测试工具** 🧪
+  - 新增 `scripts/` 目录存放测试脚本
+  - Binance API 连接测试脚本
+- **周期归档** 📦
+  - 交易周期 `cycle-20260323-001` 已归档
+  - 警报规则 `2026-03-25-resistance-73000` 和 `2026-03-26-support-67000` 已归档
+  - 新增当前警报规则：阻力位 $69,500、支撑位 $67,500
+- **任务提示词优化** 📝
+  - 新周期禁止读取归档文件夹，避免历史干扰
+  - 新增趋势联动分析引导，强调历史走势与指标间关系
+  - 新增补充数据评估步骤，列出可用 API 方法
+  - 报告末尾新增"警报变更"和"补充数据"两部分
+  - 更新 `tasks/daily-report.md` 和 `tasks/instant-analysis.md`
+
+### 2026-03-19
+- **交易周期系统上线** 🔄
+  - 新增 `active/` 和 `archived/` 目录结构
+  - 交易建议独立管理，支持周期隔离
+  - 报告路径改为 `active/cycle-*/reports/`
+  - 新增 `july-report-monitor` PM2 进程监控报告并通知十四月
+  - 更新 `daily-report.md` 和 `instant-analysis.md` 任务规则
+  - 七月不再读取历史周期数据，每轮交易独立运行
+
+### 2026-03-09
+- **报告发送方式优化** 📄
+  - 优先使用飞书文档发送完整日报（无长度限制、格式美观、可编辑）
+  - 备选方案：分段消息发送（飞书单条消息限制约 4KB）
+  - 更新 TOOLS.md 添加发送方式说明
+
+### 2026-03-06
+- **引擎时区修复** 🕐
+  - 警报器引擎日志时间戳改为北京时间 (GMT+8)
+  - 解决日志时间与实际时间相差8小时的问题
+- **即时分析任务优化**
+  - 明确要求发送保存的报告 md 文件到飞书
+- **警报规则更新**
+  - 新增阻力位突破警报 ($72,000)
+  - 新增心理支撑跌破警报 ($70,000)
+  - 新增关键支撑跌破警报 (7日EMA $69,678)
+  - 归档 3 月 5 日的过期规则
+
+### 2026-03-05
+- **即时分析任务** 🎯
+  - 新增 `tasks/instant-analysis.md` 任务规则
+  - 警报触发时自动调用，进行针对性分析
+  - 回顾24小时内所有报告（日报+即时分析）
+  - 独立日志文件 `logs/instant-reports.log`
+- **警报器管理任务** 🛠️
+  - 新增 `tasks/alert-management.md` 任务规则
+  - 日报/即时分析完成后自动调用
+  - 查看当前规则、归档过期规则、创建新规则
+  - 所有新规则默认触发即时分析任务
+  - 独立日志文件 `logs/alert-management.log`
+- **任务流程优化**
+  - 日报和即时分析任务末尾新增警报器管理触发
+  - 形成完整闭环：分析 → 管理警报 → 监控 → 触发分析
+- **警报器热更新支持**
+  - 新增文件扫描定时器（每分钟检查规则文件是否存在）
+  - 手动归档规则文件后，引擎自动感知并卸载该规则
+  - 无需重启引擎即可移除运行中的规则
+
+### 2026-03-04
+- **警报器系统上线** 🎉
+  - 灵活的规则接口：check/collect/trigger/lifetime
+  - 智能体可动态编写警报规则
+  - 自动归档过期规则
+  - 完整的日志系统
+- 新增 `api.js` 模块，提供可复用的市场数据 API
+- 新增任务路由：设定市场警报、警报调试报告
+- 警报报告自动保存到 `active/cycle-*/reports/` 并发送飞书
+- 数据源迁移到 CryptoCompare API
+- 新增 get24hVolume() 函数，聚合24小时交易量
+- 修复 volumeRatio 计算失真问题
+
+### 2026-03-03
+- **架构重构**：AGENTS.md 改为路由模式，任务规则独立到 `tasks/` 目录
+- 绑定独立飞书机器人账户 (`july`)
+- 配置 DM 白名单策略
+- 新增历史日报关联能力（回顾 3 天内报告）
+- 脚本新增 `--save` 参数，自动保存数据
+- **日报存储改造**：
+  - 新建 `reports/` 文件夹专门存放日报（已废弃，改用周期系统）
+  - 日报命名格式改为 `btc-report-YYYY-MM-DD-HHMM.md`
+
+### 2026-03-02
+- 更新 AGENTS.md 工作流程
+- 优化报告格式和存储
+
+### 2026-02-27
+- 创建七月智能体
+- 集成 btc-market-lite 技能
+- 配置定时任务 (9:00/21:00)
+- 实现飞书报告推送
 
 ---
 
