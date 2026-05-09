@@ -1,78 +1,70 @@
 /**
- * ZEC 多价位监控警报（延迟确认）v6
- * 监控 ZEC 6个关键价位，延迟确认防假突破
+ * ROBO 仓位风控多价位监控警报（v2）
+ * 即时分析后更新：活跃空头仓位监控
+ * 仓位: short 18 lots @ $0.0221, SL=$0.02347, TP1=$0.02156, TP2=$0.02071
+ * 监控止损位、关键支撑/阻力的突破或跌破
  *
- * v6更新: 基于 alt-report-ZEC-20260507-1025.md (即时分析—Taker买入比飙升警报触发)
- *         止损从$575收紧至$565(整数位+1tick偏移→565.01实盘执行)
- *         买盘持续偏强但价格下行→做空逻辑维持
- *         维持空单7张@$544.83, SL=$565, TP1=$535, TP2=$507
- * v5历史: 基于10:05分析，警报信号被市场吸收
- * v4历史: 基于09:46分析，开空后监控$550/$575/$535/$507/$492
- * v3历史: 基于01:36报告，观望阶段监控$606/$590/$585/$550/$535
+ * 来源: active/alt-ROBO-20260508-0905/reports/alt-report-ROBO-2026-05-08-1016.md
+ * 报告观点: "4H 38.2%回调位$0.02240确认跌破，条件触发开空，关注TP1/TP2及风险"
+ * 说明: v1($0.02240已触发并执行) → v2(侧重仓位风控监控)
  */
 
 const api = require('../../btc-market-lite/scripts/api');
-const { execSync } = require('child_process');
 const { spawn } = require('child_process');
-const CONFIG = require('../../../../tasks/global-config.json');
-const COIN = 'ZEC';  // ← 模型从 global-config.json trigger.{btc|altcoin}.model 读取
+const CONFIG = require('../../../tasks/global-config.json');
 
-const CREATED_DATE = '2026-05-07';
+const COIN = 'ROBO';
+const CREATED_DATE = '2026-05-08';
 const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
-const PROXY_URL = 'http://127.0.0.1:7890';
 
-// ⭐ 多价位配置（含确认策略）v6 — 即时分析更新(SL收紧至565)
+// ============================================================
+// 多价位配置（6个价位，带确认策略）
+// 仓位: short 18 lots @ $0.0221
+// 当前价: ~$0.02213
+// ============================================================
 const PRICE_LEVELS = [
-  // 上方价位（空头风险监控）
-  {
-    price: 560, type: 'resistance', label: '做空逻辑弱化位/早期预警',
-    action: '价格回升至$560→短期做空逻辑弱化→评估是否需要提前平仓',
-    priority: 'high', confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000
-  },
-  {
-    price: 565, type: 'resistance', label: '止损位(Taker买入比飙升后收紧)',
-    action: '触及止损位$565→空头逻辑失败→仓位已由OKX止损($565.01实盘)',
-    priority: 'critical', confirmPolicy: 'instant', confirmMs: 0
-  },
-  {
-    price: 568, type: 'resistance', label: '警报拒止位/Taker买盘被吸收点',
-    action: '价格回升至$568→空头压制完全失效→做空逻辑需重新评估',
-    priority: 'high', confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000
-  },
+  // 上方价位（止损/阻力）
+  { price: 0.02347, type: 'resistance', label: '空头止损位/SL',
+    action: '价格逼近空头止损$0.02347，需立即分析是否调整止损或认错平仓', priority: 'high',
+    confirmPolicy: 'hold', confirmMs: 10 * 60 * 1000 },
 
-  // 下方价位（空头目标/支撑）
-  {
-    price: 535, type: 'support', label: 'TP1/4H Fib 23.6%/清算真空区',
-    action: '第一止盈目标→评估是否调整TP2或全部平仓',
-    priority: 'high', confirmPolicy: 'touch', confirmMs: 5 * 60 * 1000
-  },
-  {
-    price: 507, type: 'support', label: 'TP2/日线Fib 23.6%/远端支撑',
-    action: '第二止盈目标→全部平仓',
-    priority: 'high', confirmPolicy: 'touch', confirmMs: 5 * 60 * 1000
-  },
-  {
-    price: 492, type: 'support', label: '4H Fib 38.2%/深度支撑',
-    action: '深度回调评估→若跌至此位趋势可能加速下跌',
-    priority: 'medium', confirmPolicy: 'deep_hold', confirmMs: 25 * 60 * 1000
-  }
+  { price: 0.02260, type: 'resistance', label: '破位结构回测/多空临界',
+    action: '价格回测$0.02260区域，若站稳则空头结构弱化，需重新评估', priority: 'high',
+    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
+
+  // 下方价位（支撑/止盈）
+  { price: 0.02156, type: 'support', label: 'TP1/4H 50%回调位',
+    action: '价格触及第一止盈$0.02156，接近目标，评估是否有延长持有空间', priority: 'high',
+    confirmPolicy: 'touch', confirmMs: 5 * 60 * 1000 },
+
+  { price: 0.02071, type: 'support', label: 'TP2/4H 61.8%回调位',
+    action: '价格触及第二止盈$0.02071，本轮空头目标已全部达到', priority: 'high',
+    confirmPolicy: 'touch', confirmMs: 5 * 60 * 1000 },
+
+  { price: 0.02000, type: 'support', label: '整数关口/心理支撑',
+    action: '价格跌破$0.02000整数关口，空头加速确认，关注是否超跌反弹', priority: 'medium',
+    confirmPolicy: 'deep_hold', confirmMs: 20 * 60 * 1000 },
+
+  { price: 0.01940, type: 'support', label: 'EMA20均线/深度支撑',
+    action: '价格回落至EMA20($0.01940)，深度回调目标达成，评估短线反弹机会', priority: 'medium',
+    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 }
 ];
 
-// ⭐ 稳定性检查参数
+// 稳定性检查参数
 const STABILITY = {
-  maxRetracePercent: 0.1,     // 最大回穿幅度 %
-  resetOnCrossback: true      // 价格回穿超过阈值时重置计时
+  maxRetracePercent: 0.15,
+  resetOnCrossback: true
 };
 
 module.exports = {
-  name: 'ZEC多价位监控警报',
+  name: 'ROBO仓位风控监控v2',
   interval: 3 * 60 * 1000,
   lastTriggered: 0,
 
-  // 每个价位的独立确认状态
   levelStates: {},
   currentTriggeredLevels: [],
   breakoutExtremes: {},
+  triggeredHistory: [],
 
   async check() {
     if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
@@ -80,7 +72,7 @@ module.exports = {
     }
 
     try {
-      const klines = await api.getKlines('ZEC', '1m', 3);
+      const klines = await api.getKlines(COIN, '1m', 3);
       const periodHigh = Math.max(...klines.map(k => k.high));
       const periodLow = Math.min(...klines.map(k => k.low));
       const latestPrice = klines[klines.length - 1].close;
@@ -153,7 +145,7 @@ module.exports = {
       }
 
       const statusStr = allLogs.length > 0 ? allLogs.join(' | ') : '无触及';
-      console.log(`[🔍警报检查] [API] CryptoCompare获取ZEC ${klines.length}根1分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(2)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0} | [来源] 05-07 10:25即时分析: "Taker买入比飙升警报触发→分析结论维持做空→SL收紧至$565。$560突破需预警，$568突破则空头逻辑完全失效。TP1=$535 TP2=$507"`);
+      console.log(`[🔍警报检查] [API] OKX获取${COIN} ${klines.length}根1分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(5)}-$${periodHigh.toFixed(5)} | 当前: $${latestPrice.toFixed(5)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0} | [仓位] ROBO short 18张 @ 0.0221 | [来源] 即时分析10:16报告`);
 
       if (confirmedLevels.length > 0) {
         this.currentTriggeredLevels = confirmedLevels;
@@ -162,7 +154,7 @@ module.exports = {
 
       return false;
     } catch (error) {
-      console.error('[❌警报检查错误]', error.message);
+      console.error('[❌ROBO风控警报错误]', error.message);
       throw error;
     }
   },
@@ -172,27 +164,14 @@ module.exports = {
       const triggeredLevels = this.currentTriggeredLevels || [];
       const now = Date.now();
 
-      const ticker = await api.getTicker('ZEC');
-      const klines15m = await api.getKlines('ZEC', '15m', 8);
-
-      let oiData = null;
-      try {
-        const result = execSync(
-          `curl -s --max-time 15 --proxy "${PROXY_URL}" "https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D"`,
-          { encoding: 'utf8', timeout: 20000 }
-        );
-        const oiJson = JSON.parse(result);
-        const oiArr = (oiJson.data || []).reverse();
-        const currentOI = oiArr.length > 0 ? parseFloat(oiArr[0].oi) : null;
-        const prevOI = oiArr.length > 1 ? parseFloat(oiArr[1].oi) : null;
-        oiData = { currentOI, prevOI };
-      } catch (e) { /* 静默 */ }
+      const ticker = await api.getTicker(COIN);
+      const klines15m = await api.getKlines(COIN, '15m', 8);
+      const priceHistory = await api.getPriceHistory(COIN, 7);
 
       return {
-        coin: 'ZEC',
+        coin: COIN,
         alertTime: new Date().toISOString(),
         currentPrice: ticker.price,
-        alertName: this.name,
 
         triggeredLevels: triggeredLevels.map(l => {
           const key = String(l.price);
@@ -216,19 +195,22 @@ module.exports = {
           };
         }),
 
-        openInterest: oiData,
+        periodRange: {
+          high: Math.max(...klines15m.slice(-3).map(k => k.high)),
+          low: Math.min(...klines15m.slice(-3).map(k => k.low))
+        },
+
+        priceChange: { '1h': ticker.change1h, '24h': ticker.change24h },
+        volume24h: ticker.volume24h,
         klines15m: klines15m.map(k => ({
-          time: k.datetime,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close,
-          volume: k.volume
+          time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume
         })),
-        alertType: '多价位触发'
+
+        alertType: 'ROBO仓位风控触发（延迟确认v2）',
+        alertDescription: 'ROBO价格触及风控关键价位（SL/TP/结构位），请进行即时分析评估'
       };
     } catch (error) {
-      console.error('[❌数据收集错误]', error.message);
+      console.error('[❌ROBO风控数据收集错误]', error.message);
       throw error;
     }
   },
@@ -239,7 +221,36 @@ module.exports = {
     const jobName = `alert-${alertData.coin}-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${json}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/alt-instant-stage1.md 执行数据获取\n2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析\n3. 读取 tasks/alt-intel-stage3.md 执行仓位管理\n4. 读取 tasks/alt-intel-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
 
-
-    // 根据币种选择模型：BTC → trigger.btc.model (pro)，山寨币 → trigger.altcoin.model (flash)
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
+    const model = CONFIG.trigger.altcoin.model;
     spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--model', model,
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], { detached: true, stdio: 'ignore' });
+
+    this.triggeredHistory.push({
+      time: new Date().toISOString(),
+      levels: alertData.triggeredLevels
+    });
+
+    console.log(`[${alertData.coin}仓位风控触发v2] 已派发即时分析任务: ${jobName} | 价位: ${alertData.triggeredLevels.map(l => `$${l.price}`).join(', ')} | 仓位: ROBO short 18张 @ 0.0221`);
+    this.lastTriggered = Date.now();
+    this.currentTriggeredLevels = [];
+    this.levelStates = {};
+    this.breakoutExtremes = {};
+  },
+
+  lifetime() {
+    const today = api.getLocalDate();
+    const created = new Date(CREATED_DATE);
+    const nowDate = new Date(today);
+    const daysDiff = Math.floor((nowDate - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired';
+  }
+};

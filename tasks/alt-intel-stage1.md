@@ -16,7 +16,7 @@
 请读取 tasks/alt-intel-stage1.md 开始阶段一三维信息收集。
 ```
 
-> 周期目录由阶段一步骤 2 自行创建，无需传递。
+> 周期目录由阶段一步骤 3 自行创建，无需传递。
 
 ---
 
@@ -69,7 +69,66 @@ echo "[$NOW] [阶段一] 开始执行 - 三维信息收集" >> logs/alt-${COIN}-
 
 ---
 
-### 步骤 2: 检查周期状态并创建文件夹
+### 步骤 2: 上线时间检查
+
+**⚠️ 在创建周期之前执行——新上线币种（<30天）直接拉黑，不创建周期。**
+
+```bash
+COIN="{COIN}"  # 由入参提供
+NOW=$(date '+%Y-%m-%d %H:%M:%S')
+
+# 调用 OKX instruments API 获取上线时间
+echo "[$NOW] [阶段一] 上线时间检查: 查询 ${COIN}-USDT-SWAP 上线时间..." >> logs/alt-${COIN}-process.log
+
+LIST_TIME_MS=$(curl -s --max-time 10 --proxy http://127.0.0.1:7890 \
+  "https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=${COIN}-USDT-SWAP" \
+  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['data'][0]['listTime']) if d.get('data') else print('ERROR')" 2>/dev/null)
+```
+
+**判断逻辑：**
+
+| 结果 | 处理 |
+|------|------|
+| API 调用失败 / listTime 为空 | `⚠️ WARN`，无法验证上线时间，跳过检查继续 |
+| 币种不存在（ERROR） | `⛔ ERROR`，币种在 OKX 合约市场不存在，终止流程 |
+| 上线 < 30 天 | 🔴 BLACKLIST，加入 `data/altcoin-blacklist.json` 并终止流程 |
+| 上线 >= 30 天 | ✅ 通过，继续执行 |
+
+**计算上线天数并执行判断：**
+
+```bash
+if [ "$LIST_TIME_MS" != "ERROR" ] && [ -n "$LIST_TIME_MS" ]; then
+  LIST_TIME_SEC=$((LIST_TIME_MS / 1000))
+  NOW_SEC=$(date +%s)
+  AGE_DAYS=$(( (NOW_SEC - LIST_TIME_SEC) / 86400 ))
+  
+  if [ "$AGE_DAYS" -lt 30 ]; then
+    # 新上线币种，加入黑名单
+    python3 -c "
+import json
+with open('data/altcoin-blacklist.json') as f:
+    bl = json.load(f)
+if '${COIN}' not in bl['blacklist']:
+    bl['blacklist'].append('${COIN}')
+bl['reason']['${COIN}'] = '新上线币种，历史数据不足30日（上线${AGE_DAYS}天），缺少足够K线数据支撑技术分析'
+bl['updated'] = '$(date -Iseconds)'
+with open('data/altcoin-blacklist.json', 'w') as f:
+    json.dump(bl, f, indent=2, ensure_ascii=False)
+"
+    echo "[$NOW] [阶段一] 🔴 BLACKLIST: ${COIN} → data/altcoin-blacklist.json | 原因: 新上线币种 (${AGE_DAYS}天)" >> logs/alt-${COIN}-process.log
+    echo "[$NOW] [阶段一] 流程终止——${COIN} 上线不足30日，不符合趋势交易条件" >> logs/alt-${COIN}-process.log
+    exit 0
+  else
+    echo "[$NOW] [阶段一] 上线时间检查: ${COIN} 已上线 ${AGE_DAYS} 天 — 通过" >> logs/alt-${COIN}-process.log
+  fi
+else
+  echo "[$NOW] [阶段一] ⚠️ WARN: 上线时间检查失败 (LIST_TIME_MS=$LIST_TIME_MS)，跳过检查继续" >> logs/alt-${COIN}-process.log
+fi
+```
+
+---
+
+### 步骤 3: 检查周期状态并创建文件夹
 
 **只负责检测和创建，不读取周期内的交易建议内容。**
 
@@ -104,7 +163,7 @@ mkdir -p active/${CYCLE_DIR}/data-context
 
 ---
 
-### 步骤 3: 同步该币种持仓
+### 步骤 4: 同步该币种持仓
 
 **任务路由：** 读取 `tasks/sync-positions.md` 执行持仓同步任务。
 
@@ -129,7 +188,7 @@ mkdir -p active/${CYCLE_DIR}/data-context
 
 ---
 
-### 步骤 4: 收集同币种历史报告
+### 步骤 5: 收集同币种历史报告
 
 **⚠️ 只收集路径，不读取内容。阶段二自行读取。**
 
@@ -162,7 +221,7 @@ ls -t active/alt-${COIN}-*/reports/alt-report-*.md 2>/dev/null | grep -v "${CYCL
 
 ---
 
-### 步骤 5: 收集消息面 & 链上数据
+### 步骤 6: 收集消息面 & 链上数据
 
 **任务路由：** 读取 `tasks/alt-intel-sentiment.md` 执行媒体搜索和链上数据收集。
 
@@ -187,7 +246,7 @@ ls -t active/alt-${COIN}-*/reports/alt-report-*.md 2>/dev/null | grep -v "${CYCL
 
 ---
 
-### 步骤 6: 维度三 — 合约技术数据
+### 步骤 7: 维度三 — 合约技术数据
 
 使用现有的数据获取脚本，获取该币种的合约技术面数据。
 
@@ -206,7 +265,7 @@ node skills/btc-market-lite/scripts/get_altcoin_analysis.js \
 mv data/$(date +%Y-%m-%d).json data/${COIN}-$(date +%Y-%m-%d).json
 ```
 
-#### 6.1 数据覆盖
+#### 7.1 数据覆盖
 
 脚本获取的数据维度：
 
@@ -232,7 +291,7 @@ mv data/$(date +%Y-%m-%d).json data/${COIN}-$(date +%Y-%m-%d).json
 
 ---
 
-### 步骤 7: 输出数据清单 JSON
+### 步骤 8: 输出数据清单 JSON
 
 生成固定格式的数据清单，供阶段二读取。
 
@@ -303,11 +362,11 @@ mv data/$(date +%Y-%m-%d).json data/${COIN}-$(date +%Y-%m-%d).json
 
 ---
 
-### 步骤 8: 记录阶段结束
+### 步骤 9: 记录阶段结束
 
 阶段一完成。输出当前进度和数据清单路径。
 
-**步骤 8.1：记录进度**
+**步骤 9.1：记录进度**
 
 在回复中输出：
 
@@ -318,7 +377,7 @@ mv data/$(date +%Y-%m-%d).json data/${COIN}-$(date +%Y-%m-%d).json
 数据清单: active/{CYCLE_DIR}/data-context/data-manifest-{COIN}-YYYY-MM-DD-HHMM.json
 ```
 
-**步骤 8.2：记录日志**
+**步骤 9.2：记录日志**
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
@@ -337,6 +396,9 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/alt-${C
 
 | 异常类型 | 级别 | 处理方式 |
 |---------|------|---------|
+| 上线时间 API 调用失败 | `⚠️ WARN` | 无法验证上线时间，跳过检查继续 |
+| 币种上线不足 30 天 | 🔴 BLACKLIST | 加入黑名单，终止流程 |
+| 币种在 OKX 合约市场不存在 | `⛔ ERROR` | 终止流程 |
 | 合约数据脚本执行失败 | `⛔ ERROR` | 清单标记 `status: "failed"`，阶段二仅凭媒体+链上分析 |
 | 全部三维数据获取失败 | `⛔ ERROR` | 记录异常，结束本阶段，不进入阶段二 |
 | 媒体搜索结果全部过期/为空 | `⚠️ WARN` | 标记无媒体信号，继续执行 |
@@ -353,15 +415,16 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/alt-${C
 ## 核心要求
 
 1. **首先记录阶段开始**：日志优先，先记录再执行
-2. **三维并行收集**：媒体、链上、合约三个维度各自独立获取，互不阻塞
-3. **无数据挖掘**：阶段一只收集原始数据，不做任何数据挖掘或洞察提炼
-4. **时效性过滤**：媒体消息 >7天自动忽略
-5. **收集同币种历史报告**：只从 `active/` 下收集同一 COIN 的过往报告（最多 5 篇），不读内容只收集路径
-6. **必须生成数据清单 JSON**：固定格式，包含三维数据状态、历史报告路径和文件路径
-7. **数据命名规范**：合约数据保存为 `data/{COIN}-YYYY-MM-DD.json`
-8. **日志按币种隔离**：`logs/alt-{COIN}-process.log`
-9. **完成后继续阶段二**：输出数据清单路径，读取 `tasks/alt-intel-stage2.md`
-10. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
+2. **上线时间检查优先**：步骤 2 先验证币种上线 >= 30 天，未通过则加入黑名单并终止流程
+3. **三维并行收集**：媒体、链上、合约三个维度各自独立获取，互不阻塞
+4. **无数据挖掘**：阶段一只收集原始数据，不做任何数据挖掘或洞察提炼
+5. **时效性过滤**：媒体消息 >7天自动忽略
+6. **收集同币种历史报告**：只从 `active/` 下收集同一 COIN 的过往报告（最多 5 篇），不读内容只收集路径
+7. **必须生成数据清单 JSON**：固定格式，包含三维数据状态、历史报告路径和文件路径
+8. **数据命名规范**：合约数据保存为 `data/{COIN}-YYYY-MM-DD.json`
+9. **日志按币种隔离**：`logs/alt-{COIN}-process.log`
+10. **完成后继续阶段二**：输出数据清单路径，读取 `tasks/alt-intel-stage2.md`
+11. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 
 ---
 
@@ -382,4 +445,4 @@ echo "[$NOW] [阶段一] ========== 阶段一结束 ========== " >> logs/alt-${C
 
 ---
 
-阶段一 - v1.2
+阶段一 - v1.3

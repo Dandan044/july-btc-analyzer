@@ -10,9 +10,13 @@
 
 七月采用 fire-and-forget 机制。收到以下特殊前缀的消息时，spawn 一个子会话执行全部任务即结束，无需等待返回。
 
-**⚠️ 模型选择**：所有 spawn 的 `model` 参数必须从 `tasks/global-config.json` 读取：
-- BTC 任务 → `trigger.btc.model`（当前: `deepseek/deepseek-v4-pro`）
-- 山寨币任务 → `trigger.altcoin.model`（当前: `deepseek/deepseek-v4-flash`）
+**⚠️ 模型选择**：
+- **七月默认模型：`deepseek/deepseek-v4-flash`**（2026-05-07 变更，原为 pro）
+- 原因：`sessions_spawn` 的 `model` 参数被平台忽略，子会话继承 agent 默认模型
+- 当前妥协：全部子会话使用 flash（包括 BTC 任务），待平台 bug 修复后恢复 BTC → pro
+
+> 🚨 **已知平台 bug**：`sessions_spawn` 的 `model` 参数被静默忽略，子会话永远使用 agent 默认模型。
+> 当前默认=flash → 所有任务用 flash。修复后需改回默认=pro 并显式传 flash 给山寨币任务。
 
 ### [SPAWN_INSTANT_ANALYSIS] - 即时分析（BTC + 山寨币通用）
 
@@ -25,7 +29,7 @@
 使用 sessions_spawn 工具：
 - agentId: "july"
 - mode: "run"
-- model: 读取 tasks/global-config.json → trigger.btc.model
+- model: "deepseek/deepseek-v4-pro"
 - task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的 JSON 数据 + 换行 + "以上为警报触发数据。请按顺序完成即时分析全四阶段：
 1. 读取 tasks/instant-analysis-stage1.md 执行数据获取
 2. 读取 tasks/daily-report-stage2.md 执行技术分析
@@ -35,11 +39,14 @@
 ```
 
 **山寨币警报**：消息中已包含完整任务指令（指向 `tasks/alt-instant-stage1.md` 等），直接原样传入 task 即可，无需追加 BTC 路径。
+
+⚠️ 山寨币子会话必须使用 flash 模型：`"deepseek/deepseek-v4-flash"`。
+
 ```
 使用 sessions_spawn 工具：
 - agentId: "july"
 - mode: "run"
-- model: 读取 tasks/global-config.json → trigger.altcoin.model
+- model: "deepseek/deepseek-v4-flash"
 - task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的全部内容
 ```
 
@@ -53,7 +60,7 @@ spawn 后无需等待返回，直接回复「已派发即时分析任务」即�
 使用 sessions_spawn 工具：
 - agentId: "july"
 - mode: "run"
-- model: 读取 tasks/global-config.json → trigger.btc.model
+- model: "deepseek/deepseek-v4-pro"
 - task: 移除 `[SPAWN_DAILY_REPORT]` 前缀后的完整内容
 ```
 
@@ -61,7 +68,7 @@ spawn 后无需等待返回，直接回复「已派发日报任务」即结束�
 
 ### 山寨币分析链路
 
-山寨币（非 BTC）分析通过两条路径触发，**所有子会话模型从 `tasks/global-config.json` → `trigger.altcoin.model` 读取**。
+山寨币（非 BTC）分析通过两条路径触发，**所有子会话模型: `"deepseek/deepseek-v4-flash"`**。
 
 #### 路径一：altcoin-scanner 定时扫描
 
@@ -71,7 +78,7 @@ spawn 后无需等待返回，直接回复「已派发日报任务」即结束�
 sessions_spawn:
   agentId: "july"
   mode: "run"
-  model: 读取 tasks/global-config.json → trigger.altcoin.model
+  model: "deepseek/deepseek-v4-flash"
   task: |
     币种: {COIN}
     触发时间: {ISO时间}
@@ -180,16 +187,16 @@ july-btc-analyzer/
 
 | 任务 | 规则文件 | 模型 |
 |------|---------|------|
-| 执行日报任务 | `tasks/daily-report-stage1.md` | `trigger.btc.model` ← global-config.json |
+| 执行日报任务 | `tasks/daily-report-stage1.md` | `deepseek-v4-pro` |
 | 设定市场警报 | `tasks/set-alert.md` | 默认 |
-| BTC 即时分析 | `tasks/instant-analysis-stage1.md` | `trigger.btc.model` ← global-config.json |
+| BTC 即时分析 | `tasks/instant-analysis-stage1.md` | `deepseek-v4-pro` |
 
 ### 山寨币任务
 
 | 任务 | 阶段一入口 | 后续阶段 | 模型 |
 |------|-----------|---------|------|
-| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `trigger.altcoin.model` ← global-config.json |
-| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `trigger.altcoin.model` ← global-config.json |
+| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `deepseek-v4-flash` |
+| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `deepseek-v4-flash` |
 
 ### 通用
 

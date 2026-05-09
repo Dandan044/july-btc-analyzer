@@ -1,158 +1,37 @@
 /**
  * BTC 市场数据 API 模块
  * 供警报器规则和其他模块复用
- *
- * 2026-05-09 重构：
- * - fetch() 从 execSync(curl) 改为异步 http.request（消除事件循环阻塞）
- * - 合约统计方法(getOKXOpenInterest/getOKXTakerRatio/getOKXLongShortRatio/getOKXTopTraderRatio)增加 symbol 参数
- * - 新增 getOKXFundingRate(symbol) 方法
  */
 
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
+const { execSync } = require('child_process');
 
 // OKX API 代理配置（从环境变量读取，默认 7890）
 const PROXY_URL = process.env.http_proxy || process.env.HTTP_PROXY || 'http://127.0.0.1:7890';
 
-// 默认请求超时（毫秒）
-const DEFAULT_TIMEOUT = 30000;
-
 // ========== 工具函数 ==========
 
 /**
- * fetch 底层实现（单次请求，无重试）
- * 通过 HTTP CONNECT 代理访问，使用 Node.js 原生 http/https 模块
- *
- * @param {string} url - 请求 URL
- * @param {number} timeout - 超时毫秒
- * @returns {Promise<object|string>} 解析后的 JSON 或原始文本
+ * 通用 fetch（通过代理访问，国内必需）
+ * 替代直连 https.request，统一走 curl --proxy
  */
-function rawFetch(url, timeout) {
+function fetch(url) {
   return new Promise((resolve, reject) => {
-    const target = new URL(url);
-    const proxy = new URL(PROXY_URL);
-
-    // 通过代理建立 CONNECT 隧道
-    const connectReq = http.request({
-      host: proxy.hostname,
-      port: proxy.port,
-      method: 'CONNECT',
-      path: `${target.hostname}:${target.port || 443}`,
-      timeout: timeout
-    });
-
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        connectReq.destroy();
-        reject(new Error('请求超时'));
-      }
-    }, timeout);
-
-    connectReq.on('connect', (res, socket) => {
-      if (res.statusCode !== 200) {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          reject(new Error(`代理 CONNECT 失败: ${res.statusCode}`));
-        }
-        socket.destroy();
-        return;
-      }
-
-      const req = https.request({
-        socket: socket,
-        hostname: target.hostname,
-        port: target.port || 443,
-        path: target.pathname + target.search,
-        method: 'GET',
-        headers: {
-          'Host': target.hostname,
-          'User-Agent': 'btc-alert-engine/2.0'
-        }
-      }, (targetRes) => {
-        let body = '';
-        targetRes.on('data', chunk => body += chunk);
-        targetRes.on('end', () => {
-          if (!settled) {
-            settled = true;
-            clearTimeout(timer);
-
-            // 检测 HTTP 429 Too Many Requests
-            if (targetRes.statusCode === 429) {
-              reject(new Error('Too Many Requests'));
-              return;
-            }
-
-            try { resolve(JSON.parse(body)); }
-            catch (e) { resolve(body); }
-          }
-        });
+    try {
+      const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+        encoding: 'utf8',
+        timeout: 35000
       });
-
-      req.on('error', (err) => {
-        if (!settled) {
-          settled = true;
-          clearTimeout(timer);
-          reject(new Error(err.message || '请求失败'));
-        }
-      });
-
-      req.end();
-    });
-
-    connectReq.on('error', (err) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        reject(new Error(err.message || '代理连接失败'));
-      }
-    });
-
-    connectReq.on('timeout', () => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        connectReq.destroy();
-        reject(new Error('代理连接超时'));
-      }
-    });
-
-    connectReq.end();
+      try { resolve(JSON.parse(result)); }
+      catch (e) { resolve(result); }
+    } catch (err) {
+      // curl 超时或连接失败
+      const msg = err.signal === 'SIGTERM' ? '请求超时' : (err.message || '请求失败');
+      reject(new Error(msg));
+    }
   });
 }
 
-/**
- * 异步 fetch（带 429 自动重试）
- * 通过 HTTP CONNECT 代理访问，国内必需
- *
- * 429 重试策略：最多重试 2 次，间隔递增（3s → 6s）
- *
- * @param {string} url - 请求 URL
- * @param {number} [timeout=30000] - 超时毫秒
- * @returns {Promise<object|string>} 解析后的 JSON 或原始文本
- */
-async function fetch(url, timeout = DEFAULT_TIMEOUT) {
-  const MAX_RETRIES = 2;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    try {
-      return await rawFetch(url, timeout);
-    } catch (err) {
-      const isRateLimit = err.message === 'Too Many Requests';
-      if (isRateLimit && attempt <= MAX_RETRIES) {
-        const delay = 3000 * attempt; // 3s → 6s
-        await new Promise(r => setTimeout(r, delay));
-        continue;
-      }
-      throw err;
-    }
-  }
-}
-
-// ========== OKX Market API (K线/价格) ==========
+// ========== CryptoCompare API ==========
 
 /**
  * 获取K线数据（底层使用 OKX API）
@@ -162,7 +41,7 @@ async function fetch(url, timeout = DEFAULT_TIMEOUT) {
  * @returns {Promise<Array>} K线数据数组，从新到旧
  */
 async function getKlines(symbol = 'BTC', interval = '1h', limit = 30) {
-  // OKX interval 映射
+  // CryptoCompare interval -> OKX interval 映射
   const intervalMap = {
     '1m': '1m',
     '5m': '5m',
@@ -269,7 +148,6 @@ async function getFearGreedIndex(days = 30) {
  * @param {string} symbol - 币种 (BTC)
  * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1h/1H, 2h/2H, 4h/4H, 1d/1D, etc（小写自动映射为大写）
  * @param {number} limit - 数据条数
- * @param {string} instType - 'SPOT' 或 'SWAP'
  * @returns {Promise<Array>} K线数据数组，从新到旧
  */
 async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instType = 'SPOT') {
@@ -285,8 +163,12 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instTy
   const normalizedInterval = normalizeMap[interval] || interval;
   const instId = instType === 'SWAP' ? `${symbol}-USDT-SWAP` : `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=${normalizedInterval}&limit=${limit}`;
-  const data = await fetch(url);
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 35000
+  });
   
+  const data = JSON.parse(result);
   if (data.code !== '0') {
     throw new Error(`OKX K线 API错误: ${data.msg}`);
   }
@@ -308,14 +190,17 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instTy
 /**
  * 获取 OKX Ticker（实时价格）
  * @param {string} symbol - 币种 (BTC)
- * @param {string} instType - 'SPOT' 或 'SWAP'
  * @returns {Promise<Object>} 价格信息
  */
 async function getOKXTicker(symbol = 'BTC', instType = 'SPOT') {
   const instId = instType === 'SWAP' ? `${symbol}-USDT-SWAP` : `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/ticker?instId=${instId}`;
-  const data = await fetch(url);
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 35000
+  });
   
+  const data = JSON.parse(result);
   if (data.code !== '0') {
     throw new Error(`OKX Ticker API错误: ${data.msg}`);
   }
@@ -328,7 +213,11 @@ async function getOKXTicker(symbol = 'BTC', instType = 'SPOT') {
   let change1h = null;
   try {
     const klineUrl = `https://www.okx.com/api/v5/market/history-candles?instId=${instId}&bar=1H&limit=2`;
-    const klineData = await fetch(klineUrl);
+    const klineResult = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${klineUrl}"`, {
+      encoding: 'utf8',
+      timeout: 35000
+    });
+    const klineData = JSON.parse(klineResult);
     if (klineData.code === '0' && klineData.data.length >= 2) {
       const currentClose = parseFloat(klineData.data[0][4]);
       const hourAgoClose = parseFloat(klineData.data[1][4]);
@@ -363,13 +252,16 @@ async function getOKXTicker(symbol = 'BTC', instType = 'SPOT') {
 
 /**
  * 获取 OKX 持仓量数据
- * @param {string} symbol - 币种 (BTC, ETH, STRK, etc.)
  * @returns {Promise<Object>} 持仓量数据
  */
-async function getOKXOpenInterest(symbol = 'BTC') {
-  const url = `https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${symbol}&period=1D`;
-  const data = await fetch(url);
+async function getOKXOpenInterest() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 35000
+  });
   
+  const data = JSON.parse(result);
   if (data.code !== '0') {
     throw new Error(`OKX API错误: ${data.msg}`);
   }
@@ -398,13 +290,16 @@ async function getOKXOpenInterest(symbol = 'BTC') {
 
 /**
  * 获取 OKX Taker 买卖比数据
- * @param {string} symbol - 币种 (BTC, ETH, STRK, etc.)
  * @returns {Promise<Object>} Taker买卖比数据
  */
-async function getOKXTakerRatio(symbol = 'BTC') {
-  const url = `https://www.okx.com/api/v5/rubik/stat/taker-volume?instId=${symbol}-USDT-SWAP&instType=CONTRACTS&ccy=${symbol}&period=1D`;
-  const data = await fetch(url);
+async function getOKXTakerRatio() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/taker-volume?instId=BTC-USDT-SWAP&instType=CONTRACTS&ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 35000
+  });
   
+  const data = JSON.parse(result);
   if (data.code !== '0') {
     throw new Error(`OKX API错误: ${data.msg}`);
   }
@@ -439,16 +334,19 @@ async function getOKXTakerRatio(symbol = 'BTC') {
 
 /**
  * 获取 OKX 多空比数据
- * @param {string} symbol - 币种 (BTC, ETH, STRK, etc.)
  * @returns {Promise<Object>} 多空比数据
  * 
  * OKX API 返回格式: [["1777046400000","0.81"], ...]
  * 注意：返回的是比率值，不是 longAccount/shortAccount 分开的数据
  */
-async function getOKXLongShortRatio(symbol = 'BTC') {
-  const url = `https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${symbol}&period=1D`;
-  const data = await fetch(url);
+async function getOKXLongShortRatio() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 35000
+  });
   
+  const data = JSON.parse(result);
   if (data.code !== '0') {
     throw new Error(`OKX API错误: ${data.msg}`);
   }
@@ -475,13 +373,18 @@ async function getOKXLongShortRatio(symbol = 'BTC') {
 
 /**
  * 获取 OKX 顶级交易者多空比数据
- * @param {string} symbol - 币种 (BTC, ETH, STRK, etc.)
+ * 数据来源: OKX long-short-account-ratio (日线口径)
+ * OKX API 返回格式: [["1777046400000","0.81"], ...] — [timestamp, ratio]
  * @returns {Promise<Object>} 顶级交易者多空比数据
  */
-async function getOKXTopTraderRatio(symbol = 'BTC') {
-  const url = `https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${symbol}&period=1D`;
-  const data = await fetch(url);
+async function getOKXTopTraderRatio() {
+  const url = 'https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D';
+  const result = execSync(`curl -s --max-time 30 --proxy "${PROXY_URL}" "${url}"`, {
+    encoding: 'utf8',
+    timeout: 35000
+  });
   
+  const data = JSON.parse(result);
   if (data.code !== '0') {
     throw new Error(`OKX API错误: ${data.msg}`);
   }
@@ -508,81 +411,56 @@ async function getOKXTopTraderRatio(symbol = 'BTC') {
 }
 
 /**
- * 获取 OKX 资金费率
- * @param {string} symbol - 币种 (BTC, ONDO, etc.)
- * @returns {Promise<Object>} 资金费率数据
- */
-async function getOKXFundingRate(symbol = 'BTC') {
-  const url = `https://www.okx.com/api/v5/public/funding-rate?instId=${symbol}-USDT-SWAP`;
-  const data = await fetch(url);
-  
-  if (data.code !== '0') {
-    throw new Error(`OKX 资金费率 API错误: ${data.msg}`);
-  }
-  
-  if (!data.data || data.data.length === 0) {
-    throw new Error(`OKX 资金费率 API无数据: ${symbol}`);
-  }
-  
-  const f = data.data[0];
-  const fundingRate = parseFloat(f.fundingRate);
-  
-  return {
-    symbol: symbol,
-    fundingRate: fundingRate,
-    nextFundingRate: parseFloat(f.nextFundingRate),
-    fundingTime: f.fundingTime,
-    nextFundingTime: f.nextFundingTime,
-    instId: f.instId,
-    method: f.method,
-    // 便捷判断
-    isLongPay: fundingRate > 0,  // 正费率=多头付费
-    isShortPay: fundingRate < 0, // 负费率=空头付费
-    timestamp: new Date().toISOString()
-  };
-}
-
-/**
  * 获取BTC合约清算数据（OKX API，需要代理）
  * 返回最近清算订单的统计 + 热力图
  */
 async function getOKXLiquidation() {
-  const url = `https://www.okx.com/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
-  const data = await fetch(url, 20000);
-  
-  if (!data || data.code !== '0' || !data.data || !data.data[0]?.details) {
-    return null;
-  }
-  
-  const details = data.data[0].details;
-  const now = Date.now();
-  const thirtyMinAgo = now - 30 * 60 * 1000;
-  
-  let longLiq = 0, shortLiq = 0;
-  let recentLongLiq = 0, recentShortLiq = 0;
-  
-  for (const d of details) {
-    const sz = parseFloat(d.sz);
-    const ts = parseInt(d.ts);
-    if (d.posSide === 'long') {
-      longLiq += sz;
-      if (ts >= thirtyMinAgo) recentLongLiq += sz;
-    } else {
-      shortLiq += sz;
-      if (ts >= thirtyMinAgo) recentShortLiq += sz;
+  return new Promise((resolve) => {
+    const url = `https://www.okx.com/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP&state=filled&limit=100`;
+    const cmd = `curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`;
+    const raw = execSync(cmd, { encoding: 'utf8', timeout: 20000 });
+    
+    try {
+      const json = JSON.parse(raw);
+      if (json.code !== '0' || !json.data || !json.data[0]?.details) {
+        resolve(null);
+        return;
+      }
+      
+      const details = json.data[0].details;
+      const now = Date.now();
+      const thirtyMinAgo = now - 30 * 60 * 1000;
+      
+      let longLiq = 0, shortLiq = 0;
+      let recentLongLiq = 0, recentShortLiq = 0;
+      
+      for (const d of details) {
+        const sz = parseFloat(d.sz);
+        const ts = parseInt(d.ts);
+        if (d.posSide === 'long') {
+          longLiq += sz;
+          if (ts >= thirtyMinAgo) recentLongLiq += sz;
+        } else {
+          shortLiq += sz;
+          if (ts >= thirtyMinAgo) recentShortLiq += sz;
+        }
+      }
+      
+      resolve({
+        totalOrders: details.length,
+        longLiquidation: parseFloat(longLiq.toFixed(2)),
+        shortLiquidation: parseFloat(shortLiq.toFixed(2)),
+        recent30m: {
+          longLiquidation: parseFloat(recentLongLiq.toFixed(2)),
+          shortLiquidation: parseFloat(recentShortLiq.toFixed(2))
+        },
+        netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2))
+      });
+    } catch (e) {
+      console.error('[OKX清算] 解析失败:', e.message);
+      resolve(null);
     }
-  }
-  
-  return {
-    totalOrders: details.length,
-    longLiquidation: parseFloat(longLiq.toFixed(2)),
-    shortLiquidation: parseFloat(shortLiq.toFixed(2)),
-    recent30m: {
-      longLiquidation: parseFloat(recentLongLiq.toFixed(2)),
-      shortLiquidation: parseFloat(recentShortLiq.toFixed(2))
-    },
-    netLiquidation: parseFloat((longLiq - shortLiq).toFixed(2))
-  };
+  });
 }
 
 /**
@@ -636,7 +514,6 @@ module.exports = {
   getOKXTakerRatio,
   getOKXLongShortRatio,
   getOKXTopTraderRatio,
-  getOKXFundingRate,
   getOKXLiquidation,
   getGlobalVolume,
   getLocalDate

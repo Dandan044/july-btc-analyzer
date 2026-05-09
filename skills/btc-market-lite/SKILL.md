@@ -1,6 +1,6 @@
 ---
 name: BTC Market Lite
-description: 轻量级比特币市场数据获取（国内可用）。使用 CryptoCompare 和 alternative.me 免费公开 API，无需认证，获取价格、OHLCV、恐惧贪婪指数及技术指标。适合定时报告和技术分析。
+description: 轻量级比特币市场数据获取（国内可用）。使用 OKX 和 alternative.me 公开 API，无需认证，获取价格、OHLCV、恐惧贪婪指数及技术指标。适合定时报告和技术分析。
 metadata:
   openclaw:
     requires: { bins: ["node"] }
@@ -14,7 +14,7 @@ metadata:
 
 | 数据 | API | 更新频率 | 说明 |
 |------|-----|----------|------|
-| 价格/OHLCV | CryptoCompare | 实时 | 无需代理，警报器专用 |
+| 价格/OHLCV | OKX Market API | 实时 | 需代理，警报器专用 |
 | 恐惧贪婪指数 | alternative.me | 每日 | 无需代理 |
 | K线+技术指标 | OKX CLI | 实时 | 需代理，服务端计算 EMA/RSI |
 | 资金费率 | OKX API | 8小时 | 需代理 |
@@ -135,15 +135,16 @@ node scripts/get_enhanced_analysis.js --proxy http://127.0.0.1:7890
 
 ## 注意事项
 
-- CryptoCompare API 有速率限制（约 100,000 次/月），警报器专用
+- OKX Market API 有速率限制（实测 ≤5 req/s），需代理访问；getGlobalVolume() 仍使用 CryptoCompare（无代理可用）
 - 恐惧贪婪指数每日更新一次
 - OKX 数据需要代理访问
-- 无代理时仍可获取 CryptoCompare 价格数据和恐惧贪婪指数
+- 无代理时可获取恐惧贪婪指数（alternative.me）；价格数据需通过代理访问 OKX
 
 ## 更新日志
 
 - 2026-04-10: **v5 重构** - 数据源从 Binance 改为 OKX CLI/API，服务端计算技术指标
 - 2026-03-27: **v4 重构** - 整合交易数据（资金费率、OI、多空比、Taker比），支持日线和4小时两种粒度
-- 2026-03-03: **v3 重构** - 简化输出，数据源切换为 CryptoCompare
+- 2026-03-03: **v3 重构** - 简化输出
+- 2026-05-09: **数据源修正** - 主数据源实际为 OKX（CryptoCompare 仅用于 getGlobalVolume）
 - 2026-02-27: 新增增强技术分析脚本，支持 SMA/EMA/RSI/动量/波动率计算
 - 2026-02-27: 初始版本

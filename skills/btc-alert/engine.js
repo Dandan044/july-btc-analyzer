@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const CONFIG = require('../../tasks/global-config.json');
 
 const RULES_DIR = path.join(__dirname, 'rules');
 const ARCHIVE_DIR = path.join(__dirname, 'rules-archive');
@@ -34,10 +35,21 @@ const ruleErrorStats = new Map();
 // 结构: { cooldownUntil: timestamp, lastTriggerTime: timestamp }
 const triggerCooldowns = new Map();
 
+// 存储自愈状态（每个规则只给一次自愈机会）
+// 结构: { attempted: boolean, spawnTime: timestamp }
+const selfHealState = new Map();
+
 // 默认冷却时间：30分钟（毫秒）
 const DEFAULT_COOLDOWN_MS = 30 * 60 * 1000;
 
+// 自愈等待期：10分钟（毫秒）
+const SELF_HEAL_GRACE_PERIOD = 10 * 60 * 1000;
+
 // ========== 日志系统 ==========
+
+// 日志级别控制（环境变量 LOG_LEVEL 可覆盖，默认 INFO）
+const LOG_LEVEL = process.env.LOG_LEVEL || 'INFO';
+const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3 };
 
 /**
  * 格式化时间戳 (北京时间 GMT+8)
@@ -50,10 +62,12 @@ function timestamp() {
 
 /**
  * 写入引擎日志（统一输出到控制台，由PM2捕获到单一日志文件）
+ * 带级别标签，所有日志保留输出（不过滤）
  */
 function logEngine(level, ruleName, message, data = null) {
+  const levelTag = `[${level}]`;
   const prefix = level === 'ERROR' ? '[❌警报引擎错误]' : '[🔧警报引擎]';
-  const consoleMsg = `${prefix} [${ruleName}] ${message}${data ? ' | ' + JSON.stringify(data) : ''}`;
+  const consoleMsg = `${prefix} ${levelTag} [${ruleName}] ${message}${data ? ' | ' + JSON.stringify(data) : ''}`;
   
   if (level === 'ERROR') {
     console.error(consoleMsg);
@@ -66,7 +80,12 @@ function logEngine(level, ruleName, message, data = null) {
  * 记录规则事件
  */
 function logRuleEvent(ruleName, event, details = {}) {
-  logEngine('INFO', ruleName, event, details);
+  // 根据事件类型分配级别，但所有事件都保留输出
+  let level = 'INFO';
+  if (event === 'CHECK_PASSED' || event === 'COOLDOWN_ACTIVE') {
+    level = 'DEBUG';
+  }
+  logEngine(level, ruleName, event, details);
 }
 
 // ========== 错误监控与通知 ==========
@@ -91,6 +110,44 @@ ${message}`;
   });
   
   console.log(`[🔧警报引擎] 已发送通知给十四月`);
+}
+
+/**
+ * 派发自愈诊断任务给七月
+ * 通过 cron add 创建一次性 isolated session
+ */
+function spawnSelfHeal(filename, ruleName, errorMessage, errorStack) {
+  const { spawn } = require('child_process');
+  const now = new Date().toISOString();
+  const safeName = ruleName.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '-').substring(0, 40);
+  const jobName = `selfheal-${safeName}-${Date.now()}`;
+  
+  // 模型从 global-config.json 读取
+  const model = CONFIG.selfHeal?.model || 'deepseek/deepseek-v4-pro';
+  
+  const message = `[SELF_HEAL] 警报器自愈诊断任务
+
+规则文件: skills/btc-alert/rules/${filename}
+规则名称: ${ruleName}
+错误信息: ${errorMessage}
+错误堆栈: ${errorStack || '无堆栈信息'}
+
+请读取 tasks/alert-self-heal.md 执行自愈诊断流程。`;
+
+  spawn('openclaw', [
+    'cron', 'add',
+    '--agent', 'july',
+    '--model', model,
+    '--session', 'isolated',
+    '--at', now,
+    '--message', message,
+    '--name', jobName,
+    '--delete-after-run',
+    '--no-deliver'
+  ], { detached: true, stdio: 'ignore' });
+  
+  logRuleEvent(ruleName, 'SELF_HEAL_SPAWNED', { jobName, model });
+  console.log(`[🔧警报引擎] 已派发自愈诊断任务: ${jobName} (model: ${model})`);
 }
 
 /**
@@ -122,7 +179,7 @@ function resetErrorStats(filename) {
  * 处理规则执行错误
  * @returns {boolean} true 表示应该暂停规则
  */
-function handleRuleError(filename, ruleName, errorMessage) {
+function handleRuleError(filename, ruleName, errorMessage, errorStack) {
   const stats = getErrorStats(filename);
   const now = Date.now();
   
@@ -136,12 +193,38 @@ function handleRuleError(filename, ruleName, errorMessage) {
     }
   }
   
+  // 获取或初始化自愈状态
+  let healState = selfHealState.get(filename);
+  if (!healState) {
+    healState = { attempted: false, spawnTime: 0 };
+    selfHealState.set(filename, healState);
+  }
+  
+  // ★ 自愈等待期内：错误不计入统计（给七月修复时间）
+  if (healState.attempted && healState.spawnTime > 0) {
+    const elapsed = now - healState.spawnTime;
+    if (elapsed < SELF_HEAL_GRACE_PERIOD) {
+      logEngine('INFO', ruleName, '自愈等待期内错误（不计入统计）', {
+        error: errorMessage,
+        elapsedSeconds: Math.floor(elapsed / 1000),
+        remainingSeconds: Math.floor((SELF_HEAL_GRACE_PERIOD - elapsed) / 1000)
+      });
+      return false; // 不暂停
+    }
+    // 等待期结束，恢复统计
+    logEngine('WARN', ruleName, '自愈等待期结束，恢复错误统计', {
+      elapsedSeconds: Math.floor(elapsed / 1000)
+    });
+    healState.spawnTime = 0; // 清除等待状态
+  }
+  
   // 增加连续错误计数
   stats.consecutiveErrors++;
   
-  logEngine('WARN', ruleName, `规则执行失败`, { 
+  logEngine('WARN', ruleName, '规则执行失败', {
     error: errorMessage,
-    consecutiveErrors: stats.consecutiveErrors 
+    consecutiveErrors: stats.consecutiveErrors,
+    selfHealAttempted: healState.attempted
   });
   
   // 达到5次阈值
@@ -151,42 +234,59 @@ function handleRuleError(filename, ruleName, errorMessage) {
       stats.threshold5FirstTime = now;
     }
     
+    if (!healState.attempted) {
+      // ★ 首次触发阈值 → 派发自愈诊断
+      healState.attempted = true;
+      healState.spawnTime = now;
+      
+      // 通知十四月
+      const notifyMsg = `主人～警报器规则「${ruleName}」连续失败5次，已自动派发自愈诊断任务。
+
+规则: ${ruleName}
+文件: ${filename}
+错误: ${errorMessage}
+
+七月正在诊断修复中，等待期10分钟。若自愈成功将自动恢复，若失败则归档暂停。`;
+      notifyShisiyue(notifyMsg);
+      
+      // 派发自愈任务
+      spawnSelfHeal(filename, ruleName, errorMessage, errorStack || '');
+      
+      // 重置错误计数（等待期内不计）
+      stats.consecutiveErrors = 0;
+      stats.threshold5FirstTime = null;
+      
+      logRuleEvent(ruleName, 'SELF_HEAL_TRIGGERED', { error: errorMessage });
+      return false; // 不暂停，给自愈机会
+    }
+    
+    // ★ 已尝试过自愈 → 直接归档（每个规则只给一次机会）
     stats.threshold5HitCount++;
     
-    // 通知十四月
-    const notifyMsg = `主人～警报器规则连续失败5次！
+    const archiveMsg = `主人～警报器规则「${ruleName}」自愈失败，已自动归档。
 
 规则: ${ruleName}
-错误: ${errorMessage}
-累计触发阈值: ${stats.threshold5HitCount}/3
+文件: ${filename}
+原因: 已尝试自愈修复，但错误仍然持续
+最后错误: ${errorMessage}
 
-继续运行中，若反复出现可能会暂停哦～`;
+规则文件已归档至 rules-archive/，如需重新启用请手动处理。`;
+    notifyShisiyue(archiveMsg);
     
-    notifyShisiyue(notifyMsg);
-    logRuleEvent(ruleName, '达到5次错误阈值', { threshold5HitCount: stats.threshold5HitCount });
+    logRuleEvent(ruleName, 'SELF_HEAL_FAILED_ARCHIVED', {
+      error: errorMessage,
+      threshold5HitCount: stats.threshold5HitCount
+    });
     
-    // 累计3次触发5次阈值
-    if (stats.threshold5HitCount >= 3) {
-      const pauseMsg = `主人～警报器规则已暂停！
-
-规则: ${ruleName}
-原因: 累计触发阈值3次（4小时内反复出现5次连续失败）
-错误: ${errorMessage}
-
-请检查后手动重启～`;
-      
-      notifyShisiyue(pauseMsg);
-      logRuleEvent(ruleName, 'RULE_PAUSED', { reason: '累计触发阈值3次' });
-      return true; // 暂停
-    }
+    return true; // 暂停并归档
   }
   
-  // 达到10次阈值
+  // 达到10次阈值（永不触发自愈的极端情况下的兜底保护）
   if (stats.consecutiveErrors === 10) {
     const pauseMsg = `主人～警报器规则已暂停！
 
 规则: ${ruleName}
-原因: 连续失败10次
+原因: 连续失败10次（未触发自愈阈值）
 错误: ${errorMessage}
 
 请检查后手动重启～`;
@@ -204,16 +304,27 @@ function handleRuleError(filename, ruleName, errorMessage) {
  */
 function handleRuleSuccess(filename, ruleName) {
   const stats = getErrorStats(filename);
+  const healState = selfHealState.get(filename);
   
-  if (stats.consecutiveErrors > 0 || stats.threshold5HitCount > 0) {
+  if (stats.consecutiveErrors > 0 || stats.threshold5HitCount > 0 || (healState && healState.attempted)) {
     logRuleEvent(ruleName, '规则恢复正常', { 
       previousConsecutiveErrors: stats.consecutiveErrors,
-      previousThreshold5HitCount: stats.threshold5HitCount 
+      previousThreshold5HitCount: stats.threshold5HitCount,
+      selfHealRecovered: healState?.attempted || false
     });
+    
+    // 自愈成功，通知十四月
+    if (healState && healState.attempted) {
+      const successMsg = `主人～警报器规则「${ruleName}」自愈成功！
+
+规则已恢复正常运行。自愈诊断任务已完成修复～`;
+      notifyShisiyue(successMsg);
+    }
   }
   
   // 成功一次，完全重置
   resetErrorStats(filename);
+  selfHealState.delete(filename);
 }
 
 // ========== 规则管理 ==========
@@ -347,9 +458,6 @@ async function runRule(ruleInfo) {
     // 执行检测（使用 .call(rule) 保持 this 绑定）
     const shouldTrigger = await check.call(rule);
     
-    // 检测成功，重置错误统计
-    handleRuleSuccess(filename, name);
-    
     if (shouldTrigger) {
       logRuleEvent(name, 'TRIGGERED');
       
@@ -362,6 +470,9 @@ async function runRule(ruleInfo) {
       
       logRuleEvent(name, 'TRIGGER_COMPLETED');
       
+      // 整个链路（check → collect → trigger）全部成功后才重置错误统计
+      handleRuleSuccess(filename, name);
+      
       // 设置冷却时间（30分钟内不再触发）
       const cooldownMs = rule.cooldownMs || DEFAULT_COOLDOWN_MS;
       triggerCooldowns.set(filename, {
@@ -370,13 +481,15 @@ async function runRule(ruleInfo) {
       });
       logRuleEvent(name, 'COOLDOWN_SET', { cooldownMinutes: cooldownMs / 60000 });
     } else {
+      // check 执行成功但未触发（无异常），重置错误统计
+      handleRuleSuccess(filename, name);
       logRuleEvent(name, 'CHECK_PASSED');
     }
     
     return 'continue';
   } catch (error) {
     // 处理错误，决定是否暂停
-    const shouldPause = handleRuleError(filename, name, error.message);
+    const shouldPause = handleRuleError(filename, name, error.message, error.stack);
     
     if (shouldPause) {
       return 'pause'; // 新增暂停状态
@@ -388,17 +501,24 @@ async function runRule(ruleInfo) {
 
 /**
  * 卸载规则（停止定时器并清理）
+ * 
+ * 当 reason 为 error_threshold_reached 时：
+ *   先将规则文件 move 到归档目录，再清理内存状态。
+ *   文件从 rules/ 消失 → 扫描器找不到 → 不会复活 → 循环彻底断裂。
  */
 function unloadRule(filename, ruleName, reason) {
   if (timers.has(filename)) {
     clearInterval(timers.get(filename));
     timers.delete(filename);
   }
-  activeRules.delete(filename);
-  triggerCooldowns.delete(filename); // 清理冷却信息
   
-  // 保留错误统计以便查看，但也可以选择清理
-  // ruleErrorStats.delete(filename);
+  if (reason === 'error_threshold_reached') {
+    // ⭐ 直接归档：文件物理消失，扫描器不会再加载它
+    archiveRule(filename, ruleName, 'error_threshold_exceeded');
+  }
+  
+  activeRules.delete(filename);
+  triggerCooldowns.delete(filename);
   
   logRuleEvent(ruleName, 'RULE_UNLOADED', { reason });
   console.log(`[🔧警报引擎] 正在卸载规则 "${ruleName}" (${reason})`);
@@ -453,8 +573,9 @@ function reloadRule(filename, oldInfo) {
     mtime: getFileMtime(ruleInfo.path)
   });
   
-  // 4. 重置错误统计（新规则重新开始）
+  // 4. 重置错误统计和自愈状态（新规则重新开始）
   resetErrorStats(filename);
+  selfHealState.delete(filename);
   
   // 5. 启动新定时器
   logRuleEvent(newName, 'RULE_RELOADED', { 
@@ -499,7 +620,7 @@ function scanRuleFiles() {
     const filePath = info.path;
     
     if (!fs.existsSync(filePath)) {
-      // 规则文件不存在了（被手动归档或删除）
+      // 规则文件不存在了（被归档或删除）
       logEngine('INFO', info.name, '检测到规则文件已不存在', { path: filePath });
       unloadRule(filename, info.name, 'file_removed');
       continue;
@@ -540,7 +661,9 @@ function scanRuleFiles() {
 /**
  * 启动规则的定时器
  */
-function startRuleTimer(ruleInfo) {
+const STAGGER_DELAY_MS = 500; // 每条规则启动延迟（毫秒）
+
+function startRuleTimer(ruleInfo, staggerIndex = 0) {
   const { filename, path: rulePath, module: rule } = ruleInfo;
   
   // 如果已有定时器，先停止
@@ -569,16 +692,33 @@ function startRuleTimer(ruleInfo) {
     mtime: mtime
   });
   
-  console.log(`[🔧警报引擎] 启动规则定时器 "${rule.name}" (检查间隔: ${rule.interval}ms)`);
+  const staggerMs = staggerIndex * STAGGER_DELAY_MS;
+  console.log(`[🔧警报引擎] 启动规则定时器 "${rule.name}" (检查间隔: ${rule.interval / 1000}s, 打散延迟: ${staggerMs}ms)`);
   
-  // 立即执行一次
-  runRule(ruleInfo).then(result => {
-    if (result === 'stop') {
-      unloadRule(filename, rule.name, 'lifetime_ended');
-    } else if (result === 'pause') {
-      unloadRule(filename, rule.name, 'error_threshold_reached');
-    }
-  });
+  // 首次执行带打散延迟
+  if (staggerMs > 0) {
+    const firstTimer = setTimeout(() => {
+      runRule(ruleInfo).then(result => {
+        if (result === 'stop') {
+          unloadRule(filename, rule.name, 'lifetime_ended');
+        } else if (result === 'pause') {
+          unloadRule(filename, rule.name, 'error_threshold_reached');
+        }
+      });
+    }, staggerMs);
+    // 存储首次执行定时器，用于清理
+    if (!rule._firstTimers) rule._firstTimers = [];
+    rule._firstTimers.push(firstTimer);
+  } else {
+    // 第一条规则立即执行
+    runRule(ruleInfo).then(result => {
+      if (result === 'stop') {
+        unloadRule(filename, rule.name, 'lifetime_ended');
+      } else if (result === 'pause') {
+        unloadRule(filename, rule.name, 'error_threshold_reached');
+      }
+    });
+  }
   
   // 启动定时器
   const timer = setInterval(async () => {
@@ -626,9 +766,9 @@ async function main() {
   // 初始加载规则
   const rules = loadRules();
   
-  // 为每个规则启动定时器
-  for (const rule of rules) {
-    startRuleTimer(rule);
+  // 为每个规则启动定时器（带打散延迟：第N条规则延迟 N×500ms）
+  for (let i = 0; i < rules.length; i++) {
+    startRuleTimer(rules[i], i);
   }
 
   logEngine('INFO', 'Engine', '规则加载完成', { count: timers.size });

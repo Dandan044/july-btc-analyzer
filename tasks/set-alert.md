@@ -70,7 +70,7 @@ test().catch(console.error);
 ```javascript
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
-const CONFIG = require('../../../../tasks/global-config.json');
+const CONFIG = require('../../../tasks/global-config.json');
 
 // ⚠️ COIN 决定触发时使用的模型
 //    'BTC' → trigger.btc.model (deepseek-v4-pro)
@@ -154,7 +154,10 @@ module.exports = {
   lifetime() {
     // ⚠️ 必须使用 api.getLocalDate() 而非 new Date().toISOString()（后者返回UTC日期，UTC+8下会差一天）
     const today = api.getLocalDate();
-    return today === CREATED_DATE ? 'active' : 'expired';
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
 ```
@@ -283,6 +286,28 @@ async check() {
 - **用途定位**：FGI 应作为**日报分析时的情绪参考**，而非**警报触发条件**
 
 ⚠️ 已存在的 FGI 警报必须删除。警报设计时禁止包含 FGI 相关的触发逻辑。
+
+### 3.2.1 ⚠️ 禁止使用 execSync / 同步 curl（必须）
+
+**警报规则中禁止使用 `execSync`、`execSync(curl)` 或任何同步阻塞的 HTTP 请求方式。**
+
+❌ **禁止**：
+```javascript
+const { execSync } = require('child_process');
+const result = execSync(`curl -s --proxy ... "${url}"`, { encoding: 'utf8' });
+```
+
+**原因**：警报引擎是 Node.js 单进程，`execSync` 会阻塞整个事件循环，导致所有其他规则的定时器被延迟。当规则数量增加时，阻塞会累积，导致警报触发不及时。
+
+✅ **正确做法**：
+1. **优先使用 `api` 模块**：所有常用数据获取方法已封装在 `api.js` 中，全部异步非阻塞
+2. **如果 api.js 没有你需要的方法**：
+   - 先用 `api.fetch(url)` 调用任意 API（异步，通过代理，不阻塞）
+   - 向 `skills/btc-market-lite/API_REQUESTS.md` 追加诉求条目（详见 §4 方式2）
+3. **绝对不要**在规则文件中直接 `execSync(curl)` 或 `require('child_process').execSync`
+4. **绝对不要**直接修改 `api.js`——通过诉求文档提需求
+
+**检查方法**：规则文件中不应出现 `execSync` 关键字。`spawn`（用于 trigger 异步派发）是允许的。
 
 ### 3.3 连续数据获取规范（必须）
 
@@ -441,9 +466,35 @@ spawn('openclaw', [
 ### 3.3 生命周期管理
 
 合理设置 `lifetime()`：
-- 当天有效：`today === CREATED_DATE ? 'active' : 'expired'`
+- 3天内有效：计算日期差，recommended 默认 3 天窗口
 - 多日有效：计算日期差
 - 一次性触发：触发后返回 `'completed'`
+
+## 3.6 ⭐ 必须使用 SWAP 合约数据（重要！）
+
+**⚠️ 所有 `getOKXKlines()` 和 `getOKXTicker()` 调用必须传入 `'SWAP'` 参数！**
+
+原因：
+- 我们只对合约市场做分析，不使用现货数据
+- 部分山寨币现货（如 JTO-USDT）的 1m K线在 OKX `history-candles` 端点上间歇性不可用
+- SWAP 合约（如 JTO-USDT-SWAP）流动性更好，数据更稳定
+
+**错误写法（会导致间歇性 API 错误）：**
+```javascript
+const klines = await api.getOKXKlines('JTO', '1m', 3);  // ❌ 默认 SPOT
+```
+
+**正确写法：**
+```javascript
+const klines = await api.getOKXKlines('JTO', '1m', 3, 'SWAP');   // ✅ SWAP 合约
+const ticker = await api.getOKXTicker('JTO', 'SWAP');              // ✅ SWAP
+```
+
+**例外：**
+- BTC 可以使用默认参数（BTC-USDT 现货市场流动性足够）
+- CryptoCompare 的 `getKlines()` 和 `getTicker()` 不区分 SPOT/SWAP，无需修改
+
+---
 
 ## 4. 可用的 API
 
@@ -456,12 +507,35 @@ const api = require('../../btc-market-lite/scripts/api');
 
 | 方法 | 说明 | 数据源 |
 |------|------|--------|
-| `getKlines(symbol, interval, limit)` | 获取K线数据（支持 1m, 5m, 15m, 1h, 4h, 1d） | CryptoCompare |
-| `getTicker(symbol)` | 获取实时价格 + 涨跌幅 | CryptoCompare |
-| `get24hVolume(symbol)` | 获取24小时交易量（小时级） | CryptoCompare |
-| `getPriceHistory(symbol, days)` | 获取历史价格（日线） | CryptoCompare |
+| `getKlines(symbol, interval, limit)` | 获取K线数据（支持 1m, 5m, 15m, 1h, 4h, 1d） | OKX |
+| `getTicker(symbol)` | 获取实时价格 + 涨跌幅 | OKX |
+| `get24hVolume(symbol)` | 获取24小时交易量（小时级） | OKX |
+| `getPriceHistory(symbol, days)` | 获取历史价格（日线） | OKX |
+| `getOKXKlines(symbol, interval, limit, instType)` | 获取OKX K线（支持 1m, 5m, 15m, 1h, 2h, 4h, 1d 等，**小写自动映射大写**） | OKX |
+| `getOKXTicker(symbol, instType)` | 获取OKX实时价格（instType: 'SPOT'/'SWAP'） | OKX |
+| `getOKXOpenInterest(symbol)` | 获取OKX持仓量数据（**支持山寨币**） | OKX |
+| `getOKXTakerRatio(symbol)` | 获取OKX Taker买卖比（**支持山寨币**） | OKX |
+| `getOKXLongShortRatio(symbol)` | 获取OKX多空比（**支持山寨币**） | OKX |
+| `getOKXTopTraderRatio(symbol)` | 获取OKX顶级交易者多空比（**支持山寨币**） | OKX |
+| `getOKXFundingRate(symbol)` | 获取OKX资金费率（**支持山寨币**） | OKX |
+| `getOKXLiquidation()` | 获取BTC合约清算数据 | OKX |
+| `getGlobalVolume(symbol)` | 获取跨交易所全球24h交易量 | CryptoCompare |
 | `getFearGreedIndex(days)` | 获取恐惧贪婪指数 | alternative.me |
-| `fetch(url)` | **通用 HTTP 请求工具** | 任意 API |
+| `fetch(url, timeout)` | **通用异步 HTTP 请求工具**（通过代理，不阻塞事件循环） | 任意 API |
+
+### ⚠️ OKX API 参数规范（必读）
+
+**`getOKXKlines()` 的 interval 参数已支持小写自动映射**（`'1h'`→`'1H'`），无需手动转大写。
+
+**但直接调用 OKX REST API 时，必须严格遵守参数格式：**
+
+| API | 参数 | 允许的值 | ⚠️ 常见错误 |
+|-----|------|---------|------------|
+| K线 `bar` | `1m, 3m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W` | 分钟级小写m，小时级大写H，日/周大写D/W | ❌ `1h` `4h` → Parameter bar error |
+| Rubik stat `period` | **仅 `5m, 1H, 1D`** | 只支持3个值 | ❌ `4H` `15m` `1h` → 参数错误 |
+| Rubik stat `ccy` | 币种如 `BTC`, `ETH` | 大写 | ❌ `btc` → 无数据 |
+
+**重点：OKX Rubik 统计 API（taker-volume、long-short-account-ratio、open-interest-volume）的 `period` 参数只支持 `5m`、`1H`、`1D` 三个值，没有 `15m`、`4H` 等选项！** 如需更细粒度，取 `5m` 后在代码中聚合。
 
 ---
 
@@ -483,22 +557,57 @@ async check() {
 }
 ```
 
-#### 方式 2：在 api.js 中添加新方法
+#### 方式 2：提交 API 诉求（api.js 不允许直接修改）
 
-如果某个 API 需要反复使用，可以在 `skills/btc-market-lite/scripts/api.js` 中封装：
+⚠️ **禁止直接修改 `skills/btc-market-lite/scripts/api.js`！** 该脚本是共享基础设施，每天可能被数十个规则引用，无审查的修改极易引入 bug。
+
+如果 `api.fetch()` 无法满足需求（例如需要复杂的参数处理、数据转换、或某个 API 需要反复使用），按以下流程处理：
+
+1. **在诉求文档中记录**：向 `skills/btc-market-lite/API_REQUESTS.md` 追加一条诉求
+2. **继续当前流程**：在规则中用 `api.fetch()` 临时绕过，完成规则创建
+3. **定期收集**：我们会定期审查诉求文档，将有价值的封装入 api.js
+
+**诉求文档格式**：
+
+```markdown
+## API 诉求列表
+
+### [YYYY-MM-DD] 诉求标题
+- **需求**：需要什么数据/功能
+- **API endpoint**：具体的 URL 和参数
+- **返回格式**：关键字段说明
+- **使用场景**：哪些规则需要用到
+- **状态**：待处理 / 已封装
+```
+
+**示例**：
+
+```markdown
+### [2026-05-09] OKX 清算热力图数据
+- **需求**：获取指定币种的清算订单分布（按价格区间聚合）
+- **API endpoint**：`GET /api/v5/public/liquidation-orders?instFamily={coin}-USDT&instType=SWAP`
+- **返回格式**：`{ details: [{ sz, posSide, ts, bkPrice }] }`
+- **使用场景**：BTC 清算热力图警报、山寨币清算压力监控
+- **状态**：待处理
+```
+
+**在规则创建流程中的检查点**：
+
+当你发现需要的数据获取逻辑在 api.js 中不存在时，必须：
+1. 在 `check()` / `collect()` 的日志中输出 `[📋API诉求]` 标记
+2. 向 `API_REQUESTS.md` 追加诉求条目
+3. 在规则中用 `api.fetch()` 临时实现
+4. 继续完成规则创建
 
 ```javascript
-// 添加新方法到 api.js
-async function getFundingRate() {
-  const data = await fetch('https://api.coinglass.com/api/fundingRate/v2/home');
-  return data.data;
+// 临时绕过示例
+async check() {
+  // 用 api.fetch() 临时获取数据
+  const data = await api.fetch('https://www.okx.com/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP');
+  // ... 处理逻辑
+  console.log('[📋API诉求] 需要封装 getOKXLiquidationMap(symbol) → 已记录到 API_REQUESTS.md');
+  return data.netflow > 10000;
 }
-
-// 更新导出
-module.exports = {
-  // ... 现有方法
-  getFundingRate
-};
 ```
 
 #### 可扩展的数据源（举例）
@@ -651,7 +760,10 @@ module.exports = {
 
   lifetime() {
     const today = api.getLocalDate();
-    return today === CREATED_DATE ? 'active' : 'expired';
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
 ```
@@ -1018,7 +1130,10 @@ module.exports = {
 
   lifetime() {
     const today = api.getLocalDate();
-    return today === CREATED_DATE ? 'active' : 'expired';
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
 ```
@@ -1281,7 +1396,10 @@ module.exports = {
 
   lifetime() {
     const today = api.getLocalDate();
-    return today === CREATED_DATE ? 'active' : 'expired';
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
 ```

@@ -1,43 +1,60 @@
 /**
- * JTO 多价位监控警报（延迟确认）
- * 每个价位有独立的确认策略和延迟时间
- * 价格触及价位后等待确认，避免假突破误触发
- *
- * 来源：active/alt-JTO-20260507-0104/reports/alt-report-JTO-2026-05-07-0110.md
- * 报告观点：JTX催化剂驱动的偏多趋势，等待突破$0.44或回调$0.39-0.40入场
+ * STRK 仓后监控警报（做空持仓）
+ * 监控止损逼近、止盈到达、关键技术位
+ * 当前持仓：523张空单 @ $0.05758，SL $0.0602，TP1 $0.0520，TP2 $0.0480
+ * 
+ * 来源：alt-report-STRK-20260509-0026.md
+ * 开仓逻辑：v5暴涨后冷却，反弹做空，Taker<0.95确认弱反弹
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
-const CONFIG = require('../../../../tasks/global-config.json');
-const COIN = 'JTO';  // ← 模型从 global-config.json trigger.{btc|altcoin}.model 读取
+const CONFIG = require('../../../tasks/global-config.json');
 
-const CREATED_DATE = '2026-05-07';
+const COIN = 'STRK';
+const CREATED_DATE = '2026-05-09';
 const COOLDOWN_MS = 60 * 60 * 1000;
-const COIN = 'JTO';
 
+// 仓后监控价位（5个价位，<=6限制）
 const PRICE_LEVELS = [
-  { price: 0.44, type: 'resistance', label: '突破入场触发位($0.44)', action: '放量突破确认→顺势追多入场', priority: 'high',
-    confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000 },
-  { price: 0.46, type: 'resistance', label: 'TP1/空头清算压力区($0.46)', action: '第一止盈(50%)', priority: 'high',
+  // --- 上方：止损逼近预警 ---
+  { price: 0.0597, type: 'resistance', label: 'SL前阻力/今日高点',
+    action: '价格接近止损$0.0602，关注是否触发止损或手动干预',
+    priority: 'high',
+    confirmPolicy: 'instant' },
+
+  // --- 1档止盈 ---
+  { price: 0.0520, type: 'support', label: 'TP1止盈区',
+    action: '第一档止盈$0.0520到达，261张平仓，剩余262张继续持有',
+    priority: 'high',
     confirmPolicy: 'touch', confirmMs: 3 * 60 * 1000 },
-  { price: 0.50, type: 'resistance', label: 'TP2/整数关口($0.50)', action: '第二止盈(剩余50%)', priority: 'medium',
-    confirmPolicy: 'deep_hold', confirmMs: 20 * 60 * 1000 },
-  { price: 0.40, type: 'support', label: '回调入场区上沿($0.40)', action: '健康回调至支撑→评估做多入场', priority: 'high',
+
+  // --- 4h 38.2% fib ---
+  { price: 0.0513, type: 'support', label: '4h 38.2% fib',
+    action: 'TP1附近支撑位，关注是否反弹或继续下探TP2',
+    priority: 'medium',
     confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
-  { price: 0.39, type: 'support', label: '回调入场区下沿/日线38.2%Fib($0.39)', action: '深度回调至强支撑→评估做多入场', priority: 'high',
-    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
-  { price: 0.38, type: 'support', label: '趋势失效位/EMA20($0.38)', action: '跌破→放弃做多计划，重新评估', priority: 'critical',
-    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 }
+
+  // --- 2档止盈 ---
+  { price: 0.0480, type: 'support', label: 'TP2止盈区',
+    action: '第二档止盈$0.0480到达，全部平仓，做空策略完成',
+    priority: 'high',
+    confirmPolicy: 'touch', confirmMs: 3 * 60 * 1000 },
+
+  // --- 下方：4h 61.8% fib ---
+  { price: 0.0461, type: 'support', label: '4h 61.8% fib',
+    action: 'TP2下方深度支撑，关注是否反弹、是否存在左侧做多机会',
+    priority: 'low',
+    confirmPolicy: 'deep_hold', confirmMs: 20 * 60 * 1000 }
 ];
 
 const STABILITY = {
-  maxRetracePercent: 0.1,
+  maxRetracePercent: 0.15,
   resetOnCrossback: true
 };
 
 module.exports = {
-  name: 'JTO-多价位监控',
+  name: 'STRK仓后价位监控（做空持仓）',
   interval: 3 * 60 * 1000,
   lastTriggered: 0,
   levelStates: {},
@@ -45,16 +62,13 @@ module.exports = {
   breakoutExtremes: {},
 
   async check() {
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
 
     try {
-      const klines = await api.getKlines(COIN, '1m', 3);
+      const klines = await api.getOKXKlines(COIN, '1m', 3, 'SWAP');
       const periodHigh = Math.max(...klines.map(k => k.high));
       const periodLow = Math.min(...klines.map(k => k.low));
       const latestPrice = klines[klines.length - 1].close;
-
       const now = Date.now();
       const confirmedLevels = [];
       const allLogs = [];
@@ -71,14 +85,14 @@ module.exports = {
 
         if (!wasTouched) {
           if (state.firstTouch && !state.confirmed) {
-            const isCrossback = (level.type === 'resistance' && latestPrice < level.price) ||
-                               (level.type === 'support' && latestPrice > level.price);
-            if (isCrossback) {
+            const isAboveLevel = (level.type === 'resistance' && latestPrice < level.price) ||
+                                 (level.type === 'support' && latestPrice > level.price);
+            if (isAboveLevel) {
               const retrace = Math.abs((latestPrice - level.price) / level.price * 100);
               if (retrace > STABILITY.maxRetracePercent) {
                 state.crossbacks++;
                 state.firstTouch = null;
-                allLogs.push(`${level.label}: 假突破，回穿${retrace.toFixed(2)}%，重置`);
+                allLogs.push(`${level.label}: 假突破(${retrace.toFixed(2)}%)，重置`);
               }
             }
           }
@@ -120,15 +134,16 @@ module.exports = {
       }
 
       const statusStr = allLogs.length > 0 ? allLogs.join(' | ') : '无触及';
-      console.log(`[🔍JTO警报] [${COIN}] ${this.name} | 区间: $${periodLow.toFixed(4)}-$${periodHigh.toFixed(4)} | 当前: $${latestPrice.toFixed(4)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0}`);
+      console.log(`[🔍仓后监控] STRK 3根1分钟K线 | 持仓做空 @0.05758 SL=0.0602 | 区间: $${periodHigh.toFixed(4)}-$${periodLow.toFixed(4)} | 当前: $${latestPrice.toFixed(4)} | ${statusStr} | 触发: ${confirmedLevels.length > 0}`);
 
       if (confirmedLevels.length > 0) {
         this.currentTriggeredLevels = confirmedLevels;
         return true;
       }
+
       return false;
     } catch (error) {
-      console.error('[❌JTO警报错误]', error.message);
+      console.error('[❌仓后监控错误]', error.message);
       throw error;
     }
   },
@@ -137,57 +152,96 @@ module.exports = {
     try {
       const triggeredLevels = this.currentTriggeredLevels || [];
       const now = Date.now();
-      const ticker = await api.getTicker(COIN);
-      const klines15m = await api.getKlines(COIN, '15m', 8);
-      const klines1h = await api.getKlines(COIN, '1H', 6);
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const klines15m = await api.getOKXKlines(COIN, '15m', 8, 'SWAP');
 
       return {
         coin: COIN,
         alertTime: new Date().toISOString(),
         currentPrice: ticker.price,
+        entryPrice: 0.05758,
+        positionSize: 523,
+        stopLoss: 0.0602,
+        takeProfit1: 0.0520,
+        takeProfit2: 0.0480,
+
         triggeredLevels: triggeredLevels.map(l => {
           const key = String(l.price);
           const state = this.levelStates[key] || {};
           return {
-            price: l.price, type: l.type, label: l.label, action: l.action, priority: l.priority,
-            confirmPolicy: l.confirmPolicy, confirmMs: l.confirmMs,
+            price: l.price,
+            type: l.type,
+            label: l.label,
+            action: l.action,
+            priority: l.priority,
+            confirmPolicy: l.confirmPolicy,
             firstTouchTime: state.firstTouch ? new Date(state.firstTouch).toISOString() : null,
             confirmedAt: new Date(now).toISOString(),
             elapsedMs: state.firstTouch ? now - state.firstTouch : 0,
             stability: {
-              touches: state.touches || 0, crossbacks: state.crossbacks || 0,
+              touches: state.touches || 0,
+              crossbacks: state.crossbacks || 0,
               breakoutExtreme: this.breakoutExtremes[key] || ticker.price
             }
           };
         }),
-        periodRange: { high: Math.max(...klines15m.slice(-3).map(k => k.high)), low: Math.min(...klines15m.slice(-3).map(k => k.low)) },
-        priceChange: { '1h': ticker.change1h, '24h': ticker.change24h },
-        klines1h: klines1h.map(k => ({ time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })),
-        alertType: 'JTO多价位触发（延迟确认）',
+
+        periodRange: {
+          high: Math.max(...klines15m.slice(-3).map(k => k.high)),
+          low: Math.min(...klines15m.slice(-3).map(k => k.low))
+        },
+
+        klines15m: klines15m.map(k => ({
+          time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume
+        })),
+
+        alertType: 'STRK仓后价位触发',
         significance: this.buildSignificance(triggeredLevels)
       };
     } catch (error) {
-      console.error('[❌JTO数据收集错误]', error.message);
+      console.error('[❌仓后数据收集错误]', error.message);
       throw error;
     }
   },
 
   buildSignificance(levels) {
     if (levels.length === 0) return '无触发';
-    if (levels.length === 1) {
-      const l = levels[0];
-      return l.action ? `${l.label}($${l.price}) ${l.confirmPolicy}, ${l.action}` : `${l.label}($${l.price}) ${l.confirmPolicy}`;
-    }
-    return `多价位确认触发: ${levels.map(l => `${l.label}($${l.price})`).join('、')}`;
+    const labels = levels.map(l => `${l.label}(\$${l.price})`);
+    return `仓后价位触发: ${labels.join('、')} | 持仓: 523空单 @0.05758 SL=0.0602 TP=[0.0520,0.0480]`;
   },
 
   async trigger(data) {
     const json = JSON.stringify(data);
     const now = new Date().toISOString();
-    const jobName = `alert-${data.coin}-${Date.now()}`;
+    const jobName = `alert-STRK-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${json}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/alt-instant-stage1.md 执行数据获取\n2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析\n3. 读取 tasks/alt-intel-stage3.md 执行仓位管理\n4. 读取 tasks/alt-intel-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
 
-
-    // 根据币种选择模型：BTC → trigger.btc.model (pro)，山寨币 → trigger.altcoin.model (flash)
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
+    const model = CONFIG.trigger.altcoin.model;
     spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
+      '--model', model,
+      '--session', 'isolated',
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], { detached: true, stdio: 'ignore' });
+
+    console.log(`[STRK仓后警报触发] 已派发即时分析任务: ${jobName} | 触发价位: ${data.triggeredLevels.length}个`);
+
+    this.lastTriggered = Date.now();
+    this.currentTriggeredLevels = [];
+    this.levelStates = {};
+    this.breakoutExtremes = {};
+  },
+
+  lifetime() {
+    const today = api.getLocalDate();
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 4 ? 'active' : 'expired';
+  }
+};

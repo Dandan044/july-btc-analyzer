@@ -253,7 +253,7 @@ okx-proxy.sh --profile live account balance USDT
 记录 `equity`（权益）和 `available`（可用余额）。
 
 **安全检查：**
-- 山寨仓位固定名义价值 40 USDT，全仓模式下保证金需求极低
+- 山寨仓位固定名义价值 30 USDT，全仓模式下保证金需求极低
 - 如果 `available < 5 USDT`，**终止下单**，记录日志：
   ```
   [$NOW] [阶段三] ⛔ ERROR: 可用余额不足，需要 ≥ 5 USDT，可用 xx USDT
@@ -280,11 +280,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 
 ##### 7.1.3 计算下单参数
 
-**核心规则：固定名义价值 40 USDT，±20u 容差。**
+**核心规则：固定名义价值 30 USDT。**
 
 ```
-张数 = 40 / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
-名义价值容差 = |实际张数 × 价格 × ctVal - 40| ≤ 20 USDT
+张数 = 30 / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
+名义价值容差 = |实际张数 × 价格 × ctVal - 30| ≤ 20 USDT
 
 ⚠️ 取整后再次检查：sz ≥ minSz && sz 是 lotSz 的整数倍
 ```
@@ -293,7 +293,7 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 |------|------|---------|
 | instId | 固定 | {COIN}-USDT-SWAP |
 | side | 建议 | direction: long → buy, short → sell |
-| sz | 计算 | 40 / (价格 × ctVal)，按 lotSz 步进取整 |
+| sz | 计算 | 30 / (价格 × ctVal)，按 lotSz 步进取整 |
 | tdMode | 固定 | cross |
 | posSide | 建议 | direction: long → long, short → short |
 
@@ -301,29 +301,29 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 
 ```
 例A：DOGE-USDT-SWAP (ctVal=1000, price=0.15, lotSz=1, minSz=1)
-  张数 = 40 / (0.15 × 1000) = 0.267 → 取整到 lotSz(1) = 0 张
+  张数 = 30 / (0.15 × 1000) = 0.2 → 取整到 lotSz(1) = 0 张
   名义价值 = 0 × 0.15 × 1000 = 0 USDT
   → sz=0 < minSz(1) → ⚠️ 无法开仓，记录日志
 
 例B：BOME-USDT-SWAP (ctVal=10000, price=0.0005, lotSz=1, minSz=1)
-  张数 = 40 / (0.0005 × 10000) = 8 张 ✅
-  名义价值 = 8 × 0.0005 × 10000 = 40 USDT ✅
+  张数 = 30 / (0.0005 × 10000) = 6 张 ✅
+  名义价值 = 6 × 0.0005 × 10000 = 30 USDT ✅
 
 例C：SOL-USDT-SWAP (ctVal=1, price=150, lotSz=0.1, minSz=0.1)
-  张数 = 40 / (150 × 1) = 0.267 → 取整到 lotSz(0.1) = 0.3 张
-  名义价值 = 0.3 × 150 × 1 = 45 USDT ✅（容差 5 ≤ 20）
+  张数 = 30 / (150 × 1) = 0.2 → 取整到 lotSz(0.1) = 0.2 张
+  名义价值 = 0.2 × 150 × 1 = 30 USDT ✅（容差 0 ≤ 20）
 
 例D：LAB-USDT-SWAP (ctVal=1, price=2.5, lotSz=1, minSz=1)
-  张数 = 40 / (2.5 × 1) = 16 张
-  名义价值 = 16 × 2.5 × 1 = 40 USDT ✅
+  张数 = 30 / (2.5 × 1) = 12 张
+  名义价值 = 12 × 2.5 × 1 = 30 USDT ✅
 
 例E：某小币 (ctVal=100, price=0.02, lotSz=1, minSz=1)
-  张数 = 40 / (0.02 × 100) = 20 张
-  名义价值 = 20 × 0.02 × 100 = 40 USDT ✅
+  张数 = 30 / (0.02 × 100) = 15 张
+  名义价值 = 15 × 0.02 × 100 = 30 USDT ✅
 
 例F：ETH-USDT-SWAP (ctVal=0.01, price=3000, lotSz=0.01, minSz=0.01)
-  张数 = 40 / (3000 × 0.01) = 1.333 → 取整到 lotSz(0.01) = 1.33 张
-  名义价值 = 1.33 × 3000 × 0.01 = 39.9 USDT ✅
+  张数 = 30 / (3000 × 0.01) = 1 → 取整到 lotSz(0.01) = 1 张
+  名义价值 = 1 × 3000 × 0.01 = 30 USDT ✅
 ```
 
 **⚠️ 最小仓位与精度检查（必须用实际 minSz/lotSz！）：**
@@ -335,11 +335,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 # 如 SOL-USDT-SWAP 的 minSz=0.1, lotSz=0.1
 ```
 
-- 计算张数 `sz = 40 / (价格 × ctVal)`，按 `lotSz` 步进取整
+- 计算张数 `sz = 30 / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 如果 `sz < minSz`，终止下单，记录日志：
   ```
   [$NOW] [阶段三] ⚠️ WARN: 计算张数 {sz} < 最小下单张数 {minSz}（合约：{instId}，lotSz={lotSz}）
-  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ 40u
+  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ 30u
   ```
 - **即使 sz ≥ minSz，也必须确保 sz 是 lotSz 的整数倍**
 
@@ -508,8 +508,8 @@ okx-proxy.sh --profile live account balance USDT
 
 ##### 7.2.3 计算加仓张数
 
-使用与开仓相同的固定 40u 名义价值计算逻辑：
-- `sz_add = 40 / (价格 × ctVal)`，按 `lotSz` 步进取整
+使用与开仓相同的固定 30u 名义价值计算逻辑：
+- `sz_add = 30 / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 验证容差 ≤ 20 USDT
 - 同样执行 `sz_add ≥ minSz` 检查
 

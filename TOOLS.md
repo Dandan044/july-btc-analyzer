@@ -147,6 +147,14 @@ GIT_SSH_COMMAND="ssh -i ~/.openclaw/workspace-july/.ssh/id_ed25519" git push ori
 
 **核心原则：不要猜测API endpoint，先查看现有代码！**
 
+### getOKXKlines interval 映射（2026-05-08 修复）
+
+`getOKXKlines()` 已内置小写→大写自动映射，传 `'1h'`/`'4h'` 等小写参数不再报错。
+
+但**直接调用 OKX REST API**（如 rubik stat 接口）时，仍需手动使用正确大小写：
+- K线 `bar`: 分钟级小写m（`1m`, `15m`），小时级大写H（`1H`, `4H`），日大写D（`1D`）
+- Rubik `period`: **仅支持 `5m`, `1H`, `1D`**，无 `4H`/`15m` 等选项
+
 ### 已验证的数据源
 
 | 数据类型 | API endpoint | 来源 |
@@ -205,26 +213,26 @@ const result = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`,
 
 ---
 
-## 🌐 Web Search 配置（2026-04-30）
+## 🌐 Web Search 配置（2026-05-08 更新）
 
-### 主力引擎：DuckDuckGo
+### 主力引擎：MiniMax
+
+- **Provider**: `minimax`
+- **费用**: 按量计费
+- **API Key**: 已配置在 `plugins.entries.minimax.config.webSearch.apiKey`
+- **国内**: 直连（无需代理）
+- **速度**: ~1600ms
+- **特点**: 对中文快讯较敏感，无需代理
+
+### 备用引擎：DuckDuckGo
 
 - **Provider**: `duckduckgo`
 - **费用**: 免费，无需 API Key
 - **方式**: HTML 网页抓取（非官方 API）
 - **国内**: 需通过代理 `127.0.0.1:7890` 访问
 - **代理配置**: 在 systemd service 中设置了 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 环境变量
-- **速度**: 英文 ~450ms，中文 ~1900ms
-- **特点**: 结果精准度高，噪音少，覆盖中英文源
-
-### 备用引擎：MiniMax
-
-- **Provider**: `minimax`
-- **费用**: 按量计费
-- **API Key**: 已配置在 `plugins.entries.minimax.config.webSearch.apiKey`
-- **国内**: 直连
-- **速度**: ~1800ms
-- **特点**: 对中文快讯更敏感，但结果噪音较多
+- **⚠️ 已知问题**: 2026-05-08 07:06~09:10 之间开始返回 bot-detection challenge，已降为备用引擎
+- **恢复**: 如需切回，编辑文件后需要 systemctl --user restart（纯 gateway restart 不够）
 
 ### 切换方式
 
@@ -234,20 +242,20 @@ python3 -c "
 import json
 with open('/home/administrator/.openclaw/openclaw.json') as f:
     c = json.load(f)
-c['tools']['web']['search']['provider'] = 'minimax'  # 或 'duckduckgo'
+c['tools']['web']['search']['provider'] = 'duckduckgo'  # 或 'minimax'
 with open('/home/administrator/.openclaw/openclaw.json', 'w') as f:
     json.dump(c, f, indent=2, ensure_ascii=False)
 "
-# 重启服务
+# ⚠️ 必须完全重启！gateway restart(SIGUSR1) 不够
 systemctl --user restart openclaw-gateway.service
 ```
 
 ### ⚠️ 注意事项
 
 - `tools.web.search.provider` 是受保护路径，不能通过 `config.patch` 修改，必须直接编辑文件后重启
-- DuckDuckGo 依赖代理，如果代理挂了会自动不可用
+- 切换 provider 后需要 **systemd 完全重启**（`gateway restart` 的 SIGUSR1 热加载无法生效）
 - 如需新增其他 provider（Brave/Tavily 等），参考 `plugins.entries.<provider>.config.webSearch` 模式
-- 配置日期：2026-04-30
+- 配置日期：2026-05-08（主力从 DuckDuckGo 切换为 MiniMax）
 
 ---
 

@@ -58,16 +58,16 @@ ACTIVE_COUNT=$(ls -d active/alt-* 2>/dev/null | wc -l)
 
 | 条件 | 操作 |
 |------|------|
-| `ACTIVE_COUNT < 5` | 继续扫描 |
-| `ACTIVE_COUNT >= 5` | 跳过本轮 |
+| `ACTIVE_COUNT < 20` | 继续扫描 |
+| `ACTIVE_COUNT >= 20` | 跳过本轮 |
 
 **日志记录：**
 
 ```
-[$NOW] [扫描] 活跃周期: ${ACTIVE_COUNT}/5
+[$NOW] [扫描] 活跃周期: ${ACTIVE_COUNT}/20
 ```
 
-**上限值从 `tasks/global-config.json` → `maxAltcoinCycles` 读取。**
+**上限值: 20**（与 `tasks/global-config.json` → `maxAltcoinCycles` 保持同步）。
 
 如果已达上限：
 
@@ -108,12 +108,12 @@ OKX tickers API 不直接返回 `change24h%`，需要自行计算：
 
 #### 3.3 按绝对值排序
 
-按 `|涨跌幅%|` 降序排列，取前 **20** 个作为候选池。
+按 `|涨跌幅%|` 降序排列，取前 **40** 个作为候选池。
 
 **日志记录：**
 
 ```
-[$NOW] [扫描] 候选池已生成: 前 20 个（|涨跌幅| 降序）
+[$NOW] [扫描] 候选池已生成: 前 40 个（|涨跌幅| 降序）
 ```
 
 **API 异常处理：**
@@ -130,33 +130,64 @@ OKX tickers API 不直接返回 `change24h%`，需要自行计算：
 
 ### 步骤 4：逐候选筛选
 
-对候选池中的 20 个币种，按 `|涨跌幅|` 从高到低逐一遍历。**每个币种依次过以下三道筛：**
+对候选池中的 40 个币种，按 `|涨跌幅|` 从高到低逐一遍历。**每个币种依次过以下三道筛：**
 
 ---
 
-#### 筛 A：提取币种名并匹配黑名单
+#### ⚠️ 必须使用预写脚本执行筛A+筛B
 
-从 `instId` 提取币种名（去掉 `-USDT-SWAP` 后缀）：
+**筛A（黑名单）+ 筛B（活跃周期）是纯机械逻辑，已经预写在 `scripts/alt-scanner-screening.py` 中。**
 
-```
-coin = instId.replace('-USDT-SWAP', '')
-```
+**你必须直接执行此脚本，不得自己重写这段逻辑。**
 
-检查 `coin` 是否在黑名单中。读取 `data/altcoin-blacklist.json`，检查 `coin` 是否在 `blacklist` 数组中。
+重写的后果：Python 的 `subprocess.run(['ls', '-d', ...])` 不带 `shell=True` 时不会展开 glob 通配符，会导致筛B永远返回「无活跃周期」——这已经在生产环境实际发生过。
 
-**在名单中 → 跳过，顺延下一位。**
-
----
-
-#### 筛 B：检查是否已有活跃周期
+操作方式：
 
 ```bash
-ls -d active/alt-${coin}-* 2>/dev/null
+cat /tmp/top40_candidates.json | python3 scripts/alt-scanner-screening.py
 ```
 
-**存在 → 该币种已有活跃周期，跳过，顺延下一位。**
+脚本输出 JSON，结构如下：
 
-（活跃周期存在意味着该币已被扫描且尚未平仓归档，无需重复启动。）
+```json
+{
+  "screening": [
+    {
+      "idx": 0,
+      "coin": "JTO",
+      "instId": "JTO-USDT-SWAP",
+      "change_pct": 40.18,
+      "screen_a": "pass",
+      "screen_b": "skip (exists: alt-JTO-20260508-0105)",
+      "pass_a_and_b": false
+    },
+    {
+      "idx": 8,
+      "coin": "APR",
+      "change_pct": 30.5,
+      "screen_a": "pass",
+      "screen_b": "pass",
+      "pass_a_and_b": true
+    }
+  ],
+  "first_pass_coin": "APR",
+  "first_pass_idx": 8
+}
+```
+
+字段含义：
+| 字段 | 说明 |
+|------|------|
+| `screen_a` | `"pass"` = 通过黑名单检查；`"skip (blacklisted)"` = 在黑名单中 |
+| `screen_b` | `"pass"` = 无活跃周期；`"skip (exists: dirname)"` = 已有活跃周期 |
+| `pass_a_and_b` | 是否同时通过 A+B。`true` 的候选才进入筛C |
+| `first_pass_coin` | 首个同时通过 A+B 的币种名；全部未通过则 `null` |
+| `first_pass_idx` | 该币种在候选池中的索引 |
+
+**读取 `first_pass_coin`：**
+- 如果为 `null` → 全部未通过 → 跳到步骤 6
+- 如果有值 → 该币种进入筛C（山寨判断）
 
 ---
 
@@ -207,11 +238,14 @@ TRIGGER_TIME=$(date -Iseconds)
 ```
 - agentId: "july"
 - mode: "run"
+- model: "deepseek/deepseek-v4-flash"
 - task:
   币种: {COIN}
   触发时间: {TRIGGER_TIME}
   请读取 tasks/alt-intel-stage1.md 开始阶段一三维信息收集。
 ```
+
+> ⚠️ **必须传 model 参数**，否则子会话将继承 agent 默认模型（deepseek-v4-pro），违背 global-config 的山寨币 flash 模型配置。
 
 > 周期目录由阶段一自行创建，无需传递。
 
@@ -228,10 +262,10 @@ TRIGGER_TIME=$(date -Iseconds)
 
 ### 步骤 6：全部未通过
 
-**候选池 20 个全部被筛掉 → 记录后退出。**
+**候选池 40 个全部被筛掉 → 记录后退出。**
 
 ```
-[$NOW] [扫描] 候选池 20 个全部未通过筛选 | 跳过统计: 黑名单 X, 活跃周期 X, 非山寨 X
+[$NOW] [扫描] 候选池 40 个全部未通过筛选 | 跳过统计: 黑名单 X, 活跃周期 X, 非山寨 X
 ```
 
 ---
@@ -251,7 +285,7 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
         │
 过滤 -USDT-SWAP、计算 change24h%
         │
-按 |change24h%| 降序，取前 20
+按 |change24h%| 降序，取前 40
         │
 逐个候选：
   ├─ 筛A: 黑名单？        → 跳过
@@ -278,15 +312,16 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 
 ## 核心要求
 
-1. **先检查上限**：活跃周期 ≥ `maxAltcoinCycles` 直接跳过
-2. **绝对值排序**：取 `|涨跌幅%|` 最大的前 20，涨跌都纳入
+1. **先检查上限**：活跃周期 ≥ 20 直接跳过
+2. **绝对值排序**：取 `|涨跌幅%|` 最大的前 40，涨跌都纳入
 3. **只取 -USDT-SWAP**：忽略 USD/UM 变体
 4. **三筛顺序不可变**：黑名单 → 活跃周期 → 山寨判断
-5. **黑名单外部维护**：修改 `data/altcoin-blacklist.json`，添加 `blacklist` 数组项和 `reason` 说明
-6. **LLM 自主判断非山寨**：根据指南判断股票/商品/外汇，不硬编码
-7. **一次只扫一个**：第一个通过三筛的币就 spawn，本轮结束
-8. **不传周期目录**：阶段一自行创建，spawn 只传币种和触发时间
-9. **日志完整**：每轮扫描、每个筛选决策都记录
+5. **筛A+筛B 必须使用预写脚本**：直接执行 `scripts/alt-scanner-screening.py`，不得自己重写
+6. **黑名单外部维护**：修改 `data/altcoin-blacklist.json`，添加 `blacklist` 数组项和 `reason` 说明
+7. **LLM 自主判断非山寨**：根据指南判断股票/商品/外汇，不硬编码
+8. **一次只扫一个**：第一个通过三筛的币就 spawn，本轮结束
+9. **不传周期目录**：阶段一自行创建，spawn 只传币种和触发时间
+10. **日志完整**：每轮扫描、每个筛选决策都记录
 
 ---
 
@@ -301,4 +336,4 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 
 ---
 
-alt-scanner-v1.0
+alt-scanner-v2.0

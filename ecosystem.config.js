@@ -10,6 +10,9 @@ module.exports = {
     max_restarts: 10,
     restart_delay: 3000,
     
+    // Node.js 堆内存配置（2026-05-09: 默认堆仅8.85MB/93%使用率，扩至256MB）
+    node_args: ['--max-old-space-size=256'],
+
     // 内存限制
     max_memory_restart: '500M',
     
@@ -23,6 +26,7 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       TZ: 'Asia/Shanghai',
+      LOG_LEVEL: 'INFO',
       http_proxy: 'http://127.0.0.1:7890',
       https_proxy: 'http://127.0.0.1:7890',
       all_proxy: 'socks5://127.0.0.1:7890'

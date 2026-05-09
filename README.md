@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v7 更新**：山寨币分析链路上线 + 模型配置全局化（`tasks/global-config.json`）。
+> **v8 更新**：警报引擎异步化 + 自愈系统 + 山寨币策略升级 + 模型配置简化。
 
 ## 🚀 快速开启
 
@@ -126,7 +126,7 @@ july-btc-analyzer/
 │   │   └── reports/             # 本周期报告
 │   │       ├── btc-report-YYYY-MM-DD-HHMM.md
 │   │       └── instant-report-YYYY-MM-DD-HHMM.md
-│   └── alt-{COIN}-{时间}/       # 山寨币周期（最多10个）
+│   └── alt-{COIN}-{时间}/       # 山寨币周期（最多20个）
 │       ├── positions.json        # 山寨币持仓
 │       ├── data/                 # 原始数据
 │       └── reports/              # 山寨币分析报告
@@ -256,22 +256,18 @@ july-btc-analyzer/
 
 | 任务 | 规则文件 | 模型 |
 |------|---------|------|
-| 执行日报任务（阶段一） | `tasks/daily-report-stage1.md` | `trigger.btc.model` |
-| 执行日报任务（阶段二） | `tasks/daily-report-stage2.md` | `trigger.btc.model` |
-| 执行日报任务（阶段三） | `tasks/daily-report-stage3.md` | `trigger.btc.model` |
-| 执行日报任务（阶段四） | `tasks/daily-report-stage4.md` | `trigger.btc.model` |
+| 执行日报任务 | `tasks/daily-report-stage1.md` | `deepseek-v4-pro` |
 | 设定市场警报 | `tasks/set-alert.md` | 默认 |
-| 即时分析任务（阶段一） | `tasks/instant-analysis-stage1.md` | `trigger.btc.model` |
-| 实盘持仓同步 | `tasks/sync-positions.md` | 默认 |
+| 即时分析任务 | `tasks/instant-analysis-stage1.md` | `deepseek-v4-pro` |
 
 #### 山寨币任务
 
 | 任务 | 阶段一入口 | 后续阶段 | 模型 |
 |------|-----------|---------|------|
-| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `trigger.altcoin.model` |
-| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `trigger.altcoin.model` |
+| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `deepseek-v4-flash` |
+| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `deepseek-v4-flash` |
 
-> **模型配置中心**：`tasks/global-config.json` 统一管理所有 spawn / cron / 警报规则的模型参数。BTC 使用 `deepseek-v4-pro`（分析深度），山寨币使用 `deepseek-v4-flash`（速度成本）。
+> **模型配置**：BTC 使用 `deepseek-v4-pro`（分析深度），山寨币使用 `deepseek-v4-flash`（速度成本）。⚠️ 已知 `sessions_spawn` 的 `model` 参数被平台忽略，当前 agent 默认模型为 flash，待平台修复后恢复 BTC → pro。
 
 ### 任务触发流程
 
@@ -331,6 +327,54 @@ env: {
 ---
 
 ## 更新日志
+
+### 2026-05-09
+> 🏗️ v8 — 警报引擎异步化 + 自愈系统 + 山寨币策略升级
+
+**变更内容：**
+
+**① 警报引擎异步化重构**（`skills/btc-alert/engine.js`）：
+- `api.js` 的 `fetch()` 从 `execSync(curl)` 改为异步 `http.request`，消除事件循环阻塞
+- 警报规则中禁止使用 `execSync` / 同步 curl（新增 §3.2.1 规范）
+- 新增日志级别控制（`LOG_LEVEL` 环境变量，默认 INFO）
+- PM2 配置新增 `--max-old-space-size=256`（默认堆仅 8.85MB/93% 使用率）
+
+**② 警报器自愈系统**：
+- 引擎新增 `spawnSelfHeal()` — 规则连续报错时自动派发诊断任务给七月
+- 每个规则仅一次自愈机会，10 分钟宽限期
+- 新增 `tasks/alert-self-heal.md` 自愈诊断流程
+- `global-config.json` 新增 `selfHeal.model` 配置
+
+**③ 山寨币策略升级**（`tasks/alt-intel-stage2.md`）：
+- 分析视野从纯右侧顺势扩展为「顺势视野 + 终局视野」双重视角
+- 新增趋势阶段判断、驱动力衰减评估、反转信号评估
+- 仓位从 40u 降至 30u 名义价值
+- 左侧逆势操作必须使用窄止损（不允许 25% 宽止损）
+- 止盈允许只设定一档
+
+**④ 山寨币扫描器增强**（`tasks/alt-scanner.md`）：
+- 活跃周期上限从 5 提升至 20
+- 候选池从 Top 20 扩大至 Top 40
+- 筛A+筛B 逻辑预写为 `scripts/alt-scanner-screening.py`（禁止重写，防 glob 展开bug）
+- 新增上线时间检查（<30天新币自动拉黑，`data/altcoin-blacklist.json`）
+
+**⑤ 模型配置简化**（`AGENTS.md`）：
+- `sessions_spawn` 的 `model` 参数被平台静默忽略，改为直接硬编码模型名
+- 所有 spawn 指令不再从 `global-config.json` 动态读取，改为静态写明
+- `global-config.json` 新增 `_refs` 引用追踪（📝静态需手动同步 / 🔧运行时自动跟随）
+
+**⑥ 警报规则全面更新**：
+- 归档 22 个旧规则（AR/BILL/DASH/ICP/JTO/NEAR/TON/USELESS/WIF/ZEC）
+- 新增 34 个规则（AZTEC/DYDX/FIL/GALA/JTO/JUP/LIGHT/NOT/ONDO/OP/RLS/ROBO/SAHARA/SPACE/SPK/STRK/TIA/WLFI + BTC 布林带/仓位管理v2）
+- `set-alert.md` 新增：禁止 execSync、必须使用 SWAP 合约数据、lifetime 从当天有效改为 3 天窗口
+- 阶段四新增 API 诉求检查点（`API_REQUESTS.md` 追踪机制）
+
+**⑦ 数据源与工具更新**：
+- `api.js` 合约统计方法增加 `symbol` 参数，新增 `getOKXFundingRate(symbol)`
+- `getOKXKlines()` 内置小写→大写自动映射
+- Web Search 主力引擎从 DuckDuckGo 切换为 MiniMax（DDG 触发 bot-detection）
+- `btc-market-lite/SKILL.md` 数据源描述修正（实际主力为 OKX，CryptoCompare 仅用于 getGlobalVolume）
+- 新增 `scripts/log-rotate.sh` 日志轮转脚本
 
 ### 2026-05-07
 > 🏗️ 山寨币分析链路上线 + 模型配置全局化

@@ -1,69 +1,68 @@
 /**
- * BILL 多价位延迟确认监控警报
- * 每个价位有独立的确认策略和延迟时间
- * 价格触及价位后等待确认，避免假突破误触发
+ * SPACE 多价位延迟确认监控警报 v3
+ * 更新于 2026-05-09 即时分析后
  *
- * 来源：active/alt-BILL-20260507-1104/reports/alt-report-BILL-2026-05-07-1108.md
- * 报告观点：BILL上线仅2天，双波拉涨后第二次量能不足遭拒绝(0.0808)，
- *           短期偏空但需确认关键位跌破；突破0.081则多头重燃。
- *           当前建议观望，等待以下价位确认方向。
+ * 来源：alt-report-SPACE-2026-05-09-0411 (即时分析)
+ * 报告观点：$0.0085突破确认但OI价背离持续扩大，观望。
+ * 更新做多条件：$0.009 + 日成交量$15M + OI>2.8M
+ * 更新做空条件：跌破$0.008
+ *
+ * v2→v3变更：移除已触发的$0.0085位，新增$0.009做多入场位和$0.008做空位
  */
 
 const api = require('../../btc-market-lite/scripts/api');
+const CONFIG = require('../../../tasks/global-config.json');
 const { spawn } = require('child_process');
-const CONFIG = require('../../../../tasks/global-config.json');
 
-const COIN = 'BILL';
-const CREATED_DATE = '2026-05-07';
-const COOLDOWN_MS = 60 * 60 * 1000; // 整体冷却 1小时
+const COIN = 'SPACE';
+const CREATED_DATE = '2026-05-09';
+const COOLDOWN_MS = 60 * 60 * 1000;
 
 // ============================================================
-// 多价位配置（每个价位带确认策略）
+// ⭐ 多价位配置（4个价位 ≤6 上限）
 // ============================================================
 const PRICE_LEVELS = [
   // 上方价位
-  { price: 0.0810, type: 'resistance', label: '二次拉涨高点突破/做多触发',
-    action: '突破确认多头方向，评估做多入场', priority: 'high',
+  { price: 0.0090, type: 'resistance', label: '4H 38.2%斐波那契+做多入场位',
+    action: '开多入场', priority: 'high',
     confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000 },
 
   // 下方价位
-  { price: 0.0630, type: 'support', label: '近期支撑/做空触发',
-    action: '跌破确认空头方向，评估做空入场', priority: 'high',
+  { price: 0.0080, type: 'support', label: '结构破坏确认+做空入场位',
+    action: '开空入场', priority: 'high',
     confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
 
-  { price: 0.0580, type: 'support', label: '首次回调低点',
-    action: '跌破确认趋势转弱，空头加速', priority: 'medium',
-    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
+  { price: 0.0076, type: 'support', label: '深度回调支撑观察位',
+    action: null, priority: 'medium',
+    confirmPolicy: 'deep_hold', confirmMs: 30 * 60 * 1000 },
 
-  { price: 0.0528, type: 'support', label: '历史低点/首发价',
-    action: '跌破意味着完全回吐首发涨幅，极端空头', priority: 'medium',
-    confirmPolicy: 'deep_hold', confirmMs: 20 * 60 * 1000 }
+  { price: 0.0070, type: 'support', label: '4H跌破确认位',
+    action: '开空入场', priority: 'high',
+    confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000 }
 ];
 
 // ============================================================
-// 稳定性检查参数
+// ⭐ 稳定性检查参数
 // ============================================================
 const STABILITY = {
-  maxRetracePercent: 0.5,     // BILL 波动极大，放宽回穿阈值至 0.5%
+  maxRetracePercent: 0.2,     // SPACE波动大，允许0.2%回穿
   resetOnCrossback: true
 };
 
 module.exports = {
-  name: 'BILL-多价位延迟确认监控',
+  name: 'SPACE多价位监控警报v3',
   interval: 3 * 60 * 1000,
   lastTriggered: 0,
 
   levelStates: {},
   currentTriggeredLevels: [],
-  breakoutExtremes: {},
+  breakoutExtremes: [],
 
   async check() {
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
 
     try {
-      // 使用 OKX API 获取 K 线（CryptoCompare 可能不支持 BILL）
+      // ⭐ 获取K线片段（覆盖3分钟检查间隔）
       const klines = await api.getKlines(COIN, '1m', 3);
       const periodHigh = Math.max(...klines.map(k => k.high));
       const periodLow = Math.min(...klines.map(k => k.low));
@@ -92,7 +91,7 @@ module.exports = {
               if (retrace > STABILITY.maxRetracePercent) {
                 state.crossbacks++;
                 state.firstTouch = null;
-                allLogs.push(`${level.label}: 假突破，回穿${retrace.toFixed(2)}%，重置`);
+                allLogs.push(`${level.label}: 假突破(回穿${retrace.toFixed(3)}%)，重置`);
               }
             }
           }
@@ -108,7 +107,7 @@ module.exports = {
         if (!state.firstTouch) {
           state.firstTouch = now;
           state.touches++;
-          allLogs.push(`${level.label}: 首次触及 $${level.price}，开始${level.confirmMs/60000}分钟确认...`);
+          allLogs.push(`${level.label}: 触及$${level.price}，开始${level.confirmMs/60000}分钟确认`);
           continue;
         }
 
@@ -122,22 +121,17 @@ module.exports = {
         }
 
         const elapsed = now - state.firstTouch;
-        if (elapsed >= level.confirmMs) {
-          if (!state.confirmed) {
-            state.confirmed = true;
-            confirmedLevels.push(level);
-            const elapsedMins = Math.floor(elapsed / 60000);
-            allLogs.push(`${level.label}: 确认完成(${elapsedMins}分钟)`);
-          }
-        } else {
-          const elapsedMins = Math.floor(elapsed / 60000);
-          const targetMins = Math.floor(level.confirmMs / 60000);
-          allLogs.push(`${level.label}: 确认中(${elapsedMins}/${targetMins}分钟)`);
+        if (elapsed >= level.confirmMs && !state.confirmed) {
+          state.confirmed = true;
+          confirmedLevels.push(level);
+          allLogs.push(`${level.label}: ✅ 确认完成(${Math.floor(elapsed/60000)}分钟)`);
+        } else if (!state.confirmed) {
+          allLogs.push(`${level.label}: 确认中(${Math.floor(elapsed/60000)}/${level.confirmMs/60000}分钟)`);
         }
       }
 
       const statusStr = allLogs.length > 0 ? allLogs.join(' | ') : '无触及';
-      console.log(`[🔍BILL警报] [API] OKX获取${COIN} ${klines.length}根1分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(4)}-$${periodHigh.toFixed(4)} | 当前: $${latestPrice.toFixed(4)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0} | [来源] 05-07 11:08交叉验证分析: "观望，等待0.081突破或0.063跌破确认方向"`);
+      console.log(`[🔍警报检查] [API] CC获取${COIN}3根1mK线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(4)}-$${periodHigh.toFixed(4)} | 当前: $${latestPrice.toFixed(4)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0} | [来源] 05-09 SPACE即时分析v3: "观望，做多需$0.009+量能+OI回升，做空需$0.008跌破"`);
 
       if (confirmedLevels.length > 0) {
         this.currentTriggeredLevels = confirmedLevels;
@@ -146,7 +140,7 @@ module.exports = {
 
       return false;
     } catch (error) {
-      console.error('[❌BILL警报错误]', error.message);
+      console.error(`[❌${COIN}警报检查错误]`, error.message);
       throw error;
     }
   },
@@ -158,14 +152,14 @@ module.exports = {
 
       const ticker = await api.getTicker(COIN);
       const klines15m = await api.getKlines(COIN, '15m', 8);
+      const klines1h = await api.getKlines(COIN, '1h', 4);
 
-      // 获取额外合约数据
-      let oiData = null, lsRatio = null, takerData = null;
+      // 获取OKX数据
+      let oiData = null, takerData = null, lsRatio = null;
       try {
-        const okxBase = 'https://www.okx.com';
-        oiData = await api.fetch(`${okxBase}/api/v5/rubik/stat/contracts/open-interest-volume?ccy=BTC&period=1D`);
-        lsRatio = await api.fetch(`${okxBase}/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=BTC&period=1D`);
-        takerData = await api.fetch(`${okxBase}/api/v5/rubik/stat/taker-volume?instId=${COIN}-USDT-SWAP&instType=CONTRACTS&ccy=BTC&period=1D`);
+        oiData = await api.getOKXOpenInterest(COIN);
+        takerData = await api.getOKXTakerRatio(COIN);
+        lsRatio = await api.getOKXLongShortRatio(COIN);
       } catch (e) { /* 静默 */ }
 
       return {
@@ -186,33 +180,42 @@ module.exports = {
             confirmPolicy: l.confirmPolicy,
             confirmMs: l.confirmMs,
             firstTouchTime: state.firstTouch ? new Date(state.firstTouch).toISOString() : null,
-            touches: state.touches,
-            crossbacks: state.crossbacks
+            confirmedAt: new Date(now).toISOString(),
+            elapsedMs: state.firstTouch ? now - state.firstTouch : 0,
+            stability: {
+              touches: state.touches || 0,
+              crossbacks: state.crossbacks || 0,
+              breakoutExtreme: this.breakoutExtremes[key] || ticker.price
+            }
           };
         }),
 
-        klines15m: klines15m.map(k => ({
-          time: k.datetime,
-          open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume
-        })),
+        periodRange: {
+          high: Math.max(...klines15m.slice(-3).map(k => k.high)),
+          low: Math.min(...klines15m.slice(-3).map(k => k.low))
+        },
 
-        oiData: oiData ? oiData.data : null,
-        lsRatio: lsRatio ? lsRatio.data : null,
-        takerData: takerData ? takerData.data : null,
+        openInterest: oiData?.currentOI,
+        takerBuyRatio: takerData?.currentRatio,
+        longShortRatio: lsRatio?.currentRatio,
+        klines15m: klines15m.map(k => ({ time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })),
+        klines1h: klines1h.map(k => ({ time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close })),
 
-        alertType: 'BILL多价位延迟确认',
-        alertSource: '05-07 11:08交叉验证分析报告'
+        alertType: 'SPACE多价位触发',
+        significance: triggeredLevels.length === 1
+          ? `${triggeredLevels[0].label}($$${triggeredLevels[0].price}) ${triggeredLevels[0].action || '观察'}`
+          : `多价位确认: ${triggeredLevels.map(l=>`${l.label}($${l.price})`).join('、')}`
       };
     } catch (error) {
-      console.error('[❌BILL数据收集错误]', error.message);
+      console.error(`[❌${COIN}数据收集错误]`, error.message);
       throw error;
     }
   },
 
-  async trigger(alertData) {
-    const json = JSON.stringify(alertData);
+  async trigger(data) {
+    const json = JSON.stringify(data);
     const now = new Date().toISOString();
-    const jobName = `alert-${COIN}-${Date.now()}`;
+    const jobName = `alert-${data.coin}-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${json}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/alt-instant-stage1.md 执行数据获取\n2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析\n3. 读取 tasks/alt-intel-stage3.md 执行仓位管理\n4. 读取 tasks/alt-intel-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
 
     const model = CONFIG.trigger.altcoin.model;
@@ -226,17 +229,21 @@ module.exports = {
       '--name', jobName,
       '--delete-after-run',
       '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
+    ], { detached: true, stdio: 'ignore' });
 
-    console.log(`[${COIN}警报触发] 已派发即时分析任务: ${jobName}`);
+    console.log(`[${data.coin}警报触发] 已派发即时分析: ${jobName} | 确认价位: ${data.triggeredLevels.length}个`);
+
     this.lastTriggered = Date.now();
+    this.currentTriggeredLevels = [];
+    this.levelStates = {};
+    this.breakoutExtremes = {};
   },
 
   lifetime() {
     const today = api.getLocalDate();
-    return today === CREATED_DATE ? 'active' : 'expired';
+    const created = new Date(CREATED_DATE);
+    const now = new Date(today);
+    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+    return daysDiff <= 7 ? 'active' : 'expired';
   }
 };
