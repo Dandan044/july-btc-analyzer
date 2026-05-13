@@ -1,6 +1,6 @@
 # 山寨币扫描引擎
 
-此任务为山寨币工作流的入口，负责每小时从 OKX 合约市场扫描波动最大的山寨币，筛选后传递给阶段一。
+此任务为山寨币工作流的入口，负责每小时从 OKX 合约市场扫描波动最大的山寨币，通过中部窗口 + OI 变化筛选，找到趋势中段的入场机会。
 
 ---
 
@@ -22,6 +22,7 @@
 |------|------|------|
 | **警告** | `⚠️ WARN` | 不影响流程继续 |
 | **错误** | `⛔ ERROR` | 需人工关注 |
+
 
 ---
 
@@ -58,16 +59,16 @@ ACTIVE_COUNT=$(ls -d active/alt-* 2>/dev/null | wc -l)
 
 | 条件 | 操作 |
 |------|------|
-| `ACTIVE_COUNT < 20` | 继续扫描 |
-| `ACTIVE_COUNT >= 20` | 跳过本轮 |
+| `ACTIVE_COUNT < 30` | 继续扫描 |
+| `ACTIVE_COUNT >= 30` | 跳过本轮 |
 
 **日志记录：**
 
 ```
-[$NOW] [扫描] 活跃周期: ${ACTIVE_COUNT}/20
+[$NOW] [扫描] 活跃周期: ${ACTIVE_COUNT}/30
 ```
 
-**上限值: 20**（与 `tasks/global-config.json` → `maxAltcoinCycles` 保持同步）。
+**上限值: 30**（与 `tasks/global-config.json` → `maxAltcoinCycles` 保持同步）。
 
 如果已达上限：
 
@@ -108,12 +109,12 @@ OKX tickers API 不直接返回 `change24h%`，需要自行计算：
 
 #### 3.3 按绝对值排序
 
-按 `|涨跌幅%|` 降序排列，取前 **40** 个作为候选池。
+按 `|涨跌幅%|` 降序排列，取前 **60** 个作为候选池。
 
 **日志记录：**
 
 ```
-[$NOW] [扫描] 候选池已生成: 前 40 个（|涨跌幅| 降序）
+[$NOW] [扫描] 候选池已生成: 前 60 个（|涨跌幅| 降序）
 ```
 
 **API 异常处理：**
@@ -128,24 +129,43 @@ OKX tickers API 不直接返回 `change24h%`，需要自行计算：
 
 ---
 
-### 步骤 4：逐候选筛选
+### 步骤 4：初始化窗口
 
-对候选池中的 40 个币种，按 `|涨跌幅|` 从高到低逐一遍历。**每个币种依次过以下三道筛：**
+**窗口策略：从中部开始，逐步扩展**
+
+| 轮次 | 窗口范围 | 索引（0-based） | 窗口大小 |
+|------|---------|----------------|---------|
+| 1 | 26-30 | 25-29 | 5 |
+| 2 | 21-35 | 20-34 | 15 |
+| 3 | 11-50 | 10-49 | 40 |
+| 4 | 1-60 | 0-59 | 60 |
+
+**初始化：**
+
+```bash
+WINDOW_ROUND=1
+CHECKED_COINS=()  # 已检查的币种（避免重复检查）
+```
+
+**日志记录：**
+
+```
+[$NOW] [扫描] 窗口: 第${WINDOW_ROUND}轮（26-30，共 5 个）
+```
 
 ---
 
-#### ⚠️ 必须使用预写脚本执行筛A+筛B
+### 步骤 5：窗口内筛选（筛A+B+C）
+
+**⚠️ 必须使用预写脚本执行筛A+筛B**
 
 **筛A（黑名单）+ 筛B（活跃周期）是纯机械逻辑，已经预写在 `scripts/alt-scanner-screening.py` 中。**
-
-**你必须直接执行此脚本，不得自己重写这段逻辑。**
-
-重写的后果：Python 的 `subprocess.run(['ls', '-d', ...])` 不带 `shell=True` 时不会展开 glob 通配符，会导致筛B永远返回「无活跃周期」——这已经在生产环境实际发生过。
 
 操作方式：
 
 ```bash
-cat /tmp/top40_candidates.json | python3 scripts/alt-scanner-screening.py
+# 将窗口内币种传入筛选脚本
+echo "${WINDOW_COINS_JSON}" | python3 scripts/alt-scanner-screening.py
 ```
 
 脚本输出 JSON，结构如下：
@@ -154,48 +174,25 @@ cat /tmp/top40_candidates.json | python3 scripts/alt-scanner-screening.py
 {
   "screening": [
     {
-      "idx": 0,
-      "coin": "JTO",
-      "instId": "JTO-USDT-SWAP",
-      "change_pct": 40.18,
-      "screen_a": "pass",
-      "screen_b": "skip (exists: alt-JTO-20260508-0105)",
-      "pass_a_and_b": false
-    },
-    {
-      "idx": 8,
-      "coin": "APR",
-      "change_pct": 30.5,
+      "idx": 26,
+      "coin": "DOGE",
+      "instId": "DOGE-USDT-SWAP",
+      "change_pct": 15.2,
       "screen_a": "pass",
       "screen_b": "pass",
       "pass_a_and_b": true
     }
   ],
-  "first_pass_coin": "APR",
-  "first_pass_idx": 8
+  "passed_coins": ["DOGE", "PEPE"],
+  "filtered_coins": ["BOME"]
 }
 ```
 
-字段含义：
-| 字段 | 说明 |
-|------|------|
-| `screen_a` | `"pass"` = 通过黑名单检查；`"skip (blacklisted)"` = 在黑名单中 |
-| `screen_b` | `"pass"` = 无活跃周期；`"skip (exists: dirname)"` = 已有活跃周期 |
-| `pass_a_and_b` | 是否同时通过 A+B。`true` 的候选才进入筛C |
-| `first_pass_coin` | 首个同时通过 A+B 的币种名；全部未通过则 `null` |
-| `first_pass_idx` | 该币种在候选池中的索引 |
+**筛C：LLM 判断是否为山寨币**
 
-**读取 `first_pass_coin`：**
-- 如果为 `null` → 全部未通过 → 跳到步骤 6
-- 如果有值 → 该币种进入筛C（山寨判断）
-
----
-
-#### 筛 C：判断是否为山寨币
+对通过筛A+B 的币种，执行筛C判断。
 
 **⚠️ 此筛由 LLM 自行判断，不依赖代码规则。**
-
-你需要根据以下指南判断一个币种是否可以归类为"山寨币"（altcoin），即**具有独立链上生态、可以被三维信息收集流程覆盖的加密货币**。
 
 **必须排除的类型：**
 
@@ -216,20 +213,77 @@ cat /tmp/top40_candidates.json | python3 scripts/alt-scanner-screening.py
 
 > 如果你不确定，**宁可跳过也不误判**。跳过只是少扫一个，误判会让整个流程崩溃在阶段一的链上搜索。
 
-**日志记录（每条筛选）：**
+**日志记录：**
 
 ```
-[$NOW] [筛选] {instId} | 涨跌幅: {±xx.xx}% | 筛C判断: [通过 | 跳过 - 股票代币 | 跳过 - 商品 | 跳过 - 外汇]
+[$NOW] [筛选] 窗口内通过筛A+B: X 个 | 筛C通过: Y 个 | 被筛: Z 个
+```
+
+**结果判断：**
+
+| 结果 | 操作 |
+|------|------|
+| 有币种通过筛A+B+C | 进入步骤 6（OI 筛选） |
+| 全部被筛掉 | 进入步骤 8（窗口扩展） |
+
+---
+
+### 步骤 6：OI 变化筛选
+
+**对通过筛A+B+C 的币种，获取 24h OI 变化率。**
+
+**使用预写脚本：**
+
+```bash
+# 将通过筛A+B+C 的币种传入 OI 筛选脚本
+echo "${PASSED_COINS_JSON}" | python3 scripts/alt-scanner-oi-filter.py
+```
+
+脚本输出 JSON：
+
+```json
+{
+  "ranked": [
+    {
+      "coin": "PEPE",
+      "change_pct": -12.8,
+      "idx": 27,
+      "oi_change_pct": 24.21
+    },
+    {
+      "coin": "SOL",
+      "change_pct": -5.1,
+      "idx": 2,
+      "oi_change_pct": 10.54
+    }
+  ],
+  "top_pick": {
+    "coin": "PEPE",
+    "change_pct": -12.8,
+    "oi_change_pct": 24.21
+  }
+}
+```
+
+**排序规则：按 OI 变化率绝对值降序，选最大的。**
+
+**日志记录：**
+
+```
+[$NOW] [OI筛选] 获取 OI 变化: PEPE +24.21%, SOL +10.54%, DOGE +2.23%
+[$NOW] [OI筛选] 排序结果: PEPE > SOL > DOGE
 ```
 
 ---
 
-### 步骤 5：通过 → 启动分析
+### 步骤 7：通过 → 启动分析
 
-**第一个通过全部三筛的币种 → 立即 spawn 子会话。**
+**从 OI 筛选结果中取出 top_pick，spawn 子会话。**
 
 ```bash
-COIN="{coin}"
+COIN="${top_pick['coin']}"
+OI_CHANGE="${top_pick['oi_change_pct']}"
+OI_CONFIRMED="${top_pick['oi_confirmed']}"
 TRIGGER_TIME=$(date -Iseconds)
 ```
 
@@ -238,21 +292,18 @@ TRIGGER_TIME=$(date -Iseconds)
 ```
 - agentId: "july"
 - mode: "run"
-- model: "deepseek/deepseek-v4-flash"
 - task:
   币种: {COIN}
   触发时间: {TRIGGER_TIME}
   请读取 tasks/alt-intel-stage1.md 开始阶段一三维信息收集。
 ```
 
-> ⚠️ **必须传 model 参数**，否则子会话将继承 agent 默认模型（deepseek-v4-pro），违背 global-config 的山寨币 flash 模型配置。
-
 > 周期目录由阶段一自行创建，无需传递。
 
 **日志记录：**
 
 ```
-[$NOW] [扫描] ✅ 命中: {instId} | 涨跌幅: {±xx.xx}%
+[$NOW] [扫描] ✅ 命中: {COIN} | 涨跌幅: {±xx.xx}% | OI变化: {±xx.xx}% | 窗口轮次: {N}
 [$NOW] [扫描] 已 spawn 子会话 → alt-intel-stage1
 ```
 
@@ -260,17 +311,72 @@ TRIGGER_TIME=$(date -Iseconds)
 
 ---
 
-### 步骤 6：全部未通过
+### 步骤 8：窗口扩展
 
-**候选池 40 个全部被筛掉 → 记录后退出。**
+**当前窗口全部被筛 → 扩大窗口，继续扫描。**
+
+**窗口扩展规则：**
+
+| 轮次 | 窗口范围 | 索引 | 新增检查 |
+|------|---------|------|---------|
+| 1 | 26-30 | 25-29 | 5 |
+| 2 | 21-35 | 20-34 | 10（上扩5 + 下扩5）|
+| 3 | 11-50 | 10-49 | 25（上扩10 + 下扩15）|
+| 4 | 1-60 | 0-59 | 20（上扩10 + 下扩10）|
+
+**扩展逻辑：**
+
+```bash
+# 记录已检查的币种
+CHECKED_COINS+=("${WINDOW_COINS[@]}")
+
+# 扩大窗口
+WINDOW_ROUND=$((WINDOW_ROUND + 1))
+
+# 判断是否已检查全部
+if [ $WINDOW_ROUND -gt 4 ]; then
+  # 全部 60 个已检查，无通过
+  echo "[$NOW] [扫描] 候选池 60 个全部未通过筛选" >> logs/alt-scanner.log
+  # 进入步骤 9
+fi
+
+# 计算新窗口范围
+case $WINDOW_ROUND in
+  2) WINDOW_START=20; WINDOW_END=34 ;;
+  3) WINDOW_START=10; WINDOW_END=49 ;;
+  4) WINDOW_START=0; WINDOW_END=59 ;;
+esac
+
+# 只检查新增的币种（排除已检查的）
+NEW_WINDOW_COINS=()
+for i in $(seq $WINDOW_START $WINDOW_END); do
+  if [[ ! " ${CHECKED_COINS[@]} " =~ " ${CANDIDATES[$i]} " ]]; then
+    NEW_WINDOW_COINS+=("${CANDIDATES[$i]}")
+  fi
+done
+
+# 回到步骤 5 继续筛选
+```
+
+**日志记录：**
 
 ```
-[$NOW] [扫描] 候选池 40 个全部未通过筛选 | 跳过统计: 黑名单 X, 活跃周期 X, 非山寨 X
+[$NOW] [扫描] 窗口扩展: 第${WINDOW_ROUND}轮（${WINDOW_START+1}-${WINDOW_END+1}，共 ${NEW_COUNT} 个新增）
 ```
 
 ---
 
-### 步骤 7：记录扫描结束
+### 步骤 9：全部未通过
+
+**候选池 60 个全部被筛掉 → 记录后退出。**
+
+```
+[$NOW] [扫描] 候选池 60 个全部未通过筛选 | 跳过统计: 黑名单 X, 活跃周期 X, 非山寨 X, OI未确认 X
+```
+
+---
+
+### 步骤 10：记录扫描结束
 
 ```bash
 echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
@@ -285,15 +391,20 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
         │
 过滤 -USDT-SWAP、计算 change24h%
         │
-按 |change24h%| 降序，取前 40
+按 |change24h%| 降序，取前 60
         │
-逐个候选：
-  ├─ 筛A: 黑名单？        → 跳过
-  ├─ 筛B: active/alt-*-* 已有？→ 跳过
-  └─ 筛C: LLM 判断非山寨？ → 跳过
+初始化窗口：中部 5 个（26-30）
         │
-  第一个通过 → spawn(alt-intel-stage1)
-  全部未通过 → 记录退出
+        ▼
+   ┌─────────────────────────────┐
+   │  窗口内筛选（筛A+B+C）       │
+   └─────────────────────────────┘
+        │
+   有通过 → OI 筛选 → spawn 分析
+        │
+   全部被筛 → 扩大窗口
+        │
+   窗口已达上限 → 记录退出
 ```
 
 ---
@@ -304,6 +415,7 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 |---------|------|---------|
 | OKX API 返回错误/超时 | `⛔ ERROR` | 记录异常，本轮停止 |
 | tickers 返回空数组 | `⛔ ERROR` | 记录异常，本轮停止 |
+| OI API 获取失败 | `⚠️ WARN` | 记录警告，OI 视为未确认，仍可参与排序 |
 | 所有候选未通过筛选 | 正常 | 记录统计，本轮正常结束 |
 | 活跃周期达到上限 | 正常 | 记录跳过，本轮正常结束 |
 | spawn 失败 | `⛔ ERROR` | 记录异常，继续尝试下一位 |
@@ -312,16 +424,19 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 
 ## 核心要求
 
-1. **先检查上限**：活跃周期 ≥ 20 直接跳过
-2. **绝对值排序**：取 `|涨跌幅%|` 最大的前 40，涨跌都纳入
+1. **先检查上限**：活跃周期 ≥ 30 直接跳过
+2. **绝对值排序**：取 `|涨跌幅%|` 最大的前 60，涨跌都纳入
 3. **只取 -USDT-SWAP**：忽略 USD/UM 变体
-4. **三筛顺序不可变**：黑名单 → 活跃周期 → 山寨判断
-5. **筛A+筛B 必须使用预写脚本**：直接执行 `scripts/alt-scanner-screening.py`，不得自己重写
-6. **黑名单外部维护**：修改 `data/altcoin-blacklist.json`，添加 `blacklist` 数组项和 `reason` 说明
-7. **LLM 自主判断非山寨**：根据指南判断股票/商品/外汇，不硬编码
-8. **一次只扫一个**：第一个通过三筛的币就 spawn，本轮结束
-9. **不传周期目录**：阶段一自行创建，spawn 只传币种和触发时间
-10. **日志完整**：每轮扫描、每个筛选决策都记录
+4. **从中部开始扫描**：第 26-30 位，避开极端位置
+5. **逐步扩展窗口**：中部无机会时，向上下扩展
+6. **OI 变化筛选**：按 OI 变化率绝对值排序，选最大的
+7. **筛A+筛B 必须使用预写脚本**：直接执行 `scripts/alt-scanner-screening.py`
+8. **OI 筛选必须使用预写脚本**：直接执行 `scripts/alt-scanner-oi-filter.py`
+9. **黑名单外部维护**：修改 `data/altcoin-blacklist.json`
+10. **LLM 仅参与筛C**：筛A/B 是机械逻辑，筛C 需要语义判断
+11. **一次只扫一个**：第一个通过全部筛选的币就 spawn，本轮结束
+12. **不传周期目录**：阶段一自行创建，spawn 只传币种和触发时间
+13. **日志完整**：每轮扫描、每个筛选决策都记录
 
 ---
 
@@ -336,4 +451,13 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 
 ---
 
-alt-scanner-v2.0
+## 相关脚本
+
+| 脚本 | 职责 |
+|------|------|
+| `scripts/alt-scanner-screening.py` | 筛A（黑名单）+ 筛B（活跃周期）|
+| `scripts/alt-scanner-oi-filter.py` | OI 变化获取与排序 |
+
+---
+
+alt-scanner-v3.0（中部窗口 + OI 筛选）

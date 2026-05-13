@@ -237,7 +237,7 @@ cat active/cycle-*/positions.json
 
 | 限制项 | 值 | 说明 |
 |--------|---|------|
-| 默认杠杆 | 3x | **绝对不允许更改杠杆** |
+| 默认杠杆 | 10x | **绝对不允许更改杠杆** |
 | 仓位模式 | isolated（逐仓） | 必须使用逐仓模式 |
 | 止损要求 | 必须 | 止损必须覆盖全部仓位 |
 | 止盈要求 | 必须 | 分批止盈必须覆盖全部仓位（两档止盈合计100%） |
@@ -377,72 +377,100 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 | TP2 | OCO | sz/2 | tp2 | 第二档止盈，平仓剩余 50% |
 | SL | OCO | sz | sl | 止损，平仓全部 |
 
-**⭐ 整数位偏移规则（止盈 + 止损同向偏移）：**
+**⭐ 盈亏比偏移规则（止盈 + 止损）：**
 
-⚠️ **强制规则：止盈和止损都要判断并应用偏移，不得省略！**
+⚠️ **强制规则：止盈和止损都必须应用偏移，不得省略！**
 
-整数价位（如 72000、75000）常有强大阻力，价格可能差一点不到。**报告给出的原始点位是参考值**，实际设置时必须判断是否为整数，并应用偏移：
+**核心思想**：不以"价格是否为整数"作为偏移依据，而是以**盈亏距离百分比**计算偏移量。所有币种统一适用。
 
-- **多单（long）**：止盈-22，止损-22（全向下）
-- **空单（short）**：止盈+22，止损+22（全向上）
-- **止盈**：朝触发方向偏移，更易触发
-- **止损**：与止盈同向偏移，更难触发（需要价格走更深才触发）
+**配置（在 7.1.6 开头设置）：**
 
-| 持仓方向 | 止盈偏移 | 止损偏移 | 说明 |
-|---------|---------|---------|------|
-| 多单 long | **-22**（更易） | **-22**（更难） | 止盈设低更快触，止损设低需跌更深才触发 |
-| 空单 short | **+22**（更易） | **+22**（更难） | 止盈设高更快触，止损设高需涨更高才触发 |
+| 参数 | BTC 默认值 | 说明 |
+|------|-----------|------|
+| `TP_SHIFT_PCT` | 5 | 止盈让利%，放弃 5% 利润换更易触发 |
+| `SL_SHIFT_PCT` | 5 | 止损多扛%，多承受 5% 亏损换更难触发 |
+| `MAX_SHIFT_PCT` | 20 | 偏移上限，不超过原距离的 20% |
+| `TICK` | 0.1 | 最小价格单位（BTC-USDT-SWAP = 0.1） |
 
-**判断逻辑：**
-- 如果止盈价或止损价是整数（末尾 2-3 位为 0）→ **必须偏移**
-- 多单：止盈-22，止损-22
-- 空单：止盈+22，止损+22
+**公式：**
 
-**偏移计算与日志埋点（每设置一笔订单前必须执行）：**
+```
+原距离 D = |入场价 - 目标价|
 
-```bash
-# 判断止盈1是否为整数（末尾3位为0），计算实际设置价
-TP1_RAW=<tp1原始值>
-TP1_LAST3=${TP1_RAW: -3}
-if [ "$TP1_LAST3" = "000" ]; then
-  if [ "<direction>" = "long" ]; then
-    TP1_ACTUAL=$((TP1_RAW - 22))   # 多单止盈：更低，更易触发
-    TP1_REASON="更易触发（多单）"
-  else
-    TP1_ACTUAL=$((TP1_RAW + 22))   # 空单止盈：更高，更易触发
-    TP1_REASON="更易触发（空单）"
-  fi
-  echo "[$NOW] [阶段三] ⭐ 止盈1整数位偏移 | 原始: $TP1_RAW | 方向: <direction> | 实际: $TP1_ACTUAL | $TP1_REASON" >> logs/daily-report-process.log
-else
-  TP1_ACTUAL=$TP1_RAW
-fi
+止盈新距离 = D × (1 - TP_SHIFT_PCT/100)   ← 放弃利润，止盈更近更易触
+止损新距离 = D × (1 + SL_SHIFT_PCT/100)   ← 多扛亏损，止损更远更难触
 
-# 止盈2计算逻辑同上
+约束：新距离 ∈ [TICK, D × (1 + MAX_SHIFT_PCT/100)]
+```
 
-# 止损计算（与止盈同向偏移）
-SL_RAW=<sl原始值>
-SL_LAST3=${SL_RAW: -3}
-if [ "$SL_LAST3" = "000" ]; then
-  if [ "<direction>" = "long" ]; then
-    SL_ACTUAL=$((SL_RAW - 22))   # 多单止损：更低，更难触发
-    SL_REASON="更难触发（多单）"
-  else
-    SL_ACTUAL=$((SL_RAW + 22))   # 空单止损：更高，更难触发
-    SL_REASON="更难触发（空单）"
-  fi
-  echo "[$NOW] [阶段三] ⭐ 止损整数位偏移 | 原始: $SL_RAW | 方向: <direction> | 实际: $SL_ACTUAL | $SL_REASON" >> logs/daily-report-process.log
-else
-  SL_ACTUAL=$SL_RAW
-fi
+**折算为价格：**
 
-echo "[$NOW] [阶段三] 止盈止损设置 | TP1原始: $TP1_RAW → $TP1_ACTUAL | TP2原始: $TP2_RAW → $TP2_ACTUAL | SL原始: $SL_RAW → $SL_ACTUAL" >> logs/daily-report-process.log
+| 方向 | 止盈新价 | 止损新价 |
+|------|---------|---------|
+| 做多 | 入场 + 止盈新距离 | 入场 − 止损新距离 |
+| 做空 | 入场 − 止盈新距离 | 入场 + 止损新距离 |
+
+**安全约束（必须）：**
+- 止盈不得越过入场价：做多止盈 > 入场价，做空止盈 < 入场价
+- 偏移后价格取整到 TICK 精度
+
+**参考实现（每次设置止盈止损前必须执行）：**
+
+```
+function calc_pnl_offset(entry, target, type, direction):
+    // 配置
+    tp_pct = 5       // 止盈让利比
+    sl_pct = 5       // 止损多扛比
+    max_pct = 20     // 偏移上限
+    tick = 0.1       // BTC 最小单位
+    
+    // 1. 原距离
+    orig_dist = abs(target - entry)
+    
+    // 2. 选择偏移百分比
+    shift_pct = (type == "tp") ? tp_pct : sl_pct
+    
+    // 3. 新距离
+    if type == "tp":
+        new_dist = orig_dist × (1 - shift_pct/100)
+    else:  // sl
+        new_dist = orig_dist × (1 + shift_pct/100)
+    
+    // 4. 约束
+    new_dist = max(new_dist, tick)                  // 下限 ≥ 1 tick
+    new_dist = min(new_dist, orig_dist × 1.20)      // 上限 ≤ 120%
+    
+    // 5. 折算价格
+    if direction == "long":
+        new_price = (type == "tp") ? entry + new_dist : entry - new_dist
+    else:  // short
+        new_price = (type == "tp") ? entry - new_dist : entry + new_dist
+    
+    // 6. 穿透检查：止盈不得越过入场价
+    if type == "tp" and direction == "long" and new_price <= entry:
+        new_price = entry + tick
+    if type == "tp" and direction == "short" and new_price >= entry:
+        new_price = entry - tick
+    
+    // 7. 取整到 tick
+    new_price = round(new_price / tick) × tick
+    
+    return new_price
+
+// 调用示例
+TP1_ACTUAL = calc_pnl_offset(ENTRY, TP1_RAW, "tp", DIR)
+TP2_ACTUAL = calc_pnl_offset(ENTRY, TP2_RAW, "tp", DIR)
+SL_ACTUAL  = calc_pnl_offset(ENTRY, SL_RAW,  "sl", DIR)
+
+// 日志
+log("⭐ 盈亏比偏移 | 入场=$ENTRY | TP1: $TP1_RAW→$TP1_ACTUAL | TP2: $TP2_RAW→$TP2_ACTUAL | SL: $SL_RAW→$SL_ACTUAL | tp%=$tp_pct sl%=$sl_pct")
 ```
 
 **⚠️ 重要提醒：**
-- 报告给出的止盈/止损价格是**分析判断的理想位置**，不代表实际挂单价格
-- 整数位必须偏移是**安全规则**，不是为了"优化"而是必须执行
-- 止盈和止损**同向偏移**：多单全向下，空单全向上
-- 止盈偏移目的：更易触发；止损偏移目的：更难触发
+- 报告给出的止盈/止损价格是**分析判断的理想位置**，**不是**实际挂单价格
+- 偏移是**必须执行的规则**，不是可选优化
+- 偏移目的：止盈更易触发（放弃少量利润），止损更难触发（多扛少量亏损）
+- 所有价位都会偏移，不再判断"是否整数"
 
 **执行命令（使用已计算的偏移后价格）：**
 
@@ -584,7 +612,7 @@ okx-proxy.sh --profile live swap algo cancel --instId BTC-USDT-SWAP --algoId <�
 ```
 
 设置新的止盈止损（覆盖全部新仓位）：
-- ⚠️ **必须重新计算偏移量**（与7.1.6步骤相同）：判断tp1/tp2/sl是否为整数，计算$TP1_ACTUAL/$TP2_ACTUAL/$SL_ACTUAL
+- ⚠️ **必须重新计算偏移量**（调用 `calc_pnl_offset()`，与 7.1.6 完全相同）
 - 记录偏移日志
 - 使用偏移后价格设置订单
 - 两档止盈各覆盖新总仓位的 50%
@@ -667,7 +695,7 @@ fi
 
 取消旧止盈止损订单，设置新订单覆盖剩余仓位。
 
-⚠️ **必须重新计算偏移量**（与7.1.6步骤相同）：判断tp1/tp2/sl是否为整数，计算$TP1_ACTUAL/$TP2_ACTUAL/$SL_ACTUAL，记录偏移日志。
+⚠️ **必须重新计算偏移量**（调用 `calc_pnl_offset()`，与 7.1.6 完全相同），记录偏移日志。
 
 ##### 7.3.5 核对结果
 
@@ -749,13 +777,13 @@ okx-proxy.sh --profile live swap algo cancel-all --instId BTC-USDT-SWAP
 
 ##### 7.5.3 设置新止盈止损
 
-⚠️ **必须应用整数位偏移规则！** 根据日报建议的新价位，**先计算偏移量**（与开仓流程相同），再设置订单。
+⚠️ **必须应用盈亏比偏移规则！** 根据日报建议的新价位，**调用 `calc_pnl_offset()`**（与 7.1.6 完全相同），再设置订单。
 
 执行步骤：
-1. 判断 tp1/tp2/sl 是否为整数位
-2. 计算实际设置价格（多单-22，空单+22）
-3. 记录偏移日志
-4. 使用偏移后价格设置止盈止损订单
+1. 调用 `calc_pnl_offset(entry, tp1, "tp", dir)` → $TP1_ACTUAL
+2. 调用 `calc_pnl_offset(entry, tp2, "tp", dir)` → $TP2_ACTUAL
+3. 调用 `calc_pnl_offset(entry, sl,  "sl", dir)` → $SL_ACTUAL
+4. 记录偏移日志，使用偏移后价格设置止盈止损订单
 
 **记录执行日志：**
 
@@ -921,4 +949,25 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/daily-r
 
 ---
 
-阶段三-v4.19（完整版）
+阶段三-v4.21（完整版）
+
+---
+
+## v4.21 变更记录 (2026-05-11)
+
+### 盈亏比偏移重构（替代整数位偏移）
+- **废弃**: 基于价格字符串格式的整数位判断（末2位00、固定22点）
+- **新方案**: 基于盈亏距离百分比的统一偏移函数 `calc_pnl_offset()`
+- **公式**: 止盈新距离 = D×(1−5%), 止损新距离 = D×(1+5%)
+- **约束**: 下限 ≥ 1 tick, 上限 ≤ D×120%
+- **穿透检查**: 止盈不得越过入场价
+- **配置**: TP_SHIFT_PCT=5, SL_SHIFT_PCT=5, MAX_SHIFT_PCT=20, TICK=0.1
+- **适用**: 所有价位均偏移，不再判断"是否整数"
+
+## v4.20 变更记录 (2026-05-11) — 已被 v4.21 替代
+
+### 整数位偏移逻辑修复
+- **Bug 修复**: 原判断代码 `末3位=000` 仅覆盖千位整数（如 82000），遗漏百位整数关口（如 82500、80500）
+- **修正为**: 检查末 2 位 `00`，同时覆盖百位和千位整数关口
+- **新增**: `calc_offset()` 统一函数，替代散落的重复判断代码
+- **日志增强**: 偏移日志增加「末2位」信息，即使无偏移也记录原因

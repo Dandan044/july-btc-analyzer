@@ -1,3 +1,19 @@
+## Self-Improvement Reminder
+
+After completing tasks, evaluate if any learnings should be captured:
+
+**Log when:**
+- User corrects you → `LEARNINGS.md`（根目录）
+- Command/operation fails → `TOOLS.md`
+- You discover your knowledge was wrong → `LEARNINGS.md`
+- You find a better approach → `LEARNINGS.md`
+
+**Promote when pattern is proven:**
+- Behavioral patterns → `LEARNINGS.md`
+- Workflow improvements → `AGENTS.md`
+- Tool gotchas → `TOOLS.md`
+
+Keep entries simple: date, title, what happened, what to do differently.
 
 ---
 

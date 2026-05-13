@@ -23,12 +23,19 @@ active/cycle-*/
 active/alt-*/
 archived/cycle-*/
 archived/alt-*/
+archived/20*/
 skills/btc-alert/rules-archive/
 .openclaw/workspace-state.json
 .openclaw/workspace-state-backup.json
+
+# 生成图表
+data/kline_chart.png
+data/kline_charts/
 
 # 临时文件
 *.tmp
 *.bak
 node_modules/
 .cache/.env
+scripts/__pycache__/
+tmp_gen_manifest.py

@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 /**
- * 山寨币合约市场数据获取 v1.0
+ * 山寨币合约市场数据获取 v2.0
  * 数据源: 
  *   - OKX CLI 工具 (K线、EMA均线、斐波那契、资金费率)
  *   - OKX API (多空比、Taker买卖比、持仓量)
+ *   - 自算指标 (RSI(14) / MACD(12,26,9) / 布林带(20,2))
  * 
  * --coin 支持任意 OKX 上的 USDT 合约币种 (默认 BTC)
  * 
- * 相比 get_enhanced_analysis.js 的变化:
- *   - 移除: RSI / 布林带 / MACD / 期权 / 恐慌指数
- *   - 新增: 1H / 15min K线数据
- *   - 保留: EMA 均线 / 斐波那契 / 清算数据
+ * v2.0 相比 v1.0 的变化:
+ *   - 全粒度(日/4H/1H/15min) 新增 RSI/MACD/布林带，用 50 根K线额外获取计算
+ *   - 输出仍保持每粒度 14 根 K线，额外数据仅用于指标计算不写入
+ *   - 保留: EMA 均线 / 斐波那契 / 清算数据 / 1H/15min
  * 
  * 用法: 
  *   node get_altcoin_analysis.js [--coin SOL] [--json] [--save] [--proxy http://127.0.0.1:7890]
@@ -239,20 +240,141 @@ function fetch(url) {
   });
 }
 
-// ========== 技术指标计算（备用） ==========
+// ========== 技术指标计算 ==========
 
-function calcEMASequence(values, period, outputCount) {
-  if (values.length < period) return [];
-  const reversed = [...values].reverse();
+/**
+ * 简单 EMA 计算 — 全量对齐（前期不足返回 null）
+ * @param {number[]} values - 价格数组，旧→新
+ * @returns {number[]} 与输入对齐的 EMA 数组
+ */
+function calcEMA(values, period) {
+  const result = new Array(values.length).fill(null);
+  if (values.length < period) return result;
   const k = 2 / (period + 1);
-  const emaSeries = [];
-  let ema = reversed.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  emaSeries.push(ema);
-  for (let i = period; i < reversed.length; i++) {
-    ema = reversed[i] * k + ema * (1 - k);
-    emaSeries.push(ema);
+  let ema = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  result[period - 1] = ema;
+  for (let i = period; i < values.length; i++) {
+    ema = values[i] * k + ema * (1 - k);
+    result[i] = ema;
   }
-  return emaSeries.reverse().slice(0, outputCount);
+  return result;
+}
+
+/**
+ * 兼容旧接口：返回最近 outputCount 个 EMA 值（新→旧）
+ */
+function calcEMASequence(values, period, outputCount) {
+  const full = calcEMA(values, period);
+  return full.filter(v => v !== null).reverse().slice(0, outputCount);
+}
+
+/**
+ * 计算 RSI (Relative Strength Index，Wilder 平滑)
+ * @param {number[]} closes - 收盘价数组，旧→新
+ * @param {number} period - 周期（默认14）
+ * @returns {number[]} 与输入对齐的 RSI 数组（前期不足返回 null）
+ */
+function calcRSI(closes, period = 14) {
+  const result = new Array(closes.length).fill(null);
+  if (closes.length < period + 1) return result;
+
+  const diffs = [];
+  for (let i = 1; i < closes.length; i++) diffs.push(closes[i] - closes[i - 1]);
+
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 0; i < period; i++) {
+    if (diffs[i] > 0) avgGain += diffs[i]; else avgLoss += -diffs[i];
+  }
+  avgGain /= period;
+  avgLoss /= period;
+  result[period] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+
+  for (let i = period + 1; i < closes.length; i++) {
+    const gain = diffs[i - 1] > 0 ? diffs[i - 1] : 0;
+    const loss = diffs[i - 1] < 0 ? -diffs[i - 1] : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    result[i] = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+  }
+  return result;
+}
+
+/**
+ * 计算 MACD (12/26/9)
+ * @param {number[]} closes - 收盘价数组，旧→新
+ * @returns {{macdLine: number[], signalLine: number[], histogram: number[]}}
+ */
+function calcMACD(closes, fast = 12, slow = 26, signal = 9) {
+  const nullArr = closes.map(() => null);
+  if (closes.length < slow) return { macdLine: [...nullArr], signalLine: [...nullArr], histogram: [...nullArr] };
+
+  const emaFast = calcEMA(closes, fast);
+  const emaSlow = calcEMA(closes, slow);
+  const macdLine = closes.map(() => null);
+  let firstValid = -1;
+  for (let i = 0; i < closes.length; i++) {
+    if (emaFast[i] !== null && emaSlow[i] !== null) {
+      macdLine[i] = emaFast[i] - emaSlow[i];
+      if (firstValid < 0) firstValid = i;
+    }
+  }
+  if (firstValid < 0) return { macdLine: [...nullArr], signalLine: [...nullArr], histogram: [...nullArr] };
+
+  const validMacd = macdLine.slice(firstValid).filter(v => v !== null);
+  const sigEMA = calcEMA(validMacd, signal);
+  const signalLine = closes.map(() => null);
+  const histogram = closes.map(() => null);
+  for (let i = 0, si = 0; i < closes.length; i++) {
+    if (macdLine[i] !== null && si < sigEMA.length) {
+      signalLine[i] = sigEMA[si];
+      if (signalLine[i] !== null) histogram[i] = macdLine[i] - signalLine[i];
+      si++;
+    }
+  }
+  return { macdLine, signalLine, histogram };
+}
+
+/**
+ * 计算布林带 (Bollinger Bands, SMA 20, ±2σ)
+ * @param {number[]} closes - 收盘价数组，旧→新
+ * @returns {{upper: number[], middle: number[], lower: number[], bandwidth: number[]}}
+ */
+function calcBollingerBands(closes, period = 20, multiplier = 2) {
+  const nullArr = closes.map(() => null);
+  if (closes.length < period) return { upper: [...nullArr], middle: [...nullArr], lower: [...nullArr], bandwidth: [...nullArr] };
+  const upper = closes.map(() => null), middle = closes.map(() => null);
+  const lower = closes.map(() => null), bandwidth = closes.map(() => null);
+  for (let i = period - 1; i < closes.length; i++) {
+    const slice = closes.slice(i - period + 1, i + 1);
+    const sma = slice.reduce((a, b) => a + b, 0) / period;
+    const variance = slice.reduce((sum, v) => sum + (v - sma) ** 2, 0) / period;
+    const stddev = Math.sqrt(variance);
+    middle[i] = sma;
+    upper[i] = sma + multiplier * stddev;
+    lower[i] = sma - multiplier * stddev;
+    bandwidth[i] = ((upper[i] - lower[i]) / sma) * 100;
+  }
+  return { upper, middle, lower, bandwidth };
+}
+
+/**
+ * 将全量指标计算结果附加到输出蜡烛数组（新→旧）
+ * indicators 数组是旧→新，candles 是新→旧
+ */
+function attachIndicators(candles, indicators, refPrice = null) {
+  const len = indicators.rsi.length;
+  for (let i = 0; i < candles.length; i++) {
+    const idx = len - 1 - i;  // candles[0 最新] ↔ indicators[last]
+    if (idx < 0) break;
+    if (indicators.rsi[idx] !== null) candles[i].rsi = parseFloat(indicators.rsi[idx].toFixed(1));
+    if (indicators.macdLine[idx] !== null) candles[i].macdLine = fmtPrice(indicators.macdLine[idx], refPrice);
+    if (indicators.signalLine[idx] !== null) candles[i].macdSignal = fmtPrice(indicators.signalLine[idx], refPrice);
+    if (indicators.histogram[idx] !== null) candles[i].macdHistogram = fmtPrice(indicators.histogram[idx], refPrice);
+    if (indicators.bbUpper[idx] !== null) candles[i].bollingerUpper = fmtPrice(indicators.bbUpper[idx], refPrice);
+    if (indicators.bbMiddle[idx] !== null) candles[i].bollingerMiddle = fmtPrice(indicators.bbMiddle[idx], refPrice);
+    if (indicators.bbLower[idx] !== null) candles[i].bollingerLower = fmtPrice(indicators.bbLower[idx], refPrice);
+    if (indicators.bbBandwidth[idx] !== null) candles[i].bollingerBandwidth = parseFloat(indicators.bbBandwidth[idx].toFixed(2));
+  }
 }
 
 
@@ -386,7 +508,7 @@ async function getLiquidationData(proxy, currentPrice = 80000) {
  */
 async function getDailyDataCLI(proxy) {
   const LIMIT_DISPLAY = 14;
-  const LIMIT_STATS = 30;
+  const LIMIT_STATS = 50;  // 50根用于完整计算 RSI/MACD/BB，仅输出14根
   
   // 1. 获取 K线数据 (OKX CLI --json 直接返回数组)
   const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 1D --limit ${LIMIT_STATS}`, proxy);
@@ -407,10 +529,7 @@ async function getDailyDataCLI(proxy) {
   const volume24h = tickerArr?.[0]?.volCcy24h ? 
     parseFloat(tickerArr[0].volCcy24h) * parseFloat(tickerArr[0].last || 70000) : null;
   
-  // 3. 获取技术指标 — 仅 EMA 均线 (山寨币高波动下 RSI/BB/MACD 钝化无效)
-  // 优先用现货，如果现货不存在则回退到合约
-  const emaData = await okxCLIJson(`market indicator ema ${OKX_INST_ID_SPOT} --bar 1Dutc --params 7,12,20,26`, proxy).catch(() => 
-      okxCLIJson(`market indicator ema ${OKX_INST_ID_SWAP} --bar 1Dutc --params 7,12,20,26`, proxy).catch(() => null));
+  // 3. EMA 均线自算（全量 calcEMASequence 在下方统一计算）
   
   // 4. 获取资金费率历史（14天 × 3条/天 = 42条，取50条余量）
   const fundingDataHistory = await okxCLIJson(`market funding-rate ${OKX_INST_ID_SWAP} --history --limit 50`, proxy).catch(() => null);
@@ -464,29 +583,22 @@ async function getDailyDataCLI(proxy) {
   const displayData = allDataDesc.slice(0, LIMIT_DISPLAY);
   const currentPrice = displayData[0]?.close || 0;
   
-  // EMA 计算需要从旧到新的顺序
+  // 全量数据（旧→新），用于指标计算
   const allDataAsc = [...allDataDesc].reverse();
   const closes = allDataAsc.map(d => d.close);
-  
-  // 尝试使用 OKX CLI 的 EMA 数据
-  let ema7 = [], ema12 = [], ema20 = [], ema26 = [];
-  
-  if (emaData?.data) {
-    // OKX CLI 返回的 EMA 数据
-    // 格式可能是 { "7": 69895.0, "12": 69372.3, ... } 或数组
-    // 这里我们需要自己计算，因为 CLI 只返回最新值
-    ema7 = calcEMASequence(closes, 7, LIMIT_DISPLAY);
-    ema12 = calcEMASequence(closes, 12, LIMIT_DISPLAY);
-    ema20 = calcEMASequence(closes, 20, LIMIT_DISPLAY);
-    ema26 = calcEMASequence(closes, 26, LIMIT_DISPLAY);
-  } else {
-    // 备用：自己计算
-    ema7 = calcEMASequence(closes, 7, LIMIT_DISPLAY);
-    ema12 = calcEMASequence(closes, 12, LIMIT_DISPLAY);
-    ema20 = calcEMASequence(closes, 20, LIMIT_DISPLAY);
-    ema26 = calcEMASequence(closes, 26, LIMIT_DISPLAY);
-  }
-  
+
+  // ═══ 技术指标计算（用全部50根K线）═══
+  // EMA 均线（输出14根，新→旧）
+  const ema7 = calcEMASequence(closes, 7, LIMIT_DISPLAY);
+  const ema12 = calcEMASequence(closes, 12, LIMIT_DISPLAY);
+  const ema20 = calcEMASequence(closes, 20, LIMIT_DISPLAY);
+  const ema26 = calcEMASequence(closes, 26, LIMIT_DISPLAY);
+
+  // RSI(14) / MACD(12,26,9) / 布林带(20,2) — 全量计算
+  const dailyRSI = calcRSI(closes, 14);
+  const dailyMACD = calcMACD(closes, 12, 26, 9);
+  const dailyBB = calcBollingerBands(closes, 20, 2);
+
   // 构建历史数据
   const history = displayData.map((d, i) => {
     const entry = {
@@ -496,20 +608,28 @@ async function getDailyDataCLI(proxy) {
       high: d.high,
       low: d.low,
       close: d.close,
-      volume: i === 0 ? null : d.volume,  // USDT为单位的交易量
-      volumeFormatted: i === 0 ? null : formatVol(d.volume)  // 格式化的交易量
+      volume: i === 0 ? null : d.volume,
+      volumeFormatted: i === 0 ? null : formatVol(d.volume)
     };
-    
     if (i < ema7.length) entry.ema7 = fmtPrice(ema7[i], currentPrice);
     if (i < ema12.length) entry.ema12 = fmtPrice(ema12[i], currentPrice);
     if (i < ema20.length) entry.ema20 = fmtPrice(ema20[i], currentPrice);
     if (i < ema26.length) entry.ema26 = fmtPrice(ema26[i], currentPrice);
-    
-    // }
-    
     return entry;
   });
-  
+
+  // 附加 RSI/MACD/布林带到输出蜡烛
+  attachIndicators(history, {
+    rsi: dailyRSI,
+    macdLine: dailyMACD.macdLine,
+    signalLine: dailyMACD.signalLine,
+    histogram: dailyMACD.histogram,
+    bbUpper: dailyBB.upper,
+    bbMiddle: dailyBB.middle,
+    bbLower: dailyBB.lower,
+    bbBandwidth: dailyBB.bandwidth
+  }, currentPrice);
+
   // 按 timestamp 映射
   const tsMap = new Map(history.map((r, i) => [r.timestamp, i]));
   
@@ -685,7 +805,23 @@ async function getDailyDataCLI(proxy) {
         }
       }
     },
-    indicators: {}
+    indicators: {
+      rsi14: history[0]?.rsi ?? null,
+      macd: history[0]?.macdLine !== undefined ? {
+        macdLine: history[0].macdLine,
+        signal: history[0].macdSignal,
+        histogram: history[0].macdHistogram
+      } : null,
+      bollinger: history[0]?.bollingerUpper !== undefined ? {
+        upper: history[0].bollingerUpper,
+        middle: history[0].bollingerMiddle,
+        lower: history[0].bollingerLower,
+        bandwidth: history[0].bollingerBandwidth,
+        position: (history[0].close !== undefined && history[0].bollingerUpper !== undefined)
+          ? parseFloat(((history[0].close - history[0].bollingerLower) / (history[0].bollingerUpper - history[0].bollingerLower) * 100).toFixed(1))
+          : null
+      } : null
+    }
   };
 }
 
@@ -693,9 +829,10 @@ async function getDailyDataCLI(proxy) {
  * 获取4小时数据 (使用 OKX CLI)
  */
 async function get4hDataCLI(proxy) {
-  const LIMIT = 14;
+  const LIMIT_OUTPUT = 14;
+  const LIMIT_FETCH = 50;   // 额外获取用于完整指标计算
   
-  const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 4H --limit ${LIMIT}`, proxy);
+  const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 4H --limit ${LIMIT_FETCH}`, proxy);
   
   // OKX CLI 返回的是数组，不是 { data: [...] }
   const klinesArray = Array.isArray(klinesData) ? klinesData : klinesData?.data;
@@ -705,16 +842,12 @@ async function get4hDataCLI(proxy) {
   }
   
   // 并行获取其他数据
-  // ⭐ 资金费率已在日报 fundingRateList 中独立处理，此处不再获取
-  // longShortRatio 和 takerVolume API 只支持 5m/1H/1D，用 1H 匹配 4H 时间戳
   const [openInterest, longShortRatio1H, topTraderRatio4H, takerVolume1H] = await Promise.all([
     getOKXData(`/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${COIN}&period=4H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${COIN}&period=1H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/contracts/long-short-account-ratio-contract-top-trader?instId=${OKX_INST_ID_SWAP}&period=4H`, proxy).catch(() => null),
     getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=${COIN}&period=1H`, proxy).catch(() => null)
   ]);
-  
-  const result = [];
   
   // 交易量格式化函数
   const formatVol = (val) => {
@@ -725,11 +858,13 @@ async function get4hDataCLI(proxy) {
     return `$${val.toFixed(0)}`;
   };
   
+  // 构建全量蜡烛数据（新→旧）
+  const allResult = [];
   for (let i = 0; i < klinesArray.length; i++) {
     const k = klinesArray[i];
     const ts = parseInt(k[0]);
-    const vol = parseFloat(k[7]);  // USDT为单位的交易量
-    const entry = {
+    const vol = parseFloat(k[7]);
+    allResult.push({
       time: toBeijingDatetime(ts),
       timestamp: ts,
       open: parseFloat(k[1]),
@@ -738,15 +873,34 @@ async function get4hDataCLI(proxy) {
       close: parseFloat(k[4]),
       volume: vol,
       volumeFormatted: formatVol(vol)
-    };
-    result.push(entry);
+    });
   }
-  
+
+  // 计算技术指标（用全部50根K线）
+  const closesAsc = [...allResult].reverse().map(r => r.close);
+  const h4RSI = calcRSI(closesAsc, 14);
+  const h4MACD = calcMACD(closesAsc, 12, 26, 9);
+  const h4BB = calcBollingerBands(closesAsc, 20, 2);
+  const refPrice = allResult[0]?.close || 0;
+
+  // 只取前14根输出
+  const result = allResult.slice(0, LIMIT_OUTPUT);
+  attachIndicators(result, {
+    rsi: h4RSI,
+    macdLine: h4MACD.macdLine,
+    signalLine: h4MACD.signalLine,
+    histogram: h4MACD.histogram,
+    bbUpper: h4BB.upper,
+    bbMiddle: h4BB.middle,
+    bbLower: h4BB.lower,
+    bbBandwidth: h4BB.bandwidth
+  }, refPrice);
+
   const tsMap = new Map(result.map((r, i) => [r.timestamp, i]));
   
   // 持仓量
   if (openInterest?.data && Array.isArray(openInterest.data)) {
-    for (const item of openInterest.data.slice(0, LIMIT)) {
+    for (const item of openInterest.data.slice(0, LIMIT_OUTPUT)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -758,7 +912,7 @@ async function get4hDataCLI(proxy) {
   
   // 多空比 (API只支持 1H，用 1H 数据匹配 4H K线的时间戳)
   if (longShortRatio1H?.data && Array.isArray(longShortRatio1H.data)) {
-    for (const item of longShortRatio1H.data.slice(0, LIMIT * 4)) {
+    for (const item of longShortRatio1H.data.slice(0, LIMIT_OUTPUT * 4)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -769,7 +923,7 @@ async function get4hDataCLI(proxy) {
   
   // 大户多空比 (API支持 4H)
   if (topTraderRatio4H?.data && Array.isArray(topTraderRatio4H.data)) {
-    for (const item of topTraderRatio4H.data.slice(0, LIMIT)) {
+    for (const item of topTraderRatio4H.data.slice(0, LIMIT_OUTPUT)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -780,7 +934,7 @@ async function get4hDataCLI(proxy) {
   
   // Taker 买卖比 (API只支持 1H，用 1H 数据匹配 4H K线的时间戳，只保留ratio)
   if (takerVolume1H?.data && Array.isArray(takerVolume1H.data)) {
-    for (const item of takerVolume1H.data.slice(0, LIMIT * 4)) {
+    for (const item of takerVolume1H.data.slice(0, LIMIT_OUTPUT * 4)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -797,9 +951,10 @@ async function get4hDataCLI(proxy) {
 // ========== 1H K线数据 (OKX CLI) ==========
 
 async function get1hDataCLI(proxy) {
-  const LIMIT = 14;
+  const LIMIT_OUTPUT = 14;
+  const LIMIT_FETCH = 50;
   
-  const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 1H --limit ${LIMIT}`, proxy);
+  const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 1H --limit ${LIMIT_FETCH}`, proxy);
   const klinesArray = Array.isArray(klinesData) ? klinesData : klinesData?.data;
   
   if (!klinesArray || klinesArray.length === 0) {
@@ -812,8 +967,6 @@ async function get1hDataCLI(proxy) {
     getOKXData(`/api/v5/rubik/stat/taker-volume?instId=${OKX_INST_ID_SWAP}&instType=CONTRACTS&ccy=${COIN}&period=1H`, proxy).catch(() => null)
   ]);
   
-  const result = [];
-  
   const formatVol = (val) => {
     if (!val) return null;
     if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
@@ -822,11 +975,13 @@ async function get1hDataCLI(proxy) {
     return `$${val.toFixed(0)}`;
   };
   
+  // 构建全量蜡烛（新→旧）
+  const allResult = [];
   for (let i = 0; i < klinesArray.length; i++) {
     const k = klinesArray[i];
     const ts = parseInt(k[0]);
     const vol = parseFloat(k[7]);
-    result.push({
+    allResult.push({
       time: toBeijingDatetime(ts),
       timestamp: ts,
       open: parseFloat(k[1]),
@@ -837,12 +992,32 @@ async function get1hDataCLI(proxy) {
       volumeFormatted: formatVol(vol)
     });
   }
-  
+
+  // 计算技术指标（全量50根）
+  const closesAsc = [...allResult].reverse().map(r => r.close);
+  const h1RSI = calcRSI(closesAsc, 14);
+  const h1MACD = calcMACD(closesAsc, 12, 26, 9);
+  const h1BB = calcBollingerBands(closesAsc, 20, 2);
+  const refPrice = allResult[0]?.close || 0;
+
+  // 输出14根
+  const result = allResult.slice(0, LIMIT_OUTPUT);
+  attachIndicators(result, {
+    rsi: h1RSI,
+    macdLine: h1MACD.macdLine,
+    signalLine: h1MACD.signalLine,
+    histogram: h1MACD.histogram,
+    bbUpper: h1BB.upper,
+    bbMiddle: h1BB.middle,
+    bbLower: h1BB.lower,
+    bbBandwidth: h1BB.bandwidth
+  }, refPrice);
+
   const tsMap = new Map(result.map((r, i) => [r.timestamp, i]));
   
   // OI
   if (openInterest?.data && Array.isArray(openInterest.data)) {
-    for (const item of openInterest.data.slice(0, LIMIT)) {
+    for (const item of openInterest.data.slice(0, LIMIT_OUTPUT)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -854,7 +1029,7 @@ async function get1hDataCLI(proxy) {
   
   // 多空比
   if (longShortRatio?.data && Array.isArray(longShortRatio.data)) {
-    for (const item of longShortRatio.data.slice(0, LIMIT)) {
+    for (const item of longShortRatio.data.slice(0, LIMIT_OUTPUT)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -865,7 +1040,7 @@ async function get1hDataCLI(proxy) {
   
   // Taker 买卖比
   if (takerVolume?.data && Array.isArray(takerVolume.data)) {
-    for (const item of takerVolume.data.slice(0, LIMIT)) {
+    for (const item of takerVolume.data.slice(0, LIMIT_OUTPUT)) {
       const ts = parseInt(item[0]);
       const idx = tsMap.get(ts);
       if (idx !== undefined) {
@@ -882,16 +1057,15 @@ async function get1hDataCLI(proxy) {
 // ========== 15分钟 K线数据 (OKX CLI, 纯价格动量) ==========
 
 async function get15mDataCLI(proxy) {
-  const LIMIT = 14;
+  const LIMIT_OUTPUT = 14;
+  const LIMIT_FETCH = 50;
   
-  const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 15m --limit ${LIMIT}`, proxy);
+  const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 15m --limit ${LIMIT_FETCH}`, proxy);
   const klinesArray = Array.isArray(klinesData) ? klinesData : klinesData?.data;
   
   if (!klinesArray || klinesArray.length === 0) {
     return null;
   }
-  
-  const result = [];
   
   const formatVol = (val) => {
     if (!val) return null;
@@ -901,11 +1075,13 @@ async function get15mDataCLI(proxy) {
     return `$${val.toFixed(0)}`;
   };
   
+  // 构建全量蜡烛（新→旧）
+  const allResult = [];
   for (let i = 0; i < klinesArray.length; i++) {
     const k = klinesArray[i];
     const ts = parseInt(k[0]);
     const vol = parseFloat(k[7]);
-    result.push({
+    allResult.push({
       time: toBeijingDatetime(ts),
       timestamp: ts,
       open: parseFloat(k[1]),
@@ -916,17 +1092,41 @@ async function get15mDataCLI(proxy) {
       volumeFormatted: formatVol(vol)
     });
   }
-  
-  // 计算 15min 级别的 EMA (7, 12) - 用于捕捉短线动量
-  const closesAsc = [...result].reverse().map(r => r.close);
-  const ema7 = calcEMASequence(closesAsc, 7, 14);
-  const ema12 = calcEMASequence(closesAsc, 12, 14);
-  
+
+  // 全量收盘价（旧→新）用于指标计算
+  const closesAsc = [...allResult].reverse().map(r => r.close);
+  const refPrice = allResult[0]?.close || 0;
+
+  // EMA 短线动量
+  const ema7 = calcEMASequence(closesAsc, 7, LIMIT_OUTPUT);
+  const ema12 = calcEMASequence(closesAsc, 12, LIMIT_OUTPUT);
+
+  // RSI / MACD / 布林带（全量计算）
+  const m15RSI = calcRSI(closesAsc, 14);
+  const m15MACD = calcMACD(closesAsc, 12, 26, 9);
+  const m15BB = calcBollingerBands(closesAsc, 20, 2);
+
+  // 只取前14根输出
+  const result = allResult.slice(0, LIMIT_OUTPUT);
+
+  // 附加 EMA
   for (let i = 0; i < Math.min(result.length, ema7.length, ema12.length); i++) {
     result[i].ema7 = ema7[i];
     result[i].ema12 = ema12[i];
   }
-  
+
+  // 附加 RSI/MACD/布林带
+  attachIndicators(result, {
+    rsi: m15RSI,
+    macdLine: m15MACD.macdLine,
+    signalLine: m15MACD.signalLine,
+    histogram: m15MACD.histogram,
+    bbUpper: m15BB.upper,
+    bbMiddle: m15BB.middle,
+    bbLower: m15BB.lower,
+    bbBandwidth: m15BB.bandwidth
+  }, refPrice);
+
   return result;
 }
 
@@ -1151,7 +1351,6 @@ function formatAnalysis(data) {
   if (data.priceHistory) {
     const ph = data.priceHistory;
     const stats = ph.statistics;
-    const ind = ph.indicators;
     
     out += '── 📈 价格统计 ──\n';
     out += `   当前价格: $${ph.current.toLocaleString()}\n\n`;
@@ -1178,6 +1377,23 @@ function formatAnalysis(data) {
     out += ` | 均值: ${formatVolume(stats.days30.volume.avg)}\n`;
     
     out += '\n── 📈 技术指标 ──\n';
+    
+    // RSI / MACD / 布林带 速览
+    const ind = ph.indicators;
+    if (ind.rsi14 !== null) {
+      const rsiStatus = ind.rsi14 >= 70 ? '超买' : ind.rsi14 <= 30 ? '超卖' : '中性';
+      out += `   RSI(14): ${ind.rsi14} (${rsiStatus})\n`;
+    }
+    if (ind.macd) {
+      const macdDir = ind.macd.histogram > 0 ? '↑ 多头' : '↓ 空头';
+      out += `   MACD: ${ind.macd.macdLine} | 信号线 ${ind.macd.signal} | 柱 ${ind.macd.histogram} ${macdDir}\n`;
+    }
+    if (ind.bollinger) {
+      const bbPos = ind.bollinger.position;
+      const bbLabel = bbPos >= 100 ? '突破上轨🔥' : bbPos >= 80 ? '偏上轨' : bbPos <= 0 ? '跌破下轨❄️' : bbPos <= 20 ? '偏下轨' : '中轨附近';
+      out += `   布林带: 上${ind.bollinger.upper} 中${ind.bollinger.middle} 下${ind.bollinger.lower}`;
+      out += ` | 带宽${ind.bollinger.bandwidth}% | 价位${bbPos}% (${bbLabel})\n`;
+    }
     
     out += '\n── 📐 斐波那契回调位 ──\n';
     out += `   当前价格: $${data.fibonacci.currentPrice?.toLocaleString() || 'N/A'}\n\n`;
@@ -1233,6 +1449,7 @@ function formatAnalysis(data) {
       if (h.longShortRatio !== undefined) {
         out += ` | 多空比${h.longShortRatio.toFixed(2)}`;
       }
+      if (h.rsi !== undefined) out += ` | RSI${h.rsi}`;
       out += '\n';
     }
   }
@@ -1247,6 +1464,8 @@ function formatAnalysis(data) {
       if (k.openInterest !== undefined) {
         out += ` | OI${(k.openInterest/1000).toFixed(1)}k`;
       }
+      if (k.rsi !== undefined) out += ` | RSI${k.rsi}`;
+      if (k.macdHistogram !== undefined) out += ` | MACD${k.macdHistogram > 0 ? '+' : ''}${k.macdHistogram}`;
       out += '\n';
     }
     if (data.kline4h.length > 7) {
@@ -1262,6 +1481,8 @@ function formatAnalysis(data) {
       out += `   ${k.time} | O:${k.open} H:${k.high} L:${k.low} C:${k.close} | V:${k.volumeFormatted}`;
       if (k.longShortRatio) out += ` | 多空比:${k.longShortRatio.toFixed(2)}`;
       if (k.takerRatio) out += ` | Taker:${k.takerRatio.toFixed(2)}`;
+      if (k.rsi !== undefined) out += ` | RSI${k.rsi}`;
+      if (k.macdHistogram !== undefined) out += ` | MACD${k.macdHistogram > 0 ? '+' : ''}${k.macdHistogram}`;
       out += '\n';
     }
     if (data.kline1h.length > 7) {
@@ -1271,12 +1492,14 @@ function formatAnalysis(data) {
   
   // 15分钟数据
   if (data.kline15m && data.kline15m.length > 0) {
-    out += '\n── ⚡ 15分钟K线 (14根, 含EMA7/12) ──\n';
+    out += '\n── ⚡ 15分钟K线 (14根, 含EMA7/12 + RSI/MACD/BB) ──\n';
     for (let i = 0; i < Math.min(7, data.kline15m.length); i++) {
       const k = data.kline15m[i];
       out += `   ${k.time} | O:${k.open} H:${k.high} L:${k.low} C:${k.close} | V:${k.volumeFormatted}`;
       if (k.ema7 !== undefined) out += ` | EMA7:${k.ema7.toFixed(5)}`;
       if (k.ema12 !== undefined) out += ` EMA12:${k.ema12.toFixed(5)}`;
+      if (k.rsi !== undefined) out += ` | RSI${k.rsi}`;
+      if (k.macdHistogram !== undefined) out += ` | MACD${k.macdHistogram > 0 ? '+' : ''}${k.macdHistogram}`;
       out += '\n';
     }
     if (data.kline15m.length > 7) {

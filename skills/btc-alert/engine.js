@@ -95,21 +95,32 @@ function logRuleEvent(ruleName, event, details = {}) {
  */
 function notifyShisiyue(message) {
   const { spawn } = require('child_process');
+  const now = new Date().toISOString();
+  const jobName = `notify-shisiyue-${Date.now()}`;
   
-  const spawnMessage = `请通过QQ告诉主人这条消息：
+  const spawnMessage = `请使用 message 工具通过 QQ 向主人发送以下消息：
 
+channel: qqbot
+target: qqbot:c2c:3264012CFFDCF2666417B4D4ABACEFFF
+
+---消息内容---
 ${message}`;
 
   spawn('openclaw', [
-    'agent',
+    'cron', 'add',
     '--agent', 'shisiyue',
-    '--message', spawnMessage
+    '--session', 'isolated',
+    '--at', now,
+    '--message', spawnMessage,
+    '--name', jobName,
+    '--delete-after-run',
+    '--no-deliver'
   ], {
     detached: true,
     stdio: 'ignore'
   });
   
-  console.log(`[🔧警报引擎] 已发送通知给十四月`);
+  console.log(`[🔧警报引擎] 已派发通知给十四月 (job: ${jobName})`);
 }
 
 /**
@@ -385,6 +396,12 @@ function loadSingleRule(file) {
   } catch (error) {
     console.error(`[🔧警报引擎] 加载规则失败 ${file}:`, error.message);
     logEngine('ERROR', 'Engine', `加载规则失败: ${file}`, { error: error.message });
+
+    // ★ 接入自愈管道：加载失败（语法错误/依赖缺失）也触发错误统计
+    //    累计5次后自动派发自愈诊断任务，而非永久静默跳过
+    const loadName = file.replace(/\.js$/, '');
+    handleRuleError(file, loadName, error.message, error.stack);
+
     return null;
   }
 }
@@ -423,7 +440,7 @@ async function runRule(ruleInfo) {
   
   try {
     // 检查生命周期
-    const status = lifetime();
+    const status = lifetime.call(rule);
     if (status === 'expired' || status === 'completed') {
       logRuleEvent(name, 'RULE_STOPPED', { status });
       
@@ -470,7 +487,7 @@ async function runRule(ruleInfo) {
       
       logRuleEvent(name, 'TRIGGER_COMPLETED');
       
-      // 整个链路（check → collect → trigger）全部成功后才重置错误统计
+      // ★ 只有完整链路成功才重置错误统计
       handleRuleSuccess(filename, name);
       
       // 设置冷却时间（30分钟内不再触发）
@@ -480,11 +497,8 @@ async function runRule(ruleInfo) {
         lastTriggerTime: Date.now()
       });
       logRuleEvent(name, 'COOLDOWN_SET', { cooldownMinutes: cooldownMs / 60000 });
-    } else {
-      // check 执行成功但未触发（无异常），重置错误统计
-      handleRuleSuccess(filename, name);
-      logRuleEvent(name, 'CHECK_PASSED');
     }
+    // else: check 返回 false（正常无触发），不重置错误统计
     
     return 'continue';
   } catch (error) {

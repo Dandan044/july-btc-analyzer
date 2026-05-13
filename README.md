@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v8 更新**：警报引擎异步化 + 自愈系统 + 山寨币策略升级 + 模型配置简化。
+> **v9 更新**：参数清洗防二次拼接 + 止损仓位计算器 + 盈亏比偏移 + 交易复盘系统 + 经验行为模式沉淀。
 
 ## 🚀 快速开启
 
@@ -254,20 +254,20 @@ july-btc-analyzer/
 
 #### BTC 任务
 
-| 任务 | 规则文件 | 模型 |
-|------|---------|------|
-| 执行日报任务 | `tasks/daily-report-stage1.md` | `deepseek-v4-pro` |
-| 设定市场警报 | `tasks/set-alert.md` | 默认 |
-| 即时分析任务 | `tasks/instant-analysis-stage1.md` | `deepseek-v4-pro` |
+| 任务 | 规则文件 |
+|------|---------|
+| 执行日报任务 | `tasks/daily-report-stage1.md` |
+| 设定市场警报 | `tasks/set-alert.md` |
+| BTC 即时分析 | `tasks/instant-analysis-stage1.md` |
+| 周期健康巡检 | `tasks/cycle-health-check.md` |
+| 交易复盘 | `tasks/trade-review.md` |
 
 #### 山寨币任务
 
-| 任务 | 阶段一入口 | 后续阶段 | 模型 |
-|------|-----------|---------|------|
-| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | `deepseek-v4-flash` |
-| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | `deepseek-v4-flash` |
-
-> **模型配置**：BTC 使用 `deepseek-v4-pro`（分析深度），山寨币使用 `deepseek-v4-flash`（速度成本）。⚠️ 已知 `sessions_spawn` 的 `model` 参数被平台忽略，当前 agent 默认模型为 flash，待平台修复后恢复 BTC → pro。
+| 任务 | 阶段一入口 | 后续阶段 |
+|------|-----------|---------|
+| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 |
+| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 |
 
 ### 任务触发流程
 
@@ -303,6 +303,7 @@ pm2 logs july-report-monitor
 | 进程名 | 说明 |
 |--------|------|
 | `btc-alert` | 警报器引擎（BTC + 山寨币） |
+| `btc-log-rotate` | 日志轮转（每日 00:10） |
 
 **代理环境变量** (ecosystem.config.js):
 ```javascript
@@ -327,6 +328,80 @@ env: {
 ---
 
 ## 更新日志
+
+### 2026-05-13
+> 🛡️ v9 — 参数清洗防二次拼接 + 止损仓位计算器 + 盈亏比偏移 + 交易复盘 + 经验沉淀
+
+**变更内容：**
+
+**① api.js 参数清洗层（`skills/btc-market-lite/scripts/api.js`）：**
+- 新增 `sanitizeSymbol()` — 自动剥离 `-USDT`/`-USDT-SWAP` 后缀 + 转大写，防止警报规则传完整 `instId` 导致二次拼接（如 `CRV-USDT-SWAP` → `CRV-USDT-SWAP-USDT`）
+- 新增 `sanitizeInstType()` — 默认走合约 `SWAP`，自动映射 `CONTRACTS`/`FUTURES`/`PERPETUAL` → `SWAP`
+- 新增 `sanitizePeriod()` — Rubik stat 端点 period 大小写自动纠正（`1d`→`1D`、`1h`→`1H`）
+- 所有合约统计方法（OI/多空比/Taker 等）接入清洗层，规则侧无需手动保证参数正确性
+
+**② 山寨币止损仓位计算器（`scripts/calc-position.js`）：**
+- 山寨币阶段二新增止损/仓位自动计算流程（替代手动估算）
+- 双层波动率体系：BTC 4H ATR 基线 + 山寨币 4H ATR × 乘数 X
+- 乘数 X 按风险分层：1.5（低波动主流）→ 2.0（高波动脉冲）
+- 止损向**更远处**偏移到最近技术结构位（禁止回缩）
+- 仓位线性映射：`BTC基线%` 为满仓锚点，`25%` 为拒绝线
+- 输出 JSON 含 `status`/`final_stop_price`/`position.size`
+
+**③ 阶段三盈亏比偏移（`tasks/daily-report-stage3.md`）：**
+- 从「整数位偏移」（±22）改为**百分比盈亏比偏移**
+- 新公式：止盈让利 5%（`TP_SHIFT_PCT`）、止损多扛 5%（`SL_SHIFT_PCT`），上限 20%
+- 所有币种统一适用，不再依赖「是否为整数价格」判断
+- 默认杠杆从 3x 提升至 **10x**
+
+**④ 山寨币阶段二分析深化（`tasks/alt-intel-stage2.md`）：**
+- 新增「行情已走多远？」— 从启动点到当前价格的涨跌幅、耗时、距斐波那契位距离
+- 新增「撇开叙事看价格」— 纯价格行为视角与叙事判断的交叉验证
+- 新增「审视本周期已有判断」— 空仓视角重审，打破连续报告确认偏误
+- 新增「审视触发警报」— 回溯设置警报时的市场环境，判断触发是否验证原逻辑
+- 新增「驱动力衰减的事件维度」— 可预期事件（产品上线/协议升级）的「买预期卖事实」风险评估
+- 止损/仓位改为脚本计算，不再手动估算
+
+**⑤ 警报规则生命周期改为「触发即归档」默认模式（`tasks/set-alert.md`）：**
+- `lifetime()` 默认模式：触发后返回 `'completed'`，引擎自动归档规则文件到 `rules-archive/`
+- 备选模式：持久监控（N 天窗口，冷却后继续触发）
+- 移除 `CONFIG` 全局配置引用和 `model` 参数（模型已由 agent 默认模型决定）
+- 移除冗余的 `opencrl agent` notify 示例
+
+**⑥ 警报引擎修复（`skills/btc-alert/engine.js`）：**
+- `handleRuleSuccess` 仅在完整链路（check → collect → trigger）成功时调用，`check()` 返回 false 不再归零错误计数
+- 规则加载失败时接入自愈管道（累计 5 次后自动派发诊断任务）
+- `notifyShisiyue()` 从 `opencrl agent` 改为 `opencrl cron add`（一次性 cron job，更可靠）
+
+**⑦ 经验行为模式沉淀：**
+- 新增 `TRADE_LESSONS.md` — 从复盘和实战提炼的行为模式（脉冲行情认知偏差、风险认知与策略执行断层、确认偏误、左侧做空止损空间等）
+- 新增 `learnings/` 目录 — 复盘纪要（review-20260512、review-20260513）
+- `.learnings/` 迁移至根目录 `learnings/`
+- `AGENTS.md` 新增「分析前必读」指引，每次分析前读取 `LEARNINGS.md`
+
+**⑧ 交易复盘系统：**
+- 新增 `tasks/trade-review.md` — 交易后复盘流程
+- 新增 `tasks/cycle-health-check.md` — 活跃周期健康巡检
+- 新增 `cycle-health/` 巡检报告（2026-05-10、05-12、05-13）
+
+**⑨ PM2 日志轮转：**
+- `ecosystem.config.js` 新增 `btc-log-rotate` 进程（每日 00:10 执行 `scripts/log-rotate.sh`）
+- `package.json` 新增 `sharp` 依赖（K 线图表生成）
+
+**⑩ TOOLS.md 增补（5 项经验教训）：**
+- symbol vs instId 参数二次拼接陷阱
+- 止盈止损判断陷阱（支撑跌破 ≠ 止盈触发）
+- 警报规则延迟确认机制（instant/touch/hold/deep_hold 四档）
+- 回穿检测阈值需按币种波动率缩放（山寨币不能用 BTC 的 0.1%）
+- `handleRuleSuccess` 自愈路径陷阱（check=false 不能归零错误计数）
+
+**⑪ 警报规则大规模更新：**
+- 归档 34 个过期规则（AZTEC/DYDX/FIL/GALA/JTO/JUP/LIGHT/NOT/ONDO/OP/RLS/ROBO/SAHARA/SPACE/SPK/STRK/TIA/WLFI + BTC 布林带/仓位管理v2）
+- 新增活跃规则覆盖 30+ 币种（ATOM/BOME/EIGEN/ENS/GMT/HUMA/JUP/KAITO/KMNO/LAYER/LDO/MON/MOVE/ONDO/ORDI/PENDLE/PENGU/POPCAT/SEI/SPK/SSV/STRK/UMA/USELESS/W/WCT + BTC 布林挤压/做空位监控）
+
+**⑫ API_REQUESTS.md 更新：**
+- Taker 买卖比新增 `period` 参数支持小时粒度（`5m`/`1H`/`1D`/`1W`/`1M`）
+- 日期格式自适应：日级及以上用 `YYYY-MM-DD`，小时/分钟级用完整 ISO
 
 ### 2026-05-09
 > 🏗️ v8 — 警报引擎异步化 + 自愈系统 + 山寨币策略升级

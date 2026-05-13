@@ -31,5 +31,23 @@ module.exports = {
       https_proxy: 'http://127.0.0.1:7890',
       all_proxy: 'socks5://127.0.0.1:7890'
     }
+  }, {
+    name: 'btc-log-rotate',
+    script: 'scripts/log-rotate.sh',
+    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+
+    // 每天 00:10 执行一次，跑完就退出，不自动重启
+    cron_restart: '10 0 * * *',
+    autorestart: false,
+
+    // 日志
+    error_file: './logs/log-rotate.log',
+    out_file: './logs/log-rotate.log',
+    merge_logs: true,
+    time: true,
+
+    env: {
+      TZ: 'Asia/Shanghai'
+    }
   }]
 };

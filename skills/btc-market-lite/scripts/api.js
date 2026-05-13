@@ -152,16 +152,87 @@ async function fetch(url, timeout = DEFAULT_TIMEOUT) {
   }
 }
 
+// ========== 参数清洗（硬性过滤）==========
+
+/**
+ * 清洗 symbol 参数
+ * - 自动剥离 -USDT / -USDT-SWAP / -USD 后缀
+ * - 自动转大写
+ * - 防止规则传完整 instId 导致二次拼接
+ */
+const SYMBOL_CLEAN_WARNED = new Set();
+function sanitizeSymbol(symbol) {
+  if (typeof symbol !== 'string' || !symbol) return 'BTC';
+  const original = symbol;
+  let cleaned = symbol.replace(/-USDT(-SWAP)?$/i, '').replace(/-USD$/i, '');
+  cleaned = cleaned.toUpperCase();
+  if (cleaned !== original && !SYMBOL_CLEAN_WARNED.has(original)) {
+    console.warn(`[api] symbol自动纠正: "${original}" → "${cleaned}" (防止instId二次拼接)`);
+    SYMBOL_CLEAN_WARNED.add(original);
+  }
+  return cleaned;
+}
+
+/**
+ * 清洗 instType 参数
+ * - 默认走合约 (SWAP)
+ * - 自动纠正常见错误（大小写、变体名称）
+ */
+const INSTTYPE_CLEAN_WARNED = new Set();
+function sanitizeInstType(instType) {
+  if (!instType) return 'SWAP'; // ⭐ 默认合约
+  const upper = String(instType).toUpperCase();
+  // 标准值原样返回
+  if (upper === 'SWAP' || upper === 'SPOT') return upper;
+  // 常见变体映射
+  const aliasMap = {
+    'CONTRACTS': 'SWAP', 'FUTURES': 'SWAP', 'PERPETUAL': 'SWAP',
+    'PERP': 'SWAP', 'MARGIN': 'SPOT',
+  };
+  if (aliasMap[upper]) {
+    const mapped = aliasMap[upper];
+    if (!INSTTYPE_CLEAN_WARNED.has(upper)) {
+      console.warn(`[api] instType自动纠正: "${instType}" → "${mapped}"`);
+      INSTTYPE_CLEAN_WARNED.add(upper);
+    }
+    return mapped;
+  }
+  // 无法识别的值 → 默认 SWAP
+  if (!INSTTYPE_CLEAN_WARNED.has(instType)) {
+    console.warn(`[api] instType无法识别: "${instType}" → 默认"SWAP"`);
+    INSTTYPE_CLEAN_WARNED.add(instType);
+  }
+  return 'SWAP';
+}
+
+/**
+ * 清洗 period 参数（rubik/stat 端点用）
+ * - 自动纠正大小写：'1d'→'1D', '1h'→'1H', '4h'→'4H', '1w'→'1W'
+ * - 分钟级和月级保持原样：5m/15m/30m, 1M/3M
+ */
+const PERIOD_NORMALIZE_MAP = {
+  '1h': '1H', '2h': '2H', '4h': '4H', '6h': '6H', '12h': '12H',
+  '1d': '1D', '1w': '1W', '3w': '3W',
+};
+function sanitizePeriod(period) {
+  if (!period) return '1D';
+  return PERIOD_NORMALIZE_MAP[period] || period;
+}
+
 // ========== OKX Market API (K线/价格) ==========
 
 /**
  * 获取K线数据（底层使用 OKX API）
- * @param {string} symbol - 币种 (BTC)
- * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1h, 4h, 1d（自动映射到OKX格式）
+ * @param {string} symbol - 币种 (BTC)，自动清洗
+ * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1h, 4h, 1d
  * @param {number} limit - 数据条数
+ * @param {string} instType - 默认 SWAP
  * @returns {Promise<Array>} K线数据数组，从新到旧
  */
-async function getKlines(symbol = 'BTC', interval = '1h', limit = 30) {
+async function getKlines(symbol = 'BTC', interval = '1h', limit = 30, instType = 'SWAP') {
+  // 大小写规范化：'1D'/'1d'/'1H'/'1h' 统一处理
+  interval = interval.toLowerCase();
+
   // OKX interval 映射
   const intervalMap = {
     '1m': '1m',
@@ -178,17 +249,18 @@ async function getKlines(symbol = 'BTC', interval = '1h', limit = 30) {
     throw new Error(`不支持的间隔: ${interval}，支持: 1m, 5m, 15m, 1h, 2h, 4h, 1d`);
   }
   
-  // 内部调用 OKX K线接口
-  return getOKXKlines(symbol, okxInterval, limit);
+  // 内部调用 OKX K线接口（symbol 会在 getOKXKlines 内清洗）
+  return getOKXKlines(symbol, okxInterval, limit, instType);
 }
 
 /**
  * 获取实时价格（底层使用 OKX API）
- * @param {string} symbol - 币种 (BTC)
+ * @param {string} symbol - 币种 (BTC)，自动清洗
+ * @param {string} instType - 默认 SWAP
  * @returns {Promise<Object>} 价格信息
  */
-async function getTicker(symbol = 'BTC') {
-  return getOKXTicker(symbol);
+async function getTicker(symbol = 'BTC', instType = 'SWAP') {
+  return getOKXTicker(symbol, instType);
 }
 
 /**
@@ -269,10 +341,14 @@ async function getFearGreedIndex(days = 30) {
  * @param {string} symbol - 币种 (BTC)
  * @param {string} interval - 时间间隔: 1m, 5m, 15m, 1h/1H, 2h/2H, 4h/4H, 1d/1D, etc（小写自动映射为大写）
  * @param {number} limit - 数据条数
- * @param {string} instType - 'SPOT' 或 'SWAP'
+ * @param {string} instType - 默认 SWAP（自动清洗）
  * @returns {Promise<Array>} K线数据数组，从新到旧
  */
-async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instType = 'SPOT') {
+async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instType = 'SWAP') {
+  // ⭐ 参数硬性过滤：清洗 symbol 和 instType
+  symbol = sanitizeSymbol(symbol);
+  instType = sanitizeInstType(instType);
+
   // 小写→大写自动映射，防止 '1h'/'4h' 等小写参数导致 OKX API 报 Parameter bar error
   const normalizeMap = {
     '1m': '1m', '3m': '3m', '5m': '5m', '15m': '15m', '30m': '30m',
@@ -308,10 +384,14 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instTy
 /**
  * 获取 OKX Ticker（实时价格）
  * @param {string} symbol - 币种 (BTC)
- * @param {string} instType - 'SPOT' 或 'SWAP'
+ * @param {string} instType - 默认 SWAP（自动清洗）
  * @returns {Promise<Object>} 价格信息
  */
-async function getOKXTicker(symbol = 'BTC', instType = 'SPOT') {
+async function getOKXTicker(symbol = 'BTC', instType = 'SWAP') {
+  // ⭐ 参数硬性过滤：清洗 symbol 和 instType
+  symbol = sanitizeSymbol(symbol);
+  instType = sanitizeInstType(instType);
+
   const instId = instType === 'SWAP' ? `${symbol}-USDT-SWAP` : `${symbol}-USDT`;
   const url = `https://www.okx.com/api/v5/market/ticker?instId=${instId}`;
   const data = await fetch(url);
@@ -367,6 +447,7 @@ async function getOKXTicker(symbol = 'BTC', instType = 'SPOT') {
  * @returns {Promise<Object>} 持仓量数据
  */
 async function getOKXOpenInterest(symbol = 'BTC') {
+  symbol = sanitizeSymbol(symbol);
   const url = `https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume?ccy=${symbol}&period=1D`;
   const data = await fetch(url);
   
@@ -399,17 +480,21 @@ async function getOKXOpenInterest(symbol = 'BTC') {
 /**
  * 获取 OKX Taker 买卖比数据
  * @param {string} symbol - 币种 (BTC, ETH, STRK, etc.)
+ * @param {string} [period='1D'] - 时间粒度: 5m, 1H, 1D, 1W, 1M
+ * @param {number} [limit=7] - 历史数据条数
  * @returns {Promise<Object>} Taker买卖比数据
  */
-async function getOKXTakerRatio(symbol = 'BTC') {
-  const url = `https://www.okx.com/api/v5/rubik/stat/taker-volume?instId=${symbol}-USDT-SWAP&instType=CONTRACTS&ccy=${symbol}&period=1D`;
+async function getOKXTakerRatio(symbol = 'BTC', period = '1D', limit = 7) {
+  symbol = sanitizeSymbol(symbol);
+  period = sanitizePeriod(period);
+  const url = `https://www.okx.com/api/v5/rubik/stat/taker-volume?instId=${symbol}-USDT-SWAP&instType=CONTRACTS&ccy=${symbol}&period=${period}`;
   const data = await fetch(url);
   
   if (data.code !== '0') {
     throw new Error(`OKX API错误: ${data.msg}`);
   }
   
-  // 返回最近2天的数据（最新和前一天）
+  // 返回最近2条数据（最新和前一条）
   const latest = data.data[0];
   const prev = data.data[1];
   
@@ -420,6 +505,13 @@ async function getOKXTakerRatio(symbol = 'BTC') {
   const prevBuyVol = parseFloat(prev[1]);
   const prevSellVol = parseFloat(prev[2]);
   const prevRatio = prevBuyVol / prevSellVol;
+
+  // 日期格式自适应：日级及以上用 YYYY-MM-DD，小时/分钟级用完整 ISO
+  const isDailyOrAbove = /^\d+[DWM]$/.test(period);
+  const fmtDate = (ts) => {
+    const d = new Date(parseInt(ts));
+    return isDailyOrAbove ? d.toISOString().split('T')[0] : d.toISOString();
+  };
   
   return {
     currentRatio: parseFloat(ratio.toFixed(2)),
@@ -428,8 +520,8 @@ async function getOKXTakerRatio(symbol = 'BTC') {
     sellVolume: sellVol,
     change: parseFloat(((ratio - prevRatio) / prevRatio * 100).toFixed(2)),
     timestamp: new Date().toISOString(),
-    history: data.data.slice(0, 7).map(d => ({
-      date: new Date(parseInt(d[0])).toISOString().split("T")[0],
+    history: data.data.slice(0, limit).map(d => ({
+      date: fmtDate(d[0]),
       buyVol: parseFloat(d[1]),
       sellVol: parseFloat(d[2]),
       ratio: parseFloat((parseFloat(d[1]) / parseFloat(d[2])).toFixed(2))
@@ -446,6 +538,7 @@ async function getOKXTakerRatio(symbol = 'BTC') {
  * 注意：返回的是比率值，不是 longAccount/shortAccount 分开的数据
  */
 async function getOKXLongShortRatio(symbol = 'BTC') {
+  symbol = sanitizeSymbol(symbol);
   const url = `https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${symbol}&period=1D`;
   const data = await fetch(url);
   
@@ -479,6 +572,7 @@ async function getOKXLongShortRatio(symbol = 'BTC') {
  * @returns {Promise<Object>} 顶级交易者多空比数据
  */
 async function getOKXTopTraderRatio(symbol = 'BTC') {
+  symbol = sanitizeSymbol(symbol);
   const url = `https://www.okx.com/api/v5/rubik/stat/contracts/long-short-account-ratio?ccy=${symbol}&period=1D`;
   const data = await fetch(url);
   
@@ -513,6 +607,7 @@ async function getOKXTopTraderRatio(symbol = 'BTC') {
  * @returns {Promise<Object>} 资金费率数据
  */
 async function getOKXFundingRate(symbol = 'BTC') {
+  symbol = sanitizeSymbol(symbol);
   const url = `https://www.okx.com/api/v5/public/funding-rate?instId=${symbol}-USDT-SWAP`;
   const data = await fetch(url);
   
@@ -592,6 +687,7 @@ async function getOKXLiquidation() {
  * @returns {Promise<Object>} { price, volume24h, totalVolume24hBtc, topTierVolume24h }
  */
 async function getGlobalVolume(symbol = 'BTC') {
+  symbol = sanitizeSymbol(symbol);
   const data = await fetch(`https://min-api.cryptocompare.com/data/pricemultifull?fsyms=${symbol}&tsyms=USD`);
   const raw = data.RAW?.[symbol]?.USD;
   if (!raw) throw new Error(`CryptoCompare 返回数据异常: 缺少 ${symbol}`);

@@ -180,6 +180,19 @@ GIT_SSH_COMMAND="ssh -i ~/.openclaw/workspace-july/.ssh/id_ed25519" git push ori
 
 **必须使用OKX API替代**，endpoint已在日报脚本中验证。
 
+### ⚠️ 警报规则 symbol vs instId 参数陷阱
+
+**已反复出现的问题**：警报规则中调用市场数据函数时，传了完整 `instId`（如 `CRV-USDT-SWAP`）作为 `symbol` 参数，但函数内部会根据 `instType` 再拼后缀（默认 SPOT 加 `-USDT`），结果拼出 `CRV-USDT-SWAP-USDT` 这种不存在的 instrument。
+
+**正确做法**：
+- `symbol` 只传币种基础名（如 `CRV`、`BTC`、`ETH`）
+- 显式传 `instType='SWAP'` 或 `instType='CONTRACTS'` 指定类型
+- 函数内部会自动拼接：`symbol + '-USDT'`（SPOT）或 `symbol + '-USDT-SWAP'`（SWAP）
+
+**历史案例**：CRV多价位监控、以及多个类似规则都踩过这个坑
+
+---
+
 ### 警报器数据获取
 
 创建警报规则时，如果需要使用代理：
@@ -302,3 +315,61 @@ onchainos token trades --address <addr>
 
 ### 完整参考
 `~/.openclaw/onchainos-skills/skills/okx-dex-token/SKILL.md`
+---
+
+## ⚠️ 止盈止损判断陷阱
+
+**教训来源**: 2026-03-28 复盘
+
+**陷阱：** 混淆「支撑跌破」与「止盈触发」，导致错误归档周期。
+
+| 概念 | 含义 | 判断方式 |
+|------|------|---------|
+| 支撑跌破 | 价格跌破支撑位 | 最低价 < 支撑价 |
+| 止盈触发 | 价格触及止盈目标 | 最低价 ≤ 止盈价 |
+
+**检查规则：**
+```
+止盈触发：最低价 ≤ 止盈价
+止损触发：最高价 ≥ 止损价
+```
+归档前必须核对：确认价格是否真正触发止盈/止损。
+
+---
+
+## 警报规则延迟确认机制
+
+**教训来源**: 2026-04-29 假突破导致误判和错误平仓
+
+多价位警报规则必须带延迟确认，避免 K 线影线假突破触发：
+
+| 策略 | 延迟 | 适用场景 |
+|------|------|---------|
+| instant | 0min | SL 止损位（不能延迟） |
+| touch | 3-5min | TP 止盈位（短暂确认） |
+| hold | 10-20min | 入场触发位（假突破高发区） |
+| deep_hold | 20-30min | 整数关口/远处观测位 |
+
+确认期间需做回穿检测：价格回穿超过阈值则重置计时。
+
+---
+
+## 警报规则回穿检测阈值陷阱
+
+**教训来源**: 2026-05-10 系统巡检
+
+`maxRetracePercent`（回穿容忍度）在 BTC 规则中设为 0.1% 合理，但复制到山寨币规则时未调整。对于日波动 16%-78% 的山寨币，0.15% 的波动每 3 分钟必然发生，导致确认计时器永远在重置循环中。
+
+**规则：** 回穿容忍度需根据币种波动率缩放，不能统一用 0.1-0.3%。
+
+---
+
+## 自愈系统 handleRuleSuccess 陷阱
+
+**教训来源**: 2026-05-10 系统巡检
+
+旧版 `engine.js` 中 `check()` 返回 `false`（无触发）时也会调用 `handleRuleSuccess()`，将 `consecutiveErrors` 归零。导致间歇性错误永远无法触发自愈。
+
+**修复（2026-05-10）：** 只有完整链路（check → collect → trigger）成功才清零错误计数。`check()` 返回 `false` 不再归零。
+
+**已修复版本** 中 `handleRuleSuccess()` 仅在 `shouldTrigger` 为 true 且完整链路成功时调用。

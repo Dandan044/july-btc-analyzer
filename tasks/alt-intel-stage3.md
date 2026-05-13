@@ -145,9 +145,24 @@ cat active/alt-{COIN}-*/positions.json
 | **入场/操作价位** | 建议表格 | 具体价格数值 |
 | **入场条件** | 建议表格 | 立即入场/等待触发 |
 | **仓位比例** | 建议表格 | 如 "100%"、"50%" |
+| **名义仓位** | 建议表格 | 如 35u、25u，取报告建议值，未识别到则默认 30u |
 | **止盈价位** | 建议表格 | 分档止盈价格 |
 | **止损价位** | 建议表格 | 止损价格 |
 | **分析依据** | 报告正文 | 支撑该操作的逻辑和理由 |
+
+**⭐ 名义仓位（NOMINAL_USDT）：**
+
+阶段二日报的建议表格中已写明建议名义仓位（如 `35u`）。你在通读报告时自然识别到该值。
+
+```
+NOMINAL_USDT = 报告中识别的名义仓位数值（去掉 'u' 后缀）
+默认值: 报告中未识别到名义仓位时，NOMINAL_USDT = 30
+```
+
+**日志记录：**
+```
+[$NOW] [阶段三] 名义仓位: ${NOMINAL_USDT}u（来源：报告建议 / 默认值 30）
+```
 
 **理解分析逻辑：**
 
@@ -253,7 +268,7 @@ okx-proxy.sh --profile live account balance USDT
 记录 `equity`（权益）和 `available`（可用余额）。
 
 **安全检查：**
-- 山寨仓位固定名义价值 30 USDT，全仓模式下保证金需求极低
+- 名义仓位 = ${NOMINAL_USDT} USDT（从阶段二日报读取，默认 30），全仓模式下保证金需求极低
 - 如果 `available < 5 USDT`，**终止下单**，记录日志：
   ```
   [$NOW] [阶段三] ⛔ ERROR: 可用余额不足，需要 ≥ 5 USDT，可用 xx USDT
@@ -280,11 +295,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 
 ##### 7.1.3 计算下单参数
 
-**核心规则：固定名义价值 30 USDT。**
+**核心规则：名义仓位 = 阶段二日报给出的 `NOMINAL_USDT`（默认 30 USDT）。**
 
 ```
-张数 = 30 / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
-名义价值容差 = |实际张数 × 价格 × ctVal - 30| ≤ 20 USDT
+张数 = NOMINAL_USDT / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
+名义价值容差 = |实际张数 × 价格 × ctVal - NOMINAL_USDT| ≤ 20 USDT
 
 ⚠️ 取整后再次检查：sz ≥ minSz && sz 是 lotSz 的整数倍
 ```
@@ -293,11 +308,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 |------|------|---------|
 | instId | 固定 | {COIN}-USDT-SWAP |
 | side | 建议 | direction: long → buy, short → sell |
-| sz | 计算 | 30 / (价格 × ctVal)，按 lotSz 步进取整 |
+| sz | 计算 | NOMINAL_USDT / (价格 × ctVal)，按 lotSz 步进取整 |
 | tdMode | 固定 | cross |
 | posSide | 建议 | direction: long → long, short → short |
 
-**示例计算：**
+**示例计算（假设 NOMINAL_USDT = 30）：**
 
 ```
 例A：DOGE-USDT-SWAP (ctVal=1000, price=0.15, lotSz=1, minSz=1)
@@ -335,11 +350,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 # 如 SOL-USDT-SWAP 的 minSz=0.1, lotSz=0.1
 ```
 
-- 计算张数 `sz = 30 / (价格 × ctVal)`，按 `lotSz` 步进取整
+- 计算张数 `sz = NOMINAL_USDT / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 如果 `sz < minSz`，终止下单，记录日志：
   ```
   [$NOW] [阶段三] ⚠️ WARN: 计算张数 {sz} < 最小下单张数 {minSz}（合约：{instId}，lotSz={lotSz}）
-  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ 30u
+  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ ${NOMINAL_USDT}u
   ```
 - **即使 sz ≥ minSz，也必须确保 sz 是 lotSz 的整数倍**
 
@@ -390,19 +405,103 @@ okx-proxy.sh --profile live account positions --instId {COIN}-USDT-SWAP --tdMode
 | TP2 | OCO | sz/2 | tp2 | 第二档止盈，平仓剩余 50% |
 | SL | OCO | sz | sl | 止损，平仓全部 |
 
-**⭐ 整数位偏移规则（简化版）：**
+**⭐ 盈亏比偏移规则（止盈 + 止损）：**
 
-⚠️ 报告给出的止盈止损价位是分析参考值。对于整数价位（如 2.50、0.00100），OKX 引擎可能因流动性问题无法精确触发。因此整数位需偏移 ±1 个最小价格单位：
+⚠️ **强制规则：止盈和止损都必须应用偏移，不得省略！**
 
-- **判断**：价位末位为 0（如 2.500、0.00100）→ 整数位，需偏移
-- **方向**：与触发方向一致（止盈更易触发，止损同样方向）
-- **幅度**：加减 1 个 tick（最小价格单位），而非固定 22
-- **多单**：止盈 -1 tick，止损 -1 tick
-- **空单**：止盈 +1 tick，止损 +1 tick
+**核心思想**：不以"价格是否为整数"作为偏移依据，而是以**盈亏距离百分比**计算偏移量。无论 BTC 还是山寨币，统一适用。
 
-> 山寨币价格跨度极大（$0.0001 ~ $100+），固定 22 偏移不适用。改用 1 tick 偏移。
+**配置（在 7.1.6 开头设置）：**
 
-**执行命令（使用报告建议价，整数位 ±1 tick 偏移）：**
+| 参数 | 山寨币默认值 | 说明 |
+|------|------------|------|
+| `TP_SHIFT_PCT` | 5 | 止盈让利%，放弃 5% 利润换更易触发 |
+| `SL_SHIFT_PCT` | 5 | 止损多扛%，多承受 5% 亏损换更难触发 |
+| `MAX_SHIFT_PCT` | 20 | 偏移上限，不超过原距离的 20% |
+| `TICK` | 从 API 获取 | 最小价格单位 = `tickSz`（OKX contract info） |
+
+**公式：**
+
+```
+原距离 D = |入场价 - 目标价|
+
+止盈新距离 = D × (1 - TP_SHIFT_PCT/100)   ← 放弃利润，止盈更近更易触
+止损新距离 = D × (1 + SL_SHIFT_PCT/100)   ← 多扛亏损，止损更远更难触
+
+约束：新距离 ∈ [TICK, D × (1 + MAX_SHIFT_PCT/100)]
+```
+
+**折算为价格：**
+
+| 方向 | 止盈新价 | 止损新价 |
+|------|---------|---------|
+| 做多 | 入场 + 止盈新距离 | 入场 − 止损新距离 |
+| 做空 | 入场 − 止盈新距离 | 入场 + 止损新距离 |
+
+**安全约束（必须）：**
+- 止盈不得越过入场价：做多止盈 > 入场价，做空止盈 < 入场价
+- 偏移后价格取整到 TICK 精度
+
+**参考实现（每次设置止盈止损前必须执行）：**
+
+```
+function calc_pnl_offset(entry, target, type, direction):
+    // 配置
+    tp_pct = 5       // 止盈让利比
+    sl_pct = 5       // 止损多扛比
+    max_pct = 20     // 偏移上限
+    tick = <tickSz>  // 从合约信息获取，如 DOGE=0.00001, SOL=0.01
+    
+    // 1. 原距离
+    orig_dist = abs(target - entry)
+    
+    // 2. 选择偏移百分比
+    shift_pct = (type == "tp") ? tp_pct : sl_pct
+    
+    // 3. 新距离
+    if type == "tp":
+        new_dist = orig_dist × (1 - shift_pct/100)
+    else:  // sl
+        new_dist = orig_dist × (1 + shift_pct/100)
+    
+    // 4. 约束
+    new_dist = max(new_dist, tick)                  // 下限 ≥ 1 tick
+    new_dist = min(new_dist, orig_dist × 1.20)      // 上限 ≤ 120%
+    
+    // 5. 折算价格
+    if direction == "long":
+        new_price = (type == "tp") ? entry + new_dist : entry - new_dist
+    else:  // short
+        new_price = (type == "tp") ? entry - new_dist : entry + new_dist
+    
+    // 6. 穿透检查：止盈不得越过入场价
+    if type == "tp" and direction == "long" and new_price <= entry:
+        new_price = entry + tick
+    if type == "tp" and direction == "short" and new_price >= entry:
+        new_price = entry - tick
+    
+    // 7. 取整到 tick
+    new_price = round(new_price / tick) × tick
+    
+    return new_price
+
+// 调用示例
+TP1_ACTUAL = calc_pnl_offset(ENTRY, TP1_RAW, "tp", DIR)
+TP2_ACTUAL = calc_pnl_offset(ENTRY, TP2_RAW, "tp", DIR)
+SL_ACTUAL  = calc_pnl_offset(ENTRY, SL_RAW,  "sl", DIR)
+
+// 日志
+log("⭐ 盈亏比偏移 | 入场=$ENTRY | TP1: $TP1_RAW→$TP1_ACTUAL | TP2: $TP2_RAW→$TP2_ACTUAL | SL: $SL_RAW→$SL_ACTUAL | tp%=$tp_pct sl%=$sl_pct tick=$tick")
+```
+
+**⚠️ 重要提醒：**
+- 报告给出的止盈/止损价格是**分析判断的理想位置**，**不是**实际挂单价格
+- 偏移是**必须执行的规则**，不是可选优化
+- 偏移目的：止盈更易触发（放弃少量利润），止损更难触发（多扛少量亏损）
+- 所有价位都会偏移，不再判断"是否整数"
+- tick 从 OKX 合约信息 `tickSz` 字段获取（`market instruments` 返回）
+
+**执行命令（使用偏移后价格）：**
 
 ```bash
 # 第一档止盈（sz/2 张）
@@ -508,10 +607,15 @@ okx-proxy.sh --profile live account balance USDT
 
 ##### 7.2.3 计算加仓张数
 
-使用与开仓相同的固定 30u 名义价值计算逻辑：
-- `sz_add = 30 / (价格 × ctVal)`，按 `lotSz` 步进取整
+使用与开仓相同的名义仓位计算逻辑：
+- `sz_add = NOMINAL_USDT / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 验证容差 ≤ 20 USDT
 - 同样执行 `sz_add ≥ minSz` 检查
+
+**日志记录：**
+```
+[$NOW] [阶段三] 加仓名义仓位: ${NOMINAL_USDT}u | 加仓张数: {sz_add} 张
+```
 
 ##### 7.2.4 执行加仓下单
 
@@ -543,7 +647,7 @@ okx-proxy.sh --profile live swap algo cancel --instId {COIN}-USDT-SWAP --algoId 
 ```
 
 设置新的止盈止损（覆盖全部新仓位）：
-- ⚠️ **必须重新计算偏移量**（与7.1.6步骤相同）：判断tp1/tp2/sl是否为整数，计算$TP1_ACTUAL/$TP2_ACTUAL/$SL_ACTUAL
+- ⚠️ **必须重新计算偏移量**（调用 `calc_pnl_offset()`，与 7.1.6 完全相同）
 - 记录偏移日志
 - 使用偏移后价格设置订单
 - 两档止盈各覆盖新总仓位的 50%
@@ -626,7 +730,7 @@ fi
 
 取消旧止盈止损订单，设置新订单覆盖剩余仓位。
 
-⚠️ **必须重新计算偏移量**（与7.1.6步骤相同）：判断tp1/tp2/sl是否为整数，计算$TP1_ACTUAL/$TP2_ACTUAL/$SL_ACTUAL，记录偏移日志。
+⚠️ **必须重新计算偏移量**（调用 `calc_pnl_offset()`，与 7.1.6 完全相同），记录偏移日志。
 
 ##### 7.3.5 核对结果
 
@@ -708,13 +812,13 @@ okx-proxy.sh --profile live swap algo cancel-all --instId {COIN}-USDT-SWAP
 
 ##### 7.5.3 设置新止盈止损
 
-⚠️ **必须应用整数位偏移规则！** 根据日报建议的新价位，**先计算偏移量**（与开仓流程相同），再设置订单。
+⚠️ **必须应用盈亏比偏移规则！** 根据日报建议的新价位，**调用 `calc_pnl_offset()`**（与 7.1.6 完全相同），再设置订单。
 
 执行步骤：
-1. 判断 tp1/tp2/sl 是否为整数位
-2. 计算实际设置价格（±1 tick：多单-1，空单+1）
-3. 记录偏移日志
-4. 使用偏移后价格设置止盈止损订单
+1. 调用 `calc_pnl_offset(entry, tp1, "tp", dir)` → $TP1_ACTUAL
+2. 调用 `calc_pnl_offset(entry, tp2, "tp", dir)` → $TP2_ACTUAL
+3. 调用 `calc_pnl_offset(entry, sl,  "sl", dir)` → $SL_ACTUAL
+4. 记录偏移日志，使用偏移后价格设置止盈止损订单
 
 **记录执行日志：**
 
@@ -881,4 +985,41 @@ echo "[$NOW] [阶段三] ========== 阶段三结束 ========== " >> logs/alt-${C
 
 ---
 
-alt-intel-stage3-v1.1
+alt-intel-stage3-v1.4
+
+---
+
+## v1.4 变更记录 (2026-05-13)
+
+
+
+### 名义仓位解耦（废弃硬编码 30u）
+
+- **废弃**: 全流程硬编码 `30 USDT` 作为固定名义仓位
+
+- **新方案**: 阶段三通读报告时自然识别建议名义仓位（如 35u），未识别到则默认 30u
+
+- **影响范围**: 开仓公式、加仓公式、最小仓位检查、余额安全检查，全部 30 → NOMINAL_USDT
+
+- **示例保留**: 六组计算示例保留 30 数值，标注「假设 NOMINAL_USDT = 30」
+
+
+
+## v1.3 变更记录 (2026-05-11)
+
+### 盈亏比偏移重构（替代整数位偏移）
+- **废弃**: 基于价格末位字符的整数判断（末位为0、±1 tick）
+- **新方案**: 基于盈亏距离百分比的统一偏移函数 `calc_pnl_offset()`
+- **公式**: 止盈新距离 = D×(1−5%), 止损新距离 = D×(1+5%)
+- **约束**: 下限 ≥ 1 tick, 上限 ≤ D×120%
+- **穿透检查**: 止盈不得越过入场价
+- **配置**: TP_SHIFT_PCT=5, SL_SHIFT_PCT=5, MAX_SHIFT_PCT=20, tick 从 API 获取
+- **适用**: 所有价位均偏移，与 BTC 共用同一个函数逻辑
+
+## v1.2 变更记录 (2026-05-11) — 已被 v1.3 替代
+
+### 整数位偏移逻辑强化
+- **新增**: `calc_alt_offset()` 统一偏移函数，提供明确的 bash 判断代码
+- **判断逻辑明确化**: 末位字符为 `0` → 整数关口，需偏移 ±1 tick
+- **tick 自动计算**: 根据价格小数位数自动推算 tick 大小，无需硬编码
+- **日志增强**: 偏移日志增加 tick 大小和末位字符信息，即使无偏移也记录原因

@@ -70,11 +70,7 @@ test().catch(console.error);
 ```javascript
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
-const CONFIG = require('../../../tasks/global-config.json');
 
-// ⚠️ COIN 决定触发时使用的模型
-//    'BTC' → trigger.btc.model (deepseek-v4-pro)
-//    其他   → trigger.altcoin.model (deepseek-v4-flash)
 const COIN = 'BTC';  // BTC 填 'BTC'，山寨币填具体币种如 'ZEC'、'DASH'
 
 // 警报创建日期（用于生命周期管理）
@@ -130,12 +126,9 @@ module.exports = {
     const now = new Date().toISOString();
     const jobName = `alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -152,6 +145,10 @@ module.exports = {
   },
 
   lifetime() {
+    // ⭐ 触发后即归档（引擎自动移动文件到 rules-archive/，不会删除）
+    if (this.lastTriggered > 0) return 'completed';
+
+    // 保底：超过 3 天未触发也归档（过期）
     // ⚠️ 必须使用 api.getLocalDate() 而非 new Date().toISOString()（后者返回UTC日期，UTC+8下会差一天）
     const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
@@ -160,6 +157,13 @@ module.exports = {
     return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
+
+// ⚠️ 如需「触发后保留」（持久监控），使用以下备选模式：
+// lifetime() {
+//   // 保底：超过 3 天归档
+//   const daysDiff = ...;
+//   return daysDiff <= 3 ? 'active' : 'expired';
+// }
 ```
 
 ## 3. 必须遵守的规则
@@ -441,12 +445,9 @@ execSync('openclaw agent ...', { timeout: 30000 });
 // ✅ 正确：异步方式，创建隔离会话执行即时分析
 const { spawn } = require('child_process');
 const now = new Date().toISOString();
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
 spawn('openclaw', [
   'cron', 'add',
   '--agent', 'july',
-  '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
   '--session', 'isolated',
   '--at', now,
   '--message', message,
@@ -463,12 +464,36 @@ spawn('openclaw', [
 - 引擎被阻塞，无法检查其他规则
 - 超时错误导致触发失败
 
-### 3.3 生命周期管理
+### 3.3 生命周期管理（⭐ 默认：触发即归档）
 
-合理设置 `lifetime()`：
-- 3天内有效：计算日期差，recommended 默认 3 天窗口
-- 多日有效：计算日期差
-- 一次性触发：触发后返回 `'completed'`
+**默认模式**：触发后返回 `'completed'`，引擎自动将规则文件移动到 `rules-archive/`（归档，不删除）。
+
+```javascript
+lifetime() {
+  // ⭐ 触发后即归档
+  if (this.lastTriggered > 0) return 'completed';
+  // 保底：超过 N 天未触发也归档
+  const daysDiff = ...;
+  return daysDiff <= N ? 'active' : 'expired';
+}
+```
+
+**备选模式**（少数场景）：触发后保留，靠冷却节制重复触发。
+
+```javascript
+lifetime() {
+  // 持久监控：存活 N 天，触发多少次都行
+  const daysDiff = ...;
+  return daysDiff <= N ? 'active' : 'expired';
+}
+```
+
+| 模式 | `lifetime()` | 触发后 | 适用场景 |
+|------|-------------|--------|---------|
+| **默认** | `'completed'` | 归档到 `rules-archive/` | 绝大多数警报 |
+| 备选 | `'expired'`（N天后） | 冷却后继续监控 | 需要多次触发的场景 |
+
+⚠️ `'completed'` 和 `'expired'` 都走归档流程（`fs.renameSync → rules-archive/`），**不会删除文件**。
 
 ## 3.6 ⭐ 必须使用 SWAP 合约数据（重要！）
 
@@ -735,12 +760,9 @@ module.exports = {
     const jobName = `alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -759,6 +781,8 @@ module.exports = {
   },
 
   lifetime() {
+    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
+    if (this.lastTriggered > 0) return 'completed';
     const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
@@ -768,7 +792,7 @@ module.exports = {
 };
 ```
 
-⚠️ 所有新规则默认触发即时分析任务。
+⚠️ 所有新规则默认触发即归档。如需持久监控（触发后保留），参考 §3.3 备选模式。
 
 ---
 
@@ -854,12 +878,9 @@ module.exports = {
     const now = new Date().toISOString();
     const jobName = `alert-volume-${Date.now()}`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', spawnMessage,
@@ -876,11 +897,13 @@ module.exports = {
   },
 
   lifetime() {
+    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
+    if (this.lastTriggered > 0) return 'completed';
     const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
     const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired'; // 有效期3天
+    return daysDiff <= 3 ? 'active' : 'expired';
   }
 };
 ```
@@ -965,12 +988,9 @@ module.exports = {
     const jobName = `timer-alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -987,7 +1007,7 @@ module.exports = {
   },
 
   lifetime() {
-    // 定时器是一次性的，触发后即完成
+    // 定时器是一次性的，触发后即归档（引擎自动移动到 rules-archive/）
     const now = Date.now();
     if (now >= CREATED_TIME + TRIGGER_DELAY_MS) {
       return 'completed';
@@ -1106,12 +1126,9 @@ module.exports = {
     const jobName = `delayed-alert-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -1129,6 +1146,8 @@ module.exports = {
   },
 
   lifetime() {
+    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
+    if (this.lastTriggered > 0) return 'completed';
     const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
@@ -1364,12 +1383,9 @@ module.exports = {
     const jobName = `alert-multi-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -1395,6 +1411,8 @@ module.exports = {
   },
 
   lifetime() {
+    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
+    if (this.lastTriggered > 0) return 'completed';
     const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
@@ -1781,12 +1799,9 @@ module.exports = {
     const jobName = `alert-confirmed-${Date.now()}`;
     const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/instant-analysis-stage1.md 执行数据获取\n2. 读取 tasks/daily-report-stage2.md 执行技术分析\n3. 读取 tasks/daily-report-stage3.md 执行仓位管理\n4. 读取 tasks/daily-report-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
-      '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
       '--session', 'isolated',
       '--at', now,
       '--message', message,
@@ -1805,6 +1820,8 @@ module.exports = {
   },
 
   lifetime() {
+    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
+    if (this.lastTriggered > 0) return 'completed';
     const today = api.getLocalDate();
     const created = new Date(CREATED_DATE);
     const now = new Date(today);
@@ -1839,13 +1856,10 @@ async trigger(alertData) {
   const jobName = `alert-${alertData.coin}-${Date.now()}`;
   const message = `[SPAWN_INSTANT_ANALYSIS]${json}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/alt-instant-stage1.md 执行数据获取\n2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析\n3. 读取 tasks/alt-intel-stage3.md 执行仓位管理\n4. 读取 tasks/alt-intel-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
 
-    // 根据币种选择模型：BTC → trigger.btc.model，山寨币 → trigger.altcoin.model
-    const model = CONFIG.trigger[COIN === 'BTC' ? 'btc' : 'altcoin'].model;
   spawn('openclaw', [
     'cron', 'add',
     '--agent', 'july',
-    '--model', model,  // ← 来自 tasks/global-config.json trigger.{btc|altcoin}.model
-    '--session', 'isolated',
+      '--session', 'isolated',
     '--at', now,
     '--message', message,
     '--name', jobName,

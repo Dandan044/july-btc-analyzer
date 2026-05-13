@@ -31,7 +31,22 @@
 
 ## 执行
 
-你有以下工具可用：`web_search`（MiniMax 搜索）、`kimi_search`（备用）、`web_fetch`（抓取页面内容）、`kimi_fetch`（备用）。
+你有以下工具可用：`web_search`（搜索引擎）、`kimi_search`（备用）、`web_fetch`（抓取页面内容）、`kimi_fetch`（备用）。
+
+#### Exa 搜索引擎参数（仅当 `web_search` provider 为 exa 时适用）
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `type` | `auto` | 模式：`auto`/`fast`/`instant`/`deep`/`deep-reasoning` |
+| `count` | `5` | 结果数 1-100 |
+| `freshness` | — | 时间过滤：`day`/`week`/`month`/`year`（与 date_after/date_before 互斥） |
+| `date_after` | — | 发布日期晚于 YYYY-MM-DD |
+| `date_before` | — | 发布日期早于 YYYY-MM-DD |
+| `contents.highlights` | `true`（默认） | 高亮片段，最省 token |
+| `contents.text` | — | 返回全文，可设 `{maxCharacters: N}` 限长 |
+| `contents.summary` | — | AI 生成摘要，可设 `{query: "..."}` 引导 |
+
+> 非 Exa 引擎时忽略以上参数，按原方式调用即可。
 
 你可以自行判断使用哪个工具、搜索什么关键词、深入什么方向。
 

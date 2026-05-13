@@ -19,8 +19,9 @@
 - **需求**：getOKXOpenInterest / getOKXTakerRatio / getOKXLongShortRatio / getOKXTopTraderRatio 增加 symbol 参数
 - **状态**：已封装（2026-05-09）
 
----
-
-## 待处理
-
-（暂无）
+### [2026-05-09] Taker买卖比支持小时粒度 ✅ 已封装
+- **需求**：现有 `getOKXTakerRatio()` 固定 `period=1D`，无法用于日内监控
+- **封装方案**：增加 `period` 参数（默认 `1D`，可选 `5m`/`1H`/`1D`/`1W`/`1M`）+ `limit` 参数（默认 `7`）
+- **日期格式自适应**：日级及以上用 `YYYY-MM-DD`，小时/分钟级用完整 ISO
+- **规则**：`OP-taker-decline.js` 使用 `api.fetch()` + `period=1H` 直接获取小时级数据
+- **状态**：已封装（2026-05-13）

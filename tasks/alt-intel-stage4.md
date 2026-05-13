@@ -514,8 +514,7 @@ echo "[$NOW] ========== 山寨分析流程结束 ========== " >> logs/alt-${COIN
 8. **发散思维**：候选阶段必须主动思考非价格维度
 9. **禁止 FGI 触发**：恐惧贪婪指数不适合分钟级警报
 10. **使用连续数据**：K线区间而非瞬时价格（见 set-alert.md 规范）
-11. **触发模型从配置读取**：读取 `tasks/global-config.json` → `trigger.model`，`trigger()` 的 `cron add` 必须包含 `--model <该值>`
-12. **日志记录完整**：所有操作记录到 alt-${COIN}-process.log
+11. **日志记录完整**：所有操作记录到 alt-${COIN}-process.log
 
 ---
 
