@@ -150,18 +150,18 @@ cat active/alt-{COIN}-*/positions.json
 | **止损价位** | 建议表格 | 止损价格 |
 | **分析依据** | 报告正文 | 支撑该操作的逻辑和理由 |
 
-**⭐ 名义仓位（NOMINAL_USDT）：**
+**⭐ 名义仓位（NOMINAL_BASE）：**
 
 阶段二日报的建议表格中已写明建议名义仓位（如 `35u`）。你在通读报告时自然识别到该值。
 
 ```
-NOMINAL_USDT = 报告中识别的名义仓位数值（去掉 'u' 后缀）
-默认值: 报告中未识别到名义仓位时，NOMINAL_USDT = 30
+NOMINAL_BASE = 报告中识别的名义仓位数值（去掉 'u' 后缀）
+默认值: 报告中未识别到名义仓位时，NOMINAL_BASE = 30
 ```
 
 **日志记录：**
 ```
-[$NOW] [阶段三] 名义仓位: ${NOMINAL_USDT}u（来源：报告建议 / 默认值 30）
+[$NOW] [阶段三] 名义仓位: ${NOMINAL_BASE}u（来源：报告建议 / 默认值 30）
 ```
 
 **理解分析逻辑：**
@@ -240,6 +240,88 @@ NOMINAL_USDT = 报告中识别的名义仓位数值（去掉 'u' 后缀）
 
 ---
 
+### 步骤 6.X: BTC 趋势对冲调整
+
+**⚠️ 仅当步骤 6 判定「立即执行」或「无需入场条件」时执行。观望/等待触发时跳过。**
+
+**仅适用于开仓和加仓。减仓、平仓、调整止盈止损跳过本步骤。**
+
+#### 6.X.1 读取 BTC 趋势
+
+定位最新 BTC 活跃周期报告并识别趋势：
+
+```bash
+# 查找 BTC 活跃周期
+BTC_CYCLE=$(ls -td active/cycle-* 2>/dev/null | head -1)
+BTC_REPORT=$(ls -t ${BTC_CYCLE}/reports/btc-report-*.md 2>/dev/null | head -1)
+```
+
+**趋势识别：** 读取 BTC 报告，从「方向判断」/「行情推断」/「仓位操作建议」等部分中提取趋势方向。
+
+| 报告表述 | 识别为 |
+|---------|-------|
+| 偏空、做空、下行、利空条件更明确、空头主导 | `bearish` |
+| 偏多、做多、上行、利多条件更明确、多头主导 | `bullish` |
+| 震荡、观望、方向不明、信号矛盾、无明确方向 | `sideways` |
+
+**异常处理：**
+
+| 异常 | 处理 |
+|------|------|
+| `active/cycle-*` 目录不存在 | ⚠️ 无法定位 BTC 周期，视为 `sideways`，y=1.0 |
+| BTC 报告不存在/无法读取 | ⚠️ 无法读取 BTC 趋势，视为 `sideways`，y=1.0 |
+| 报告内容无法明确归类 | ⚠️ 趋势模糊，视为 `sideways`，y=1.0 |
+
+**日志记录：**
+
+```
+# 正常
+[$NOW] [阶段三] BTC趋势识别: {bullish|bearish|sideways} | 来源: {BTC_REPORT}
+
+# 异常
+[$NOW] [阶段三] ⚠️ WARN: BTC趋势识别失败({原因})，视为 sideways 顺势处理
+```
+
+#### 6.X.2 执行对冲计算
+
+**若 BTC 趋势 = `sideways` → 跳过，y=1.0，不调整仓位。**
+
+```bash
+# DIRECTION = 步骤 4 识别的操作方向 (long/short)
+# BTC_TREND = 步骤 6.X.1 识别的 BTC 趋势
+
+# 执行对冲计算
+HEDGE_JSON=$(bash scripts/calc-alt-hedge-y.sh ${COIN} ${DIRECTION} ${BTC_TREND})
+
+# 提取参数
+Y=$(echo "$HEDGE_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['y'])")
+IS_COUNTER=$(echo "$HEDGE_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['is_counter'])")
+CORR=$(echo "$HEDGE_JSON" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('corr','null'))")
+```
+
+#### 6.X.3 计算最终名义仓位
+
+```
+NOMINAL_FINAL = NOMINAL_BASE × Y，圆整到整数
+
+边界约束:
+  若 NOMINAL_FINAL < 20 → ⚠️ 终止，记录日志
+  若 NOMINAL_FINAL > 60 → 保留（不设上限，跟踪度高逆势可放宽）
+```
+
+> ⚠️ NOMINAL_BASE 在步骤 4 中已从日报识别。
+
+#### 6.X.4 记录对冲日志
+
+```
+[$NOW] [阶段三] BTC对冲 | {COIN} dir={DIRECTION} | BTC={BTC_TREND} |
+逆势={YES/NO} | corr={CORR} | y={Y} | {NOMINAL_BASE}u→{NOMINAL_FINAL}u
+```
+
+> ⚠️ 后续 7.1.3 和 7.2.3 计算 sz 时使用 `NOMINAL_FINAL`（已对冲调整），而非 `NOMINAL_BASE`。
+
+---
+
 ### 步骤 7: 执行仓位操作
 
 **如果需要执行，根据操作类型选择对应流程。**
@@ -268,7 +350,7 @@ okx-proxy.sh --profile live account balance USDT
 记录 `equity`（权益）和 `available`（可用余额）。
 
 **安全检查：**
-- 名义仓位 = ${NOMINAL_USDT} USDT（从阶段二日报读取，默认 30），全仓模式下保证金需求极低
+- 名义仓位 = ${NOMINAL_FINAL} USDT（步骤 6.X 对冲调整后的最终值），全仓模式下保证金需求极低
 - 如果 `available < 5 USDT`，**终止下单**，记录日志：
   ```
   [$NOW] [阶段三] ⛔ ERROR: 可用余额不足，需要 ≥ 5 USDT，可用 xx USDT
@@ -295,11 +377,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 
 ##### 7.1.3 计算下单参数
 
-**核心规则：名义仓位 = 阶段二日报给出的 `NOMINAL_USDT`（默认 30 USDT）。**
+**核心规则：名义仓位 = 步骤 6.X 对冲调整后的 `NOMINAL_FINAL`（默认 30 USDT）。**
 
 ```
-张数 = NOMINAL_USDT / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
-名义价值容差 = |实际张数 × 价格 × ctVal - NOMINAL_USDT| ≤ 20 USDT
+张数 = NOMINAL_FINAL / (价格 × ctVal)，按 lotSz 步进取整（就近取整）
+名义价值容差 = |实际张数 × 价格 × ctVal - NOMINAL_FINAL| ≤ 20 USDT
 
 ⚠️ 取整后再次检查：sz ≥ minSz && sz 是 lotSz 的整数倍
 ```
@@ -308,11 +390,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 |------|------|---------|
 | instId | 固定 | {COIN}-USDT-SWAP |
 | side | 建议 | direction: long → buy, short → sell |
-| sz | 计算 | NOMINAL_USDT / (价格 × ctVal)，按 lotSz 步进取整 |
+| sz | 计算 | NOMINAL_FINAL / (价格 × ctVal)，按 lotSz 步进取整 |
 | tdMode | 固定 | cross |
 | posSide | 建议 | direction: long → long, short → short |
 
-**示例计算（假设 NOMINAL_USDT = 30）：**
+**示例计算（假设 NOMINAL_FINAL = 30）：**
 
 ```
 例A：DOGE-USDT-SWAP (ctVal=1000, price=0.15, lotSz=1, minSz=1)
@@ -350,11 +432,11 @@ okx-proxy.sh market instruments --instType SWAP | grep {COIN}-USDT-SWAP
 # 如 SOL-USDT-SWAP 的 minSz=0.1, lotSz=0.1
 ```
 
-- 计算张数 `sz = NOMINAL_USDT / (价格 × ctVal)`，按 `lotSz` 步进取整
+- 计算张数 `sz = NOMINAL_FINAL / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 如果 `sz < minSz`，终止下单，记录日志：
   ```
   [$NOW] [阶段三] ⚠️ WARN: 计算张数 {sz} < 最小下单张数 {minSz}（合约：{instId}，lotSz={lotSz}）
-  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ ${NOMINAL_USDT}u
+  最小可开名义价值：{minSz × price × ctVal} USDT，需要 ≥ ${NOMINAL_FINAL}u
   ```
 - **即使 sz ≥ minSz，也必须确保 sz 是 lotSz 的整数倍**
 
@@ -608,13 +690,13 @@ okx-proxy.sh --profile live account balance USDT
 ##### 7.2.3 计算加仓张数
 
 使用与开仓相同的名义仓位计算逻辑：
-- `sz_add = NOMINAL_USDT / (价格 × ctVal)`，按 `lotSz` 步进取整
+- `sz_add = NOMINAL_FINAL / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 验证容差 ≤ 20 USDT
 - 同样执行 `sz_add ≥ minSz` 检查
 
 **日志记录：**
 ```
-[$NOW] [阶段三] 加仓名义仓位: ${NOMINAL_USDT}u | 加仓张数: {sz_add} 张
+[$NOW] [阶段三] 加仓名义仓位: ${NOMINAL_FINAL}u | 加仓张数: {sz_add} 张
 ```
 
 ##### 7.2.4 执行加仓下单
@@ -877,15 +959,33 @@ sync-positions.md 会完成以下操作：
 
 ##### 9.2 执行归档
 
-**归档操作：**
+**归档操作（统一脚本三步骤：实盘盈亏同步 → 规则归档 → 目录移动）：**
 
 ```bash
-# 移动周期文件夹
-mv active/alt-{COIN}-YYYYMMDD-HHMM archived/
+# 使用统一归档脚本，一次性完成三步骤
+node scripts/archive-cycle.js --cycle alt-{COIN}-YYYYMMDD-HHMM
 
-# 记录归档信息
+# 脚本自动执行：
+#   步骤1: 调用 OKX positions-history API → 同步实盘平仓盈亏 → 更新 positions.json
+#   步骤2: 调用 archive-rules.js --cycle xxx --by cycle-archived 归档所有关联规则
+#   步骤3: mv active/alt-{COIN}-xxx archived/
+#   输出: 盈亏摘要
+#
+# 可选参数：
+#   --by manual        自定义归档来源（默认 cycle-archived）
+#   --reason "xxx"      自定义归档原因
+#   --close-type "止损触发"  覆盖平仓类型
+```
+
+**脚本路径**：`scripts/archive-cycle.js`
+
+**⚠️ 重要**：统一脚本已将规则归档。阶段四触发时，分支 A 的 A.1-A.3（规则清零部分）应检测到无活跃规则并跳过，但仍需执行 A.4（创建复盘 cron）。
+
+**执行后记录归档信息：**
+
+```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段三] 周期归档 | alt-{COIN}-YYYYMMDD-HHMM → archived/ | 平仓盈亏: xx USDT | 平仓类型: xx" >> logs/alt-${COIN}-process.log
+echo "[$NOW] [阶段三] 周期归档 | alt-{COIN}-xxx → archived/ | 使用 archive-cycle.js 统一归档" >> logs/alt-${COIN}-process.log
 ```
 
 ##### 9.3 不满足归档条件
@@ -999,9 +1099,9 @@ alt-intel-stage3-v1.4
 
 - **新方案**: 阶段三通读报告时自然识别建议名义仓位（如 35u），未识别到则默认 30u
 
-- **影响范围**: 开仓公式、加仓公式、最小仓位检查、余额安全检查，全部 30 → NOMINAL_USDT
+- **影响范围**: 开仓公式、加仓公式、最小仓位检查、余额安全检查，全部 30 → NOMINAL_BASE
 
-- **示例保留**: 六组计算示例保留 30 数值，标注「假设 NOMINAL_USDT = 30」
+- **示例保留**: 六组计算示例保留 30 数值，标注「假设 NOMINAL_FINAL = 30」
 
 
 

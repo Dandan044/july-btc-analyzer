@@ -68,7 +68,7 @@ spawn('openclaw', [
   '--agent', 'july',
   '--session', 'isolated',
   '--at', now,
-  '--message', '[SPAWN_INSTANT_ANALYSIS]{...数据...}',
+  '--message', '{...数据...}',
   '--name', jobName,
   '--delete-after-run',
   '--no-deliver'
@@ -141,7 +141,7 @@ module.exports = {
 
     const now = new Date().toISOString();
     const jobName = `alert-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify({
+    const message = `${JSON.stringify({
       triggerTime: data.triggerTime,
       klines: data.klines,
       volume24h: data.volume24h,

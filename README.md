@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v9 更新**：参数清洗防二次拼接 + 止损仓位计算器 + 盈亏比偏移 + 交易复盘系统 + 经验行为模式沉淀。
+> **v10 更新**：Spawn 机制简化 + 交易教训库扩展 + 脚本工具集 + Dashboard 监控面板 + 动态文件 Git 清理。
 
 ## 🚀 快速开启
 
@@ -329,6 +329,78 @@ env: {
 
 ## 更新日志
 
+### 2026-05-21
+> 🧹 v10 — Spawn 机制简化 + 交易教训库扩展 + 脚本工具集 + Dashboard + Git 清理
+
+**变更内容：**
+
+**① Spawn 触发机制简化（`AGENTS.md`）：**
+- 移除 `[SPAWN_INSTANT_ANALYSIS]` / `[SPAWN_DAILY_REPORT]` 前缀消息机制
+- BTC 日报、山寨币扫描、周期健康检测、交易复盘全部由 cron 直接创建隔离会话
+- 仅山寨币扫描到目标后需要 spawn 子会话执行四阶段分析
+- `AGENTS.md` 指令大幅精简，去除冗余的 spawn 模板
+
+**② 交易教训库大规模扩展（`TRADE_LESSONS.md`）：**
+- 新增 9 条从复盘和实战提炼的行为模式：
+  - WCT（5/17）：低流动性山寨币追空陷阱与盈亏比纪律
+  - ME（5/15）：入场逻辑否定点与止损位的分离
+  - ORDI（5/18）：做空入场时机与动能状态的冲突
+  - ENJ（5/21）：动能极端时的逆势入场禁令
+  - BTC（5/15）：TP 目标应参考期权最大痛点作为支撑/阻力
+  - 确认偏误、假突破时间窗口、左侧做空止损空间、OI下降≠反弹不可持续
+- 每条教训包含触发场景、校准分析、分析时自问清单
+
+**③ 任务文件重构：**
+- `tasks/set-alert.md` 大幅精简（-2153行），移除冗余模板和示例
+- `tasks/trade-review.md` 流程优化（-281/+?）
+- `tasks/alt-intel-stage2/3/4.md` 分析深化（+336行）
+- `tasks/daily-report-stage3/4.md` 增强盈亏比偏移和仓位管理逻辑
+
+**④ 新增脚本工具集：**
+| 脚本 | 用途 |
+|------|------|
+| `scripts/archive-cycle.js` | 周期归档（三步骤：实盘盈亏同步→规则归档→目录移动） |
+| `scripts/archive-rules.js` | 统一规则归档，自动填充 C19 元数据 |
+| `scripts/query-rules.js` | 多维度检索活跃+归档规则 |
+| `scripts/add-rule-metadata.js` | 一次性规则元数据迁移工具 |
+| `scripts/calc-hedge-y.js` | BTC 开仓对冲系数 y 计算 |
+| `scripts/calc-alt-hedge-y.js` | 山寨币 BTC 趋势对冲 y 计算 |
+| `scripts/calc-btc-correlation.js` | BTC 跟踪度 Pearson 相关系数 |
+| `scripts/data-archive.sh` | 数据归档脚本 |
+| `scripts/rules-archive.sh` | 规则归档脚本 |
+
+**⑤ Dashboard 监控面板：**
+- 新增 `dashboard/` Web 监控面板（Node.js + Express，端口 3100）
+- 实时查看周期、仓位、警报和系统状态
+- PM2 托管为 `july-dashboard` 进程，自动重启
+
+**⑥ PM2 配置更新（`ecosystem.config.js`）：**
+- 新增 `july-dashboard` 进程（autorestart，max 200M 内存）
+- `btc-log-rotate` 改为独立 cron 管理
+
+**⑦ TOOLS.md 大幅增补：**
+- 新增「对冲系数 y 速查」：BTC 开仓对冲 + 山寨币 BTC 趋势对冲公式
+- 新增「警报规则生命周期」：C19 元数据规范（11字段，4组写权限）
+- 新增「核心脚本」：archive-rules.js, query-rules.js, add-rule-metadata.js
+- 新增「归档来源枚举」：6种归档触发场景
+- 新增「监控面板速查」：启动命令和端口
+- 新增「GitHub SSH」推送配置
+
+**⑧ 警报引擎增强（`skills/btc-alert/engine.js`）：**
+- 引擎大规模重构（+443/-行），优化规则加载和错误处理
+- 自愈系统完善
+
+**⑨ 交易复盘系统扩展：**
+- 新增 11 篇复盘报告：BREV, BTC×2, ENJ, HYPE, KAITO, ME, ORDI, PENGU, SUI, TRIA, WCT
+- `learnings/PENDING_TRADE_LESSONS.json` 暂存区机制运行
+
+**⑩ .gitignore 清理与动态文件排除：**
+- 新增排除：`cycle-health/`, `memory/`, `data/`（全部）, `skills/btc-alert/rules/`, `skills/btc-alert/rules-state.json`
+- 清理已追踪的动态文件：旧 data JSON（24个）、旧警报规则（55个）、旧 learnings、日志文件
+- 后续动态生成的文件不再进入版本控制
+
+---
+
 ### 2026-05-13
 > 🛡️ v9 — 参数清洗防二次拼接 + 止损仓位计算器 + 盈亏比偏移 + 交易复盘 + 经验沉淀
 
@@ -591,7 +663,7 @@ env: {
 
 **新增任务：`tasks/instant-analysis-stage1.md`**
 - 专门用于被即时分析触发的阶段一任务
-- 由警报器触发（收到 `[SPAWN_INSTANT_ANALYSIS]` 消息）
+
 - 职责：解析警报数据、补全市场数据、同步实盘持仓
 - 输出：数据清单路径，传递给后续阶段
 

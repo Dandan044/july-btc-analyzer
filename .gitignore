@@ -15,18 +15,19 @@ vpnurl.txt
 
 # 日志和数据（体积大）
 logs/
-data/*.json
+data/
 *.log
 
 # 动态运行时数据（不需要版本控制）
-active/cycle-*/
-active/alt-*/
-archived/cycle-*/
-archived/alt-*/
-archived/20*/
+active/
+archived/
 skills/btc-alert/rules-archive/
+skills/btc-alert/rules/
+skills/btc-alert/rules-state.json
 .openclaw/workspace-state.json
 .openclaw/workspace-state-backup.json
+cycle-health/
+memory/
 
 # 生成图表
 data/kline_chart.png

@@ -48,6 +48,21 @@
 
 ## 关键定义
 
+### ⚠️ positions.json 读取陷阱
+
+**字段名是中文，不是英文！** 历史上健康检查任务曾因使用 `d.get('positions')` 导致所有周期误判为无持仓。
+
+```python
+# ❌ 错误：字段不存在，永远返回空
+pos = d.get('positions', [])
+
+# ✅ 正确：positions.json 使用中文键名
+pos = d.get('当前持仓', [])
+count = d.get('汇总', {}).get('当前持仓数', 0)
+```
+
+**推荐做法**：直接用 `汇总.当前持仓数` 判断，不遍历数组。
+
 ### 「有警报」的判定
 
 **不仅看文件是否存在**，必须验证规则有效性：
@@ -136,8 +151,9 @@ const state = rule.lifetime(); // 必须是 'active'
 
 ```
 操作：
-  1. mv active/{周期ID} archived/{周期ID}
-  2. 记录日志
+  1. 清理该币种的警报规则 → node scripts/archive-rules.js --coin ${COIN} --by cycle-health-check --reason "周期静默${HOURS}h无持仓，健康检查自动归档"
+  2. mv active/{周期ID} archived/{周期ID}
+  3. 记录日志
 日志：ARCHIVE | {周期ID} | 静默{X}h，无持仓 | 报告{N}篇
 ```
 

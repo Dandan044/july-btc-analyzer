@@ -14,6 +14,12 @@ const CONFIG = require('../../tasks/global-config.json');
 const RULES_DIR = path.join(__dirname, 'rules');
 const ARCHIVE_DIR = path.join(__dirname, 'rules-archive');
 const LOGS_DIR = path.join(__dirname, '..', '..', 'logs');
+const RULES_STATE_FILE = path.join(__dirname, 'rules-state.json');
+
+// ═══ 运行时状态（与规则定义文件分离，避免引擎自写入触发热重载死循环） ═══
+// 结构: { [filename]: { lastCheckedAt: 'ISO' } }
+// 引擎启动时从 rules-state.json 加载，每次 check() 后写回
+let ruleState = {};
 
 // 扫描间隔：检查规则文件是否存在
 const SCAN_INTERVAL = 60 * 1000; // 1分钟
@@ -31,16 +37,16 @@ const activeRules = new Map();
 // 结构: { consecutiveErrors, threshold5HitCount, threshold5FirstTime }
 const ruleErrorStats = new Map();
 
-// 存储每个规则的触发冷却时间
+// [已废弃] 触发冷却时间 — 触发即归档后不再需要
 // 结构: { cooldownUntil: timestamp, lastTriggerTime: timestamp }
-const triggerCooldowns = new Map();
+// const triggerCooldowns = new Map();
 
 // 存储自愈状态（每个规则只给一次自愈机会）
 // 结构: { attempted: boolean, spawnTime: timestamp }
 const selfHealState = new Map();
 
-// 默认冷却时间：30分钟（毫秒）
-const DEFAULT_COOLDOWN_MS = 30 * 60 * 1000;
+// [已废弃] 默认冷却时间 — 触发即归档后不再需要
+// const DEFAULT_COOLDOWN_MS = 30 * 60 * 1000;
 
 // 自愈等待期：10分钟（毫秒）
 const SELF_HEAL_GRACE_PERIOD = 10 * 60 * 1000;
@@ -82,7 +88,7 @@ function logEngine(level, ruleName, message, data = null) {
 function logRuleEvent(ruleName, event, details = {}) {
   // 根据事件类型分配级别，但所有事件都保留输出
   let level = 'INFO';
-  if (event === 'CHECK_PASSED' || event === 'COOLDOWN_ACTIVE') {
+  if (event === 'CHECK_PASSED' /* [已废弃] || event === 'COOLDOWN_ACTIVE' */) {
     level = 'DEBUG';
   }
   logEngine(level, ruleName, event, details);
@@ -122,6 +128,226 @@ ${message}`;
   
   console.log(`[🔧警报引擎] 已派发通知给十四月 (job: ${jobName})`);
 }
+
+// ========== 网络事件缓冲池（替代即时通知）==========
+
+/**
+ * 网络事件缓冲池
+ * 收集所有网络异常调整和恢复事件，每4小时发送一次汇总报告
+ * 避免每次网络波动都即时通知造成骚扰
+ */
+const NETWORK_BUFFER_WINDOW_MS = 4 * 60 * 60 * 1000; // 4小时
+
+// 缓冲池结构: [ { eventType, ruleName, time, fromInterval, toInterval } ]
+let networkEventBuffer = [];
+let lastSummaryTime = 0;
+let networkSummaryTimer = null;
+
+/**
+ * 记录网络事件到缓冲池
+ */
+function recordNetworkEvent(eventType, ruleName, originalMs, newMs) {
+  networkEventBuffer.push({
+    eventType: eventType, // 'adjusted' | 'restored'
+    ruleName: ruleName,
+    time: Date.now(),
+    fromInterval: originalMs,
+    toInterval: newMs
+  });
+}
+
+/**
+ * 格式化间隔（毫秒 → 人类可读）
+ */
+function formatInterval(ms) {
+  if (ms < 60000) return `${ms / 1000}s`;
+  return `${ms / 60000}min`;
+}
+
+/**
+ * 刷新汇总通知并清空缓冲池
+ */
+function flushNetworkSummary() {
+  if (networkEventBuffer.length === 0) return;
+  
+  const now = Date.now();
+  const buffer = networkEventBuffer;
+  networkEventBuffer = []; // 立即清空，防止递归
+  
+  // 窗口截止时间
+  const windowStart = new Date(now - NETWORK_BUFFER_WINDOW_MS);
+  
+  // 筛选当前窗口内的事件
+  const windowEvents = buffer.filter(e => e.time > now - NETWORK_BUFFER_WINDOW_MS);
+  if (windowEvents.length === 0) return;
+  
+  // 按规则分类
+  const ruleMap = new Map(); // ruleName → { adjustments: [], restorations: [] }
+  for (const e of windowEvents) {
+    if (!ruleMap.has(e.ruleName)) {
+      ruleMap.set(e.ruleName, { adjustments: [], restorations: [] });
+    }
+    const record = ruleMap.get(e.ruleName);
+    if (e.eventType === 'adjusted') {
+      record.adjustments.push(e);
+    } else {
+      record.restorations.push(e);
+    }
+  }
+  
+  // 构建消息
+  const lines = [];
+  lines.push(`主人～以下是过去4小时内网络波动影响的警报规则汇总：`);
+  lines.push(``);
+  
+  let totalAdjust = 0, totalRestore = 0;
+  for (const [name, record] of ruleMap) {
+    totalAdjust += record.adjustments.length;
+    totalRestore += record.restorations.length;
+    
+    const lastAdj = record.adjustments[record.adjustments.length - 1];
+    const lastRst = record.restorations[record.restorations.length - 1];
+    
+    // 当前状态
+    let status = '';
+    let detail = '';
+    if (lastAdj && (!lastRst || lastRst.time < lastAdj.time)) {
+      status = '⚠️ 间隔已翻倍';
+      detail = `${formatInterval(lastAdj.fromInterval)} → ${formatInterval(lastAdj.toInterval)}`;
+    } else if (lastRst) {
+      status = '✅ 已恢复';
+      detail = `恢复至 ${formatInterval(lastRst.toInterval)}`;
+    } else {
+      status = '❓ 状态未知';
+    }
+    
+    lines.push(`  ${status} ${name}`);
+    if (detail) lines.push(`     ${detail}`);
+    
+    // 记录时间戳
+    if (record.adjustments.length > 0) {
+      const firstTime = new Date(record.adjustments[0].time).toLocaleString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      const lastTime = new Date(record.adjustments[record.adjustments.length - 1].time).toLocaleString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      if (record.adjustments.length === 1) {
+        lines.push(`     发生时间: ${firstTime}`);
+      } else {
+        lines.push(`     发生时段: ${firstTime} → ${lastTime} (${record.adjustments.length}次)`);
+      }
+    }
+    lines.push(``);
+  }
+  
+  lines.push(`总计: ${totalAdjust}条规则被调整，${totalRestore}条已恢复`);
+  
+  const msg = lines.join('\n');
+  notifyShisiyue(msg);
+  lastSummaryTime = now;
+  logEngine('INFO', '网络缓冲', 'SUMMARY_SENT', {
+    eventCount: windowEvents.length,
+    adjustedCount: totalAdjust,
+    restoredCount: totalRestore
+  });
+}
+
+/**
+ * 安排下一次汇总通知
+ */
+function scheduleNetworkSummary() {
+  if (networkSummaryTimer) clearTimeout(networkSummaryTimer);
+  // 4小时后或缓冲池非空时触发
+  const nextFlush = NETWORK_BUFFER_WINDOW_MS;
+  networkSummaryTimer = setTimeout(() => {
+    flushNetworkSummary();
+    scheduleNetworkSummary(); // 递归安排下一轮
+  }, nextFlush);
+  // 确保定时器不阻止进程退出
+  if (networkSummaryTimer && networkSummaryTimer.unref) {
+    networkSummaryTimer.unref();
+  }
+}
+
+/**
+ * 判断错误是否为网络层问题
+ * 网络类错误不触发自愈 AI 任务，改为引擎内置间隔调整
+ */
+function isNetworkError(errorMessage) {
+  const NETWORK_PATTERNS = [
+    /TLS socket disconnected/i,
+    /Client network socket disconnected/i,
+    /read ECONNRESET/i,
+    /ETIMEDOUT/i,
+    /ECONNREFUSED/i,
+    /socket hang up/i,
+    /请求超时/,
+  ];
+  return NETWORK_PATTERNS.some(p => p.test(errorMessage));
+}
+
+/**
+ * 重启规则定时器（用于间隔调整后的重新调度）
+ */
+function restartRuleTimer(filename, ruleInfo, newIntervalMs) {
+  if (timers.has(filename)) {
+    clearInterval(timers.get(filename));
+  }
+  const { name } = ruleInfo.module;
+  const timer = setInterval(async () => {
+    const result = await runRule(ruleInfo);
+    if (result === 'stop') {
+      unloadRule(filename, name, 'lifetime_ended');
+    } else if (result === 'pause') {
+      unloadRule(filename, name, 'error_threshold_reached');
+    }
+  }, newIntervalMs);
+  timers.set(filename, timer);
+}
+
+/**
+ * 统计当前受网络影响的规则数
+ */
+function countNetworkAffectedRules() {
+  let count = 0;
+  for (const [, stats] of ruleErrorStats) {
+    if (stats.originalInterval !== null) count++;
+  }
+  return count;
+}
+
+/**
+ * 因网络错误调整规则间隔（翻倍，上限15分钟）
+ */
+function adjustIntervalForNetworkError(filename, ruleName, errorMessage) {
+  const stats = getErrorStats(filename);
+  
+  // 已调整过，不重复调整
+  if (stats.originalInterval !== null) return;
+  
+  const info = activeRules.get(filename);
+  if (!info || !info.module) return;
+  
+  const rule = info.module;
+  const currentMs = rule.interval;
+  const newMs = Math.min(currentMs * 2, 15 * 60 * 1000);
+  
+  if (newMs === currentMs) return; // 已达15min上限
+  
+  stats.originalInterval = currentMs;
+  rule.interval = newMs;
+  
+  const ruleInfo = { filename, module: rule, path: info.path };
+  restartRuleTimer(filename, ruleInfo, newMs);
+  
+  logEngine('INFO', ruleName, 'NETWORK_ADJUSTED', {
+    reason: errorMessage,
+    newIntervalMs: newMs,
+    originalIntervalMs: currentMs
+  });
+  
+  // 记录到缓冲池（替代即时通知）
+  recordNetworkEvent('adjusted', ruleName, currentMs, newMs);
+}
+
+// ========== 自愈诊断 ==========
 
 /**
  * 派发自愈诊断任务给七月
@@ -169,7 +395,8 @@ function getErrorStats(filename) {
     ruleErrorStats.set(filename, {
       consecutiveErrors: 0,
       threshold5HitCount: 0,
-      threshold5FirstTime: null
+      threshold5FirstTime: null,
+      originalInterval: null  // ★ 网络调整前原始间隔
     });
   }
   return ruleErrorStats.get(filename);
@@ -182,7 +409,8 @@ function resetErrorStats(filename) {
   ruleErrorStats.set(filename, {
     consecutiveErrors: 0,
     threshold5HitCount: 0,
-    threshold5FirstTime: null
+    threshold5FirstTime: null,
+    originalInterval: null
   });
 }
 
@@ -193,6 +421,12 @@ function resetErrorStats(filename) {
 function handleRuleError(filename, ruleName, errorMessage, errorStack) {
   const stats = getErrorStats(filename);
   const now = Date.now();
+  
+  // ★ 方案四：网络错误前置拦截 → 不计入错误次数，直接翻倍间隔
+  if (isNetworkError(errorMessage)) {
+    adjustIntervalForNetworkError(filename, ruleName, errorMessage);
+    return false; // 不暂停规则，不触发自愈
+  }
   
   // 检查4小时窗口是否过期
   if (stats.threshold5HitCount > 0 && stats.threshold5FirstTime) {
@@ -341,7 +575,57 @@ function handleRuleSuccess(filename, ruleName) {
 // ========== 规则管理 ==========
 
 /**
- * 归档规则文件
+ * 加载运行时状态（引擎启动时调用一次）
+ */
+function loadRuleState() {
+  try {
+    if (fs.existsSync(RULES_STATE_FILE)) {
+      const data = JSON.parse(fs.readFileSync(RULES_STATE_FILE, 'utf8'));
+      ruleState = data;
+      console.log(`[🔧警报引擎] 已加载运行时状态 (${Object.keys(ruleState).length} 条记录)`);
+    }
+  } catch (e) {
+    // 文件损坏则丢弃，从空状态开始
+    console.log('[🔧警报引擎] 运行时状态文件损坏，将重新创建');
+    ruleState = {};
+  }
+}
+
+/**
+ * 保存运行时状态到 rules-state.json
+ */
+function saveRuleState() {
+  try {
+    fs.writeFileSync(RULES_STATE_FILE, JSON.stringify(ruleState, null, 2), 'utf8');
+  } catch (e) {
+    // 静默失败，不阻塞规则执行
+  }
+}
+
+/**
+ * 更新规则的最近检测时间
+ *
+ * 写入运行时状态文件 rules-state.json，不再修改规则定义文件。
+ * 这样规则文件的 mtime 只在真正被外部修改时才变化，不会触发热重载死循环。
+ */
+function updateLastChecked(filename) {
+  if (!ruleState[filename]) {
+    ruleState[filename] = {};
+  }
+  const now = new Date();
+  const bj = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const iso = bj.toISOString().replace('Z', '+08:00').replace(/\.\d{3}/, '');
+  ruleState[filename].lastCheckedAt = iso;
+  saveRuleState();
+}
+
+/**
+ * 归档规则文件（含元数据写入）
+ *
+ * reason → archivedBy 映射:
+ *   'triggered'                  → trigger-fired
+ *   'error_threshold_exceeded'   → lifetime-expired
+ *   'expired' / 'completed'      → lifetime-expired
  */
 function archiveRule(filename, ruleName, reason) {
   // 确保归档目录存在
@@ -350,18 +634,68 @@ function archiveRule(filename, ruleName, reason) {
   }
   
   const sourcePath = path.join(RULES_DIR, filename);
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-  const archiveName = `${timestamp}_${filename}`;
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+  const archiveName = `${ts}_${filename}`;
   const archivePath = path.join(ARCHIVE_DIR, archiveName);
-  
+
+  // 归档来源映射
+  const archivedByMap = {
+    triggered: 'trigger-fired',
+    error_threshold_exceeded: 'lifetime-expired',
+    expired: 'lifetime-expired',
+    completed: 'lifetime-expired',
+  };
+  const archivedBy = archivedByMap[reason] || 'lifetime-expired';
+
   try {
-    // 移动文件到归档目录
+    // ⭐ 写入归档元数据（移动前）
+    let content = fs.readFileSync(sourcePath, 'utf8');
+
+    // status: 'active' → 'archived'（兼容各种引号写法）
+    content = content.replace(/(status:\s*)['"]active['"]/, "$1'archived'");
+
+    // archivedAt
+    const now = new Date();
+    const bj = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const archiveTime = bj.toISOString().replace('Z', '+08:00').replace(/\.\d{3}/, '');
+
+    if (/archivedAt:/.test(content)) {
+      content = content.replace(/(archivedAt:\s*)[^,\n]+/, `$1'${archiveTime}'`);
+    } else {
+      // 旧格式无归档字段 → 在 C19 END 或 name: 后注入
+      const inject = [
+        `status: 'archived',`,
+        `archivedAt: '${archiveTime}',`,
+        `archivedBy: '${archivedBy}',`,
+        `archiveReason: '${reason}',`,
+      ].join('\n');
+      const c19Re = /(\s*\/\/\s*⭐\s*C19\s*END)/;
+      if (c19Re.test(content)) {
+        content = content.replace(c19Re, `${inject}\n$1`);
+      } else {
+        content = content.replace(/(  name:\s*['"][^'"]+['"],)/, `$1\n${inject}`);
+      }
+    }
+
+    // archivedBy（仅当字段已存在时更新）
+    if (/archivedBy:/.test(content)) {
+      content = content.replace(/(archivedBy:\s*)[^,\n]+/, `$1'${archivedBy}'`);
+    }
+    // archiveReason（仅当字段已存在时更新）
+    if (/archiveReason:/.test(content)) {
+      content = content.replace(/(archiveReason:\s*)[^,\n]+/, `$1'${reason}'`);
+    }
+
+    fs.writeFileSync(sourcePath, content, 'utf8');
+
+    // 移动到归档目录
     fs.renameSync(sourcePath, archivePath);
     logRuleEvent(ruleName, 'RULE_ARCHIVED', { 
       archivePath: archivePath,
-      reason: reason 
+      reason: reason,
+      archivedBy: archivedBy
     });
-    console.log(`[🔧警报引擎] 已归档规则 "${ruleName}" 到 ${archivePath}`);
+    console.log(`[🔧警报引擎] 已归档规则 "${ruleName}" 到 ${archivePath} | archivedBy=${archivedBy}`);
     return true;
   } catch (error) {
     logEngine('ERROR', ruleName, '归档失败', { error: error.message });
@@ -454,26 +788,29 @@ async function runRule(ruleInfo) {
       return 'stop';
     }
     
-    // 检查冷却期
-    const cooldownInfo = triggerCooldowns.get(filename);
-    if (cooldownInfo && cooldownInfo.cooldownUntil) {
-      const now = Date.now();
-      if (now < cooldownInfo.cooldownUntil) {
-        const remainingMs = cooldownInfo.cooldownUntil - now;
-        const remainingMin = Math.ceil(remainingMs / 60000);
-        logRuleEvent(name, 'COOLDOWN_ACTIVE', { 
-          remainingMinutes: remainingMin,
-          lastTriggerTime: cooldownInfo.lastTriggerTime 
-        });
-        return 'continue'; // 在冷却期内，跳过检测
-      }
-    }
+    // [已废弃] 冷却期检查 — 触发即归档后不再需要，保留代码供参考
+    // const cooldownInfo = triggerCooldowns.get(filename);
+    // if (cooldownInfo && cooldownInfo.cooldownUntil) {
+    //   const now = Date.now();
+    //   if (now < cooldownInfo.cooldownUntil) {
+    //     const remainingMs = cooldownInfo.cooldownUntil - now;
+    //     const remainingMin = Math.ceil(remainingMs / 60000);
+    //     logRuleEvent(name, 'COOLDOWN_ACTIVE', { 
+    //       remainingMinutes: remainingMin,
+    //       lastTriggerTime: cooldownInfo.lastTriggerTime 
+    //     });
+    //     return 'continue'; // 在冷却期内，跳过检测
+    //   }
+    // }
     
     // 记录检测开始
     logRuleEvent(name, 'CHECK_START');
     
     // 执行检测（使用 .call(rule) 保持 this 绑定）
     const shouldTrigger = await check.call(rule);
+
+    // ⭐ 更新规则文件的最近检测时间（兼容旧规则：无字段则自动创建）
+    updateLastChecked(filename);
     
     if (shouldTrigger) {
       logRuleEvent(name, 'TRIGGERED');
@@ -490,15 +827,26 @@ async function runRule(ruleInfo) {
       // ★ 只有完整链路成功才重置错误统计
       handleRuleSuccess(filename, name);
       
-      // 设置冷却时间（30分钟内不再触发）
-      const cooldownMs = rule.cooldownMs || DEFAULT_COOLDOWN_MS;
-      triggerCooldowns.set(filename, {
-        cooldownUntil: Date.now() + cooldownMs,
-        lastTriggerTime: Date.now()
-      });
-      logRuleEvent(name, 'COOLDOWN_SET', { cooldownMinutes: cooldownMs / 60000 });
+      // ⭐ 触发即归档（引擎层强制执行，规则无法绕过）
+      // 规则文件被移动到 rules-archive/，定时器被清除
+      archiveRule(filename, name, 'triggered');
+      return 'stop';
     }
     // else: check 返回 false（正常无触发），不重置错误统计
+    
+    // ★ 网络恢复检测：本次正常执行成功，若之前有网络调整则恢复原始间隔
+    const netStats = getErrorStats(filename);
+    if (netStats.originalInterval !== null) {
+      const originalMs = netStats.originalInterval;
+      netStats.originalInterval = null;
+      rule.interval = originalMs;
+      restartRuleTimer(filename, ruleInfo, originalMs);
+      logEngine('INFO', name, 'NETWORK_RESTORED', {
+        restoredIntervalMs: originalMs
+      });
+      // 记录恢复事件到缓冲池
+      recordNetworkEvent('restored', name, null, originalMs);
+    }
     
     return 'continue';
   } catch (error) {
@@ -532,7 +880,11 @@ function unloadRule(filename, ruleName, reason) {
   }
   
   activeRules.delete(filename);
-  triggerCooldowns.delete(filename);
+  // [已废弃] triggerCooldowns.delete(filename); — 冷却机制已移除
+  
+  // 清理运行时状态
+  delete ruleState[filename];
+  saveRuleState();
   
   logRuleEvent(ruleName, 'RULE_UNLOADED', { reason });
   console.log(`[🔧警报引擎] 正在卸载规则 "${ruleName}" (${reason})`);
@@ -579,12 +931,13 @@ function reloadRule(filename, oldInfo) {
   
   const newName = ruleInfo.module.name;
   
-  // 3. 更新 activeRules（包含新的 mtime）
+  // 3. 更新 activeRules（包含新的 mtime 和 module）
   activeRules.set(filename, {
     name: newName,
     path: ruleInfo.path,
     filename: filename,
-    mtime: getFileMtime(ruleInfo.path)
+    mtime: getFileMtime(ruleInfo.path),
+    module: ruleInfo.module  // ★ 用于网络恢复时调整间隔
   });
   
   // 4. 重置错误统计和自愈状态（新规则重新开始）
@@ -691,12 +1044,13 @@ function startRuleTimer(ruleInfo, staggerIndex = 0) {
   // ⭐ 获取文件修改时间
   const mtime = getFileMtime(rulePath);
   
-  // 记录规则信息（用于扫描检查，包含 mtime）
+  // 记录规则信息（用于扫描检查，包含 mtime 和 module）
   activeRules.set(filename, {
     name: rule.name,
     path: rulePath,
     filename: filename,
-    mtime: mtime  // ⭐ 新增：记录文件修改时间
+    mtime: mtime,
+    module: rule  // ★ 用于网络恢复时调整间隔
   });
   
   // 记录启动
@@ -777,6 +1131,9 @@ async function main() {
   console.log(`[🔧警报引擎] 规则目录: ${RULES_DIR}`);
   console.log(`[🔧警报引擎] 归档目录: ${ARCHIVE_DIR}`);
   
+  // 加载运行时状态（从 rules-state.json 恢复）
+  loadRuleState();
+  
   // 初始加载规则
   const rules = loadRules();
   
@@ -792,10 +1149,15 @@ async function main() {
   const scanTimer = setInterval(scanRuleFiles, SCAN_INTERVAL);
   console.log(`[🔧警报引擎] 已启动文件扫描器 (检查间隔: ${SCAN_INTERVAL / 1000}s)`);
   
+  // 启动网络事件缓冲池汇总定时器（每4小时发送一次报告）
+  scheduleNetworkSummary();
+  console.log(`[🔧警报引擎] 已启动网络缓冲汇总 (周期: 4小时)`);
+  
   // 监听进程信号
   process.on('SIGINT', () => {
     logEngine('INFO', 'Engine', '引擎关闭 (SIGINT)');
     console.log('\n[🔧警报引擎] 正在关闭...');
+    flushNetworkSummary(); // 关闭前发送缓冲中的网络事件
     stopAllTimers();
     clearInterval(scanTimer);
     process.exit(0);
@@ -804,6 +1166,7 @@ async function main() {
   process.on('SIGTERM', () => {
     logEngine('INFO', 'Engine', '引擎关闭 (SIGTERM)');
     console.log('\n[🔧警报引擎] 正在关闭...');
+    flushNetworkSummary(); // 关闭前发送缓冲中的网络事件
     stopAllTimers();
     clearInterval(scanTimer);
     process.exit(0);

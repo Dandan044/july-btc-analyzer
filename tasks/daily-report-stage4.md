@@ -1,5 +1,7 @@
 # 日报任务 - 阶段四：警报管理
 
+> ⚠️ **无需重启警报器引擎**：引擎支持热加载（每60秒自动扫描 `rules/` 目录），新增或修改的规则文件会自动生效。**禁止执行 `pm2 restart btc-alert` 或任何重启命令。**
+
 此任务为日报工作流的第四阶段，负责警报规则的全生命周期管理。
 
 ---
@@ -108,6 +110,8 @@ echo "[$NOW] [阶段四] 开始执行 | 周期状态: [active | archived]" >> lo
 
 **如果周期状态为 `所有仓位平仓，已完成归档`，执行警报清零流程。**
 
+> ⚠️ **阶段三已用统一脚本归档**：如果阶段三使用了 `scripts/archive-cycle.js`（推荐），规则已在阶段三步骤9归档完成。分支 A 的 A.1-A.3 应检测到无活跃规则并跳过，直接执行 A.4（复盘 cron）。
+
 ### A.1 读取 BTC 活跃警报规则
 
 ```bash
@@ -116,13 +120,15 @@ ls -la skills/btc-alert/rules/20*.js 2>/dev/null
 
 > ⚠️ BTC 规则以日期 `20xx-xx-xx-` 开头，用 `20*` 匹配只读 BTC 规则。山寨规则以币名开头（如 `DOGE-`），不会被匹配。
 
-记录当前活跃规则数量。
+记录当前活跃规则数量。**如果阶段三已用 archive-cycle.js 归档，此处应为 0，跳过 A.2-A.3。**
 
 ### A.2 归档 BTC 规则
 
+> ⚠️ **如果阶段三已用 archive-cycle.js 归档，跳过此步骤。** 仅当仍有活跃规则且阶段三未用统一脚本时执行。
+
 ```bash
-# 只移动 BTC 规则（日期前缀），不影响山寨币规则
-mv skills/btc-alert/rules/20*.js skills/btc-alert/rules-archive/ 2>/dev/null
+# 使用归档脚本，自动填写 archivedAt/archivedBy/archiveReason 元数据
+node scripts/archive-rules.js --coin BTC --by cycle-archived --reason "BTC周期归档，警报清零"
 ```
 
 ### A.3 记录清零日志
@@ -137,15 +143,140 @@ echo "[$NOW] [阶段四] 周期归档，BTC警报全部清零 | 归档规则数:
 [$NOW] [阶段四] 警报清零完成: 归档规则 X 个 → rules-archive/
 ```
 
-### A.4 记录阶段结束并退出
+### A.4 创建复盘 cron 任务
+
+**周期已归档 + 警报已清零 → 创建 24h 后触发的独立复盘任务。**
+
+#### A.4.1 计算复盘参数
+
+```bash
+# 从周期路径提取周期 ID
+CYCLE_ID=$(basename ${CYCLE_DIR})   # 如 cycle-20260514-001
+
+# 复盘触发时间 = 当前时间 + 24h
+REVIEW_AT=$(date -d "+24 hours" --iso-8601=seconds)
+
+# 复盘报告输出文件名
+REVIEW_DATE=$(date -d "+24 hours" +%Y%m%d)
+REVIEW_TIME=$(date -d "+24 hours" +%H%M)
+OUTPUT_NAME="review-BTC-${REVIEW_DATE}-${REVIEW_TIME}"
+```
+
+#### A.4.2 创建 cron 任务
+
+```json
+{
+  "name": "review-${CYCLE_ID}",
+  "agentId": "july",
+  "schedule": {
+    "kind": "at",
+    "at": "${REVIEW_AT}"
+  },
+  "payload": {
+    "kind": "agentTurn",
+    "message": "周期路径: archived/${CYCLE_ID}\n币种: BTC\n归档时间: $(date --iso-8601=seconds)\n请读取 tasks/trade-review.md 对该周期执行独立深度复盘。",
+    "timeoutSeconds": 900
+  },
+  "sessionTarget": "isolated",
+  "deleteAfterRun": true,
+  "delivery": { "mode": "none" }
+}
+```
+
+**日志埋点：**
+```
+[$NOW] [阶段四] 📋 复盘cron已创建 | 任务: review-${CYCLE_ID} | 触发时间: ${REVIEW_AT} | 输出: learnings/${OUTPUT_NAME}.md
+```
+
+#### A.4.3 检查下次日报触发时间（空档期填补）
+
+**问题说明：** 周期归档后，可能距离下次BTC日报定时触发（09:00 / 21:00 GMT+8）还有很长时间。这期间没有新周期，市场变化无法及时覆盖。本步骤在归档后检查空档期，必要时提前拉起新周期。
+
+**执行逻辑：**
+
+```
+1. 通过 cron(list) 查询 BTC 日报任务（july-btc-morning-v2, july-btc-evening-v2）
+2. 从每个任务的 state.nextRunAtMs 找到最近的下次触发时间
+3. 计算距离当前时间的秒数差
+4. 判断是否需要临时拉起新周期
+```
+
+**决策逻辑：**
+
+| 条件 | 动作 |
+|------|------|
+| 无BTC日报cron任务（morning和evening都不存在） | → 创建临时cron，10分钟后触发 |
+| 下次触发时间距现在 > 3600秒（> 1小时） | → 创建临时cron，10分钟后触发 |
+| 下次触发时间距现在 ≤ 3600秒（≤ 1小时） | → 无需操作，等待下次正常触发 |
+
+**步骤说明：**
+
+1. 使用 `cron(action="list")` 工具获取所有定时任务列表
+2. 查找 `july-btc-morning-v2` 和 `july-btc-evening-v2` 的任务
+3. 从每个任务的 `state.nextRunAtMs` 字段获取下次触发时间（毫秒时间戳）
+4. 取最近的一个：`NEXT_AT_MS = min(morning.nextRunAtMs, evening.nextRunAtMs)`
+5. 计算秒数差：
+```bash
+NOW_EPOCH=$(date +%s)
+DIFF_SECONDS=$(( (NEXT_AT_MS - NOW_EPOCH * 1000) / 1000 ))
+```
+或直接从两个任务中解析最近的时间：
+```bash
+# 使用 date 获取当前时间戳
+NOW_TS=$(date +%s)
+# 如果 NEXT_AT_MS 已知
+DIFF=$(( (NEXT_AT_MS / 1000) - NOW_TS ))
+```
+
+6. 如果满足触发条件（无任务或 DIFF > 3600），使用 `cron(action="add")` 创建临时日报任务：
+
+```json
+{
+  "name": "interim-btc-${CYCLE_ID}",
+  "schedule": {
+    "kind": "at",
+    "at": "$(date -d "+10 minutes" --iso-8601=seconds)"
+  },
+  "payload": {
+    "kind": "agentTurn",
+    "message": "开始执行日报任务。请按顺序执行日报全四阶段：\n1. 读取 tasks/daily-report-stage1.md 执行数据获取\n2. 读取 tasks/daily-report-stage2.md 执行技术分析\n3. 读取 tasks/daily-report-stage3.md 执行仓位管理\n4. 读取 tasks/daily-report-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。"
+  },
+  "sessionTarget": "isolated",
+  "deleteAfterRun": true,
+  "delivery": { "mode": "none" }
+}
+```
+
+**日志记录（已触发）：**
+```
+[$NOW] [阶段四] 🔄 空档检测 | 下次日报触发: $(date -d @$((NEXT_AT_MS/1000)) '+%Y-%m-%d %H:%M:%S') | 间隔: ${DIFF_SECONDS}s | 超过1小时/不存在 → 创建临时日报任务 10分钟后触发
+[$NOW] [阶段四] 🔄 interim-btc-${CYCLE_ID} 已创建 | 触发时间: $(date -d "+10 minutes" '+%Y-%m-%d %H:%M:%S')
+```
+
+**日志记录（已跳过）：**
+```
+[$NOW] [阶段四] 🔄 空档检测 | 下次日报触发: $(date -d @$((NEXT_AT_MS/1000)) '+%Y-%m-%d %H:%M:%S') | 间隔: ${DIFF_SECONDS}s | 不足1小时，等待正常触发
+```
+
+**注意事项：**
+
+- `deleteAfterRun: true` 确保临时任务执行一次后自动删除，不影响正常定时任务
+- `delivery: { mode: "none" }` 避免发送通知到频道（和正常日报任务保持一致）
+- 临时任务的触发消息与正常日报任务完全一致，确保执行完整的四阶段流程
+- 如果 cron list 返回的任务中没有 `july-btc-morning-v2` 或 `july-btc-evening-v2`（例如被误删），按「不存在」处理，同样创建临时任务
+
+---
+
+### A.5 记录阶段结束并退出
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段四] 完成执行（警报清零）" >> logs/daily-report-process.log
+echo "[$NOW] [阶段四] 完成执行（警报清零 + 复盘cron）" >> logs/daily-report-process.log
 echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/daily-report-process.log
+echo "[$NOW] ========== 日报流程结束 ========== " >> logs/daily-report-process.log
 ```
 
-**归档情况无需后续步骤，阶段四结束。**
+**归档后完整链路：周期归档 → 警报清零 → 复盘 cron（24h 后触发） → 阶段四结束。**
 
 ---
 
@@ -213,7 +344,7 @@ ls -la skills/btc-alert/rules/20*.js 2>/dev/null
 **归档操作：**
 
 ```bash
-mv skills/btc-alert/rules/<rule-name>.js skills/btc-alert/rules-archive/
+node scripts/archive-rules.js --rule <rule-name>.js --by stage4-cleanup --reason "<归档原因>"
 ```
 
 **日志记录：**

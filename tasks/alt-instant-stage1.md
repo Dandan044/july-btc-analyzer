@@ -109,6 +109,33 @@ CYCLE_DIR=$(ls -td active/alt-${COIN}-* 2>/dev/null | head -1 | xargs basename)
 
 ---
 
+### 步骤 2.5：⭐ 同步该币种持仓
+
+**⚠️ 即时分析虽然复用已有周期，但必须确保 positions.json 与实盘一致——警报触发前可能已有手动平仓/加仓操作。**
+
+**任务路由：** 读取 `tasks/sync-positions.md` 执行持仓同步任务。
+
+**输入参数：**
+
+| 参数 | 值 |
+|------|-----|
+| 币种 | `{COIN}`（从警报数据提取） |
+| 周期文件夹路径 | `active/${CYCLE_DIR}`（步骤 2 已定位） |
+| 日志文件路径 | `logs/alt-${COIN}-process.log` |
+| 仓位模式 | `cross`（全仓） |
+
+**输出产物：**
+- 持仓文件：`active/${CYCLE_DIR}/positions.json`（包含 `币种` 字段标识币种）
+
+**日志记录：**
+```
+[$NOW] [即时分析阶段一] 持仓同步路由: 读取 tasks/sync-positions.md (coin={COIN}, mode=cross)
+```
+
+> `sync-positions.md` 已参数化支持任意币种和仓位模式，执行时筛选 `{COIN}-USDT-SWAP` 全仓持仓。
+
+---
+
 ### 步骤 3：获取即时合约数据
 
 **只获取最新合约数据，不重跑媒体搜索和链上数据。**
@@ -212,6 +239,13 @@ ls -t active/alt-${COIN}-*/reports/alt-report-${COIN}-*.md 2>/dev/null | grep -v
     "cycle_dir": "alt-DOGE-20260503-1200"
   },
 
+  "positions": {
+    "file": "alt-DOGE-20260503-1200/positions.json",
+    "synced_at": "YYYY-MM-DDTHH:MM:SS+08:00",
+    "current_count": 0,
+    "has_existing": false
+  },
+
   "data_collected": {
     "contract": {
       "status": "success",
@@ -286,6 +320,7 @@ echo "[$NOW] [即时分析阶段一] ========== 阶段一结束 ========== " >> 
 | 警报 JSON 解析失败 | `⛔ ERROR` | 记录异常，结束本阶段 |
 | `coin` 字段缺失 | `⛔ ERROR` | 记录异常，结束本阶段 |
 | 未找到活跃周期 | `⛔ ERROR` | 记录异常，结束本阶段 |
+| 持仓同步失败 | `⚠️ WARN` | 清单标记持仓未知，继续执行 |
 | 合约数据脚本执行失败 | `⛔ ERROR` | 清单标记 `status: "failed"`，阶段二仅凭媒体+链上分析 |
 | 媒体/链上数据缺失 | `⚠️ WARN` | 标记缺失，继续执行 |
 | 历史报告收集为空 | `⚠️ WARN` | 标记无历史，继续执行 |
@@ -299,6 +334,7 @@ echo "[$NOW] [即时分析阶段一] ========== 阶段一结束 ========== " >> 
 |---|---|---|
 | 触发 | 扫描引擎 | 警报 trigger() |
 | 周期 | 检测并创建 | 只定位，不创建 |
+| 持仓同步 | ✅ sync-positions | ✅ sync-positions |
 | 媒体搜索 | ✅ web_search | ❌ 不复跑 |
 | 链上数据 | ✅ onchainOS | ❌ 复用已有 |
 | 合约数据 | ✅ get_altcoin_analysis | ✅ 同 |
@@ -311,11 +347,12 @@ echo "[$NOW] [即时分析阶段一] ========== 阶段一结束 ========== " >> 
 
 1. **解析警报 JSON**：task 消息中第一个空行前的内容即为 JSON
 2. **定位已有周期**：`active/alt-{COIN}-*`，不创建新周期
-3. **只获取合约数据**：`get_altcoin_analysis.js --coin {COIN}`
-4. **复用媒体/链上**：使用 `data-context/` 下已有文件
-5. **清单带 alert_context**：供阶段二理解触发背景
-6. **后续阶段共用**：与常规流程使用相同的 alt-intel-stage2/3/4
-7. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
+3. **同步实盘持仓**：路由到 `tasks/sync-positions.md`，确保快照与实盘一致
+4. **只获取合约数据**：`get_altcoin_analysis.js --coin {COIN}`
+5. **复用媒体/链上**：使用 `data-context/` 下已有文件
+6. **清单带 alert_context + positions**：供阶段二理解触发背景和当前持仓
+7. **后续阶段共用**：与常规流程使用相同的 alt-intel-stage2/3/4
+8. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 
 ---
 

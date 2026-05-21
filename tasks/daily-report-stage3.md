@@ -253,8 +253,8 @@ okx-proxy.sh --profile live account balance USDT
 记录 `equity`（权益）和 `available`（可用余额）。
 
 **安全检查：**
-- 计算所需保证金：`margin = equity × position_size / leverage`
-- 如果 `available < margin`，**终止下单**，记录日志：
+- 计算所需保证金：`margin = NOMINAL_BASE / 3`（保守估计，对冲后 NOMINAL_FINAL 可能更大）
+- 如果 `available < NOMINAL_BASE / 3`，**终止下单**，记录日志：
   ```
   [$NOW] [阶段三] ⛔ ERROR: 可用余额不足，需要 xx USDT，可用 xx USDT
   ```
@@ -277,61 +277,95 @@ okx-proxy.sh market instruments --instType SWAP | grep BTC-USDT-SWAP
 
 > 所有合约参数以 `market instruments` 实际返回值为准，不得硬编码。
 
-##### 7.1.3 计算下单参数
+##### 7.1.3 对冲调整
+
+**在计算 sz 之前，先执行全账户对冲系数调整。**
+
+**步骤 A：获取基础名义仓位**
+
+```
+# 阶段三步骤 4 中已从日报识别 NOMINAL_BASE
+# NOMINAL_BASE = 日报表格「仓位」字段的数值，去除 u 后缀（如 300）
+# 取值范围 [225, 450]
+```
+
+**步骤 B：执行对冲计算**
+
+```bash
+# 获取对冲系数 y（BTC 方向由日报的「方向」字段决定，long 或 short）
+Y=$(bash scripts/calc-hedge-y.sh <long|short>)
+
+# 计算最终名义仓位
+NOMINAL_FINAL=$(python3 -c "print(round(${NOMINAL_BASE} * ${Y}, 2))")
+```
+
+**步骤 C：边界约束**
+
+```
+# 最终名义仓位不能超过 [100, 675] 区间
+if NOMINAL_FINAL < 100:  NOMINAL_FINAL = 100
+if NOMINAL_FINAL > 675:  NOMINAL_FINAL = 675
+```
+
+| 边界 | 值 | 理由 |
+|------|---|------|
+| 下限 | 100u | 过小仓位可能不够 1 张（100 / (80000×0.01) = 0.125 < 0.01 minSz） |
+| 上限 | 675u | 450u × 1.5 = 675u，不超最大对冲系数 |
+
+**步骤 D：记录对冲日志**
+
+```
+[$NOW] [阶段三] 对冲调整 | BTC方向={DIRECTION} |
+全账户多头={LONG_NOM}u({LONG_RATIO}) 空头={SHORT_NOM}u({SHORT_RATIO}) |
+y={Y} | 名义仓位 {NOMINAL_BASE}u→{NOMINAL_FINAL}u
+```
+
+> ⚠️ NOMINAL_FINAL 的计算参数从 `calc-hedge-y.js` 返回的 JSON 中提取（`y`、`long_nominal`、`short_nominal`、`long_ratio`、`short_ratio`）。
+
+##### 7.1.4 计算下单参数
 
 | 参数 | 来源 | 计算方式 |
 |------|------|---------|
 | instId | 固定 | BTC-USDT-SWAP |
 | side | 建议 | direction: long → buy, short → sell |
-| sz | 计算 | equity × position_size / (价格 × ctVal)，向下取整到 lotSz |
+| sz | 计算 | NOMINAL_FINAL / (价格 × ctVal)，按 lotSz 步进取整 |
 | tdMode | 固定 | isolated |
 | posSide | 建议 | direction: long → long, short → short |
 
-**示例计算（position_size 表示名义价值相对于余额的比例）：**
+**示例计算（NOMINAL_FINAL 为对冲调整后的最终名义仓位）：**
 
 ```
-例A：position_size = 100%（标准仓位）
-equity = 500 USDT
-名义价值 = 500 × 100% = 500 USDT
-保证金 = 500 / 3 = 166.67 USDT
-张数 = 500 / (76000 × 0.01) = 0.657 → 取整到 lotSz(0.01) = 0.65 张
+例A：NOMINAL_BASE=300u, y=1.312 → NOMINAL_FINAL=394u, price=$80,000, ctVal=0.01
+  sz = 394 / (80000 × 0.01) = 0.4925 → 取整到 lotSz(0.01) = 0.49 张
+  名义价值 = 0.49 × 80000 × 0.01 = 392 USDT ✅
 
-例B：position_size = 200%（2倍仓位）
-equity = 500 USDT
-名义价值 = 500 × 200% = 1000 USDT
-保证金 = 1000 / 3 = 333.33 USDT
-张数 = 1000 / (76000 × 0.01) = 1.315 → 取整到 lotSz(0.01) = 1.31 张
+例B：NOMINAL_BASE=300u, y=0.688 → NOMINAL_FINAL=206u, price=$80,000, ctVal=0.01
+  sz = 206 / (80000 × 0.01) = 0.2575 → 取整到 lotSz(0.01) = 0.25 张
+  名义价值 = 0.25 × 80000 × 0.01 = 200 USDT ✅
 
-例C：position_size = 300%（3倍仓位，最大）
-equity = 500 USDT
-名义价值 = 500 × 300% = 1500 USDT
-保证金 = 1500 / 3 = 500 USDT（需要全部余额）
-张数 = 1500 / (76000 × 0.01) = 1.973 → 取整到 lotSz(0.01) = 1.97 张
+例C：NOMINAL_BASE=400u, y=1.5 → NOMINAL_FINAL=600u
+  sz = 600 / (80000 × 0.01) = 0.75 张
+  名义价值 = 0.75 × 80000 × 0.01 = 600 USDT ✅
 ```
 
-** position_size 范围：75%~300%**
-- 75% = 名义价值为余额的 75%
-- 100% = 名义价值等于余额
-- 200% = 名义价值为余额的 2倍
-- 300% = 名义价值为余额的 3倍（最大，需要全部可用余额作为保证金）
+**NOMINAL_BASE 来源**：阶段三步骤 4 从日报表格「仓位」字段识别（如 300u、400u），范围 [225, 450]。
 
 ** ⚠️ 最小仓位检查（必须用实际 minSz 而非固定值！）：**
 
 ```bash
 # 从合约信息中获取实际的 minSz（不同币种不同！）
 # 如 BTC-USDT-SWAP 的 minSz=0.01, lotSz=0.01
-# 如 某些山寨币的 minSz=0.1 或 minSz=1
 ```
 
-- 计算张数 `sz = equity × position_size / (价格 × ctVal)`，按 `lotSz` 步进取整
+- 计算张数 `sz = NOMINAL_FINAL / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 如果 `sz < minSz`，**终止下单**，记录日志：
   ```
   [$NOW] [阶段三] ⛔ ERROR: 计算张数 {sz} < 最小下单张数 {minSz}（合约：{instId}）
-  需要 equity ≥ {minSz × 价格 × ctVal / position_size} USDT，当前 equity = {equity} USDT
+  名义仓位 {NOMINAL_FINAL}u 不足以开最小张数
   ```
 - **即使 sz ≥ minSz，如果取整后值不是 lotSz 的整数倍，也需修正为合法值**
 
-##### 7.1.4 执行下单
+##### 7.1.5 执行下单
 
 ```bash
 okx-proxy.sh --profile live swap place \
@@ -349,7 +383,7 @@ okx-proxy.sh --profile live swap place \
 - 成功：记录订单ID `ordId`，平均成交价 `avgPx`
 - 失败：记录错误信息，终止执行
 
-##### 7.1.5 等待成交确认
+##### 7.1.6 等待成交确认
 
 下单后等待 2 秒，然后查询持仓确认成交：
 
@@ -361,7 +395,7 @@ okx-proxy.sh --profile live account positions --instId BTC-USDT-SWAP --tdMode is
 - `avgPx`：平均成交价（作为实际入场价）
 - `pos`：持仓张数
 
-##### 7.1.6 设置止盈止损
+##### 7.1.7 设置止盈止损
 
 ⚠️ **必须创建止盈止损订单！**
 
@@ -510,7 +544,7 @@ okx-proxy.sh --profile live swap algo place \
 - 做多平仓：`--side sell`
 - 做空平仓：`--side buy`
 
-##### 7.1.7 核对结果
+##### 7.1.8 核对结果
 
 **核对持仓：**
 
@@ -578,8 +612,9 @@ okx-proxy.sh --profile live account balance USDT
 
 ##### 7.2.3 计算加仓张数
 
-使用与开仓相同的计算逻辑：
-- `sz_add = equity × position_size / (价格 × ctVal)`，按 `lotSz` 步进取整
+使用与开仓相同的逻辑：
+- **先执行对冲调整**：`NOMINAL_FINAL = NOMINAL_BASE × Y`（同 7.1.3，Y 由 `calc-hedge-y.sh` 获取）
+- `sz_add = NOMINAL_FINAL / (价格 × ctVal)`，按 `lotSz` 步进取整
 - 同样执行 `sz_add ≥ minSz` 检查
 
 ##### 7.2.4 执行加仓下单
@@ -842,15 +877,33 @@ sync-positions.md 会完成以下操作：
 
 ##### 9.2 执行归档
 
-**归档操作：**
+**归档操作（统一脚本三步骤：实盘盈亏同步 → 规则归档 → 目录移动）：**
 
 ```bash
-# 移动周期文件夹
-mv active/cycle-YYYYMMDD-XXX archived/
+# 使用统一归档脚本，一次性完成三步骤
+node scripts/archive-cycle.js --cycle cycle-YYYYMMDD-XXX
 
-# 记录归档信息
+# 脚本自动执行：
+#   步骤1: 调用 OKX positions-history API → 同步实盘平仓盈亏 → 更新 positions.json
+#   步骤2: 调用 archive-rules.js --cycle xxx --by cycle-archived 归档所有关联规则
+#   步骤3: mv active/xxx archived/
+#   输出: 盈亏摘要
+#
+# 可选参数：
+#   --by manual        自定义归档来源（默认 cycle-archived）
+#   --reason "xxx"      自定义归档原因
+#   --close-type "止损触发"  覆盖平仓类型
+```
+
+**脚本路径**：`scripts/archive-cycle.js`
+
+**⚠️ 重要**：统一脚本已将规则归档。阶段四触发时，分支 A 的 A.1-A.3（规则清零部分）应检测到无活跃规则并跳过，但仍需执行 A.4（创建复盘 cron）。
+
+**执行后记录归档信息：**
+
+```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段三] 周期归档 | cycle-xxx → archived/ | 平仓盈亏: xx USDT | 平仓类型: xx" >> logs/daily-report-process.log
+echo "[$NOW] [阶段三] 周期归档 | cycle-xxx → archived/ | 使用 archive-cycle.js 统一归档" >> logs/daily-report-process.log
 ```
 
 ##### 9.3 不满足归档条件

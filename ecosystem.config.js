@@ -32,22 +32,25 @@ module.exports = {
       all_proxy: 'socks5://127.0.0.1:7890'
     }
   }, {
-    name: 'btc-log-rotate',
-    script: 'scripts/log-rotate.sh',
+    name: 'july-dashboard',
+    script: './dashboard/server.js',
+    args: '--port 3100',
     cwd: '/home/administrator/.openclaw/july-btc-analyzer',
-
-    // 每天 00:10 执行一次，跑完就退出，不自动重启
-    cron_restart: '10 0 * * *',
-    autorestart: false,
-
-    // 日志
-    error_file: './logs/log-rotate.log',
-    out_file: './logs/log-rotate.log',
+    autorestart: true,
+    watch: false,
+    max_restarts: 5,
+    restart_delay: 3000,
+    max_memory_restart: '200M',
+    error_file: './logs/dashboard.log',
+    out_file: './logs/dashboard.log',
     merge_logs: true,
     time: true,
-
     env: {
-      TZ: 'Asia/Shanghai'
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      http_proxy: 'http://127.0.0.1:7890',
+      https_proxy: 'http://127.0.0.1:7890',
+      all_proxy: 'socks5://127.0.0.1:7890'
     }
   }]
 };

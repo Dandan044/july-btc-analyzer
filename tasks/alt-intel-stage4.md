@@ -1,5 +1,7 @@
 # 山寨币任务 - 阶段四：警报管理
 
+> ⚠️ **无需重启警报器引擎**：引擎支持热加载（每60秒自动扫描 `rules/` 目录），新增或修改的规则文件会自动生效。**禁止执行 `pm2 restart btc-alert` 或任何重启命令。**
+
 此任务为山寨币工作流的第四阶段，负责警报规则的全生命周期管理。
 
 ---
@@ -108,11 +110,15 @@ echo "[$NOW] [阶段四] 开始执行 | 周期状态: [active | archived]" >> lo
 
 **如果周期状态为 `所有仓位平仓，已完成归档`，执行警报清零流程。**
 
+> ⚠️ **阶段三已用统一脚本归档**：如果阶段三使用了 `scripts/archive-cycle.js`（推荐），规则已在阶段三步骤9归档完成。分支 A 的 A.1-A.3 应检测到无活跃规则并跳过，直接执行 A.4（复盘 cron）。
+
 ### A.1 读取该币种活跃警报规则
 
 ```bash
 ls -la skills/btc-alert/rules/${COIN}-*.js 2>/dev/null
 ```
+
+> ⚠️ 只列出以 `{COIN}-` 开头的规则。**如果阶段三已用 archive-cycle.js 归档，此处应为 0。**
 
 > ⚠️ 只列出以 `{COIN}-` 开头的规则，不触碰 BTC 或其他币种的规则。
 
@@ -120,9 +126,11 @@ ls -la skills/btc-alert/rules/${COIN}-*.js 2>/dev/null
 
 ### A.2 归档该币种所有规则
 
+> ⚠️ **如果阶段三已用 archive-cycle.js 归档，跳过此步骤。** 仅当仍有活跃规则且阶段三未用统一脚本时执行。
+
 ```bash
-# 只移动该币种规则（{COIN}- 前缀），不影响其他币种
-mv skills/btc-alert/rules/${COIN}-*.js skills/btc-alert/rules-archive/ 2>/dev/null
+# 使用归档脚本，自动填写 archivedAt/archivedBy/archiveReason 元数据
+node scripts/archive-rules.js --coin ${COIN} --by cycle-archived --reason "${COIN}周期归档，警报清零"
 ```
 
 ### A.3 记录清零日志
@@ -137,15 +145,60 @@ echo "[$NOW] [阶段四] 周期归档，{COIN}警报全部清零 | 归档规则�
 [$NOW] [阶段四] 警报清零完成: 归档规则 X 个 → rules-archive/
 ```
 
-### A.4 记录阶段结束并退出
+### A.4 创建复盘 cron 任务
+
+**周期已归档 + 警报已清零 → 创建 24h 后触发的独立复盘任务。**
+
+#### A.4.1 计算复盘参数
+
+```bash
+# 从周期路径提取周期 ID
+CYCLE_ID=$(basename ${CYCLE_DIR})   # 如 alt-DOGE-20260514-0930
+
+# 复盘触发时间 = 当前时间 + 24h
+REVIEW_AT=$(date -d "+24 hours" --iso-8601=seconds)
+
+# 复盘报告输出文件名
+REVIEW_DATE=$(date -d "+24 hours" +%Y%m%d)
+REVIEW_TIME=$(date -d "+24 hours" +%H%M)
+OUTPUT_NAME="review-${COIN}-${REVIEW_DATE}-${REVIEW_TIME}"
+```
+
+#### A.4.2 创建 cron 任务
+
+```json
+{
+  "name": "review-${CYCLE_ID}",
+  "agentId": "july",
+  "schedule": {
+    "kind": "at",
+    "at": "${REVIEW_AT}"
+  },
+  "payload": {
+    "kind": "agentTurn",
+    "message": "周期路径: archived/${CYCLE_ID}\n币种: ${COIN}\n归档时间: $(date --iso-8601=seconds)\n请读取 tasks/trade-review.md 对该周期执行独立深度复盘。",
+    "timeoutSeconds": 900
+  },
+  "sessionTarget": "isolated",
+  "deleteAfterRun": true,
+  "delivery": { "mode": "none" }
+}
+```
+
+**日志埋点：**
+```
+[$NOW] [阶段四] 📋 复盘cron已创建 | 任务: review-${CYCLE_ID} | 触发时间: ${REVIEW_AT} | 输出: learnings/${OUTPUT_NAME}.md
+```
+
+### A.5 记录阶段结束并退出
 
 ```bash
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] [阶段四] 完成执行（警报清零）" >> logs/alt-${COIN}-process.log
+echo "[$NOW] [阶段四] 完成执行（警报清零 + 复盘cron）" >> logs/alt-${COIN}-process.log
 echo "[$NOW] [阶段四] ========== 阶段四结束 ========== " >> logs/alt-${COIN}-process.log
 ```
 
-**归档情况无需后续步骤，阶段四结束。**
+**归档后完整链路：周期归档 → 警报清零 → 复盘 cron（24h 后触发） → 阶段四结束。**
 
 ---
 
@@ -213,7 +266,7 @@ ls -la skills/btc-alert/rules/${COIN}-*.js 2>/dev/null
 **归档操作：**
 
 ```bash
-mv skills/btc-alert/rules/<rule-name>.js skills/btc-alert/rules-archive/
+node scripts/archive-rules.js --rule <rule-name>.js --by stage4-cleanup --reason "<归档原因>"
 ```
 
 **日志记录：**
@@ -242,6 +295,23 @@ mv skills/btc-alert/rules/<rule-name>.js skills/btc-alert/rules-archive/
 - 行情推断 → 支撑/阻力位、值得关注的行为
 - 仓位操作建议 → 入场条件、触发价格
 
+**⚠️ 硬性要求：开仓时必须设定止盈止损价位警报**
+
+如果阶段二报告给出了开仓建议（操作类型为「开仓」），**必须**在候选列表中包含以下价位：
+
+| 价位类型 | 说明 | 必须性 |
+|---------|------|--------|
+| **止损位 (SL)** | 报告中的止损价格 | ✅ 必须 |
+| **止盈位1 (TP1)** | 报告中的止盈1价格 | ✅ 必须 |
+| **止盈位2 (TP2)** | 报告中的止盈2价格（如有） | ✅ 必须 |
+| 入场触发位 | 如果入场条件是「等待某价格触发」，需设入场警报 | 有条件 |
+
+> **为什么必须设止盈止损警报？**
+> 
+> 止盈止损计划写在报告中，但报告不会自动执行。如果不在阶段四设定对应的价位警报，止盈止损的触发完全依赖人工监控——这创造了计划→执行的断层。KAITO 周期的教训：TP1 $0.4326 被价格触及，但仓位未在该处平仓，最终微亏出局。
+>
+> 阶段四的价位警报不是替代 OCO 订单，而是**双重保障**——即使 OCO 订单因某种原因未执行，警报触发后的即时分析也能提醒你执行平仓。
+
 **示例输出（候选列表）：**
 
 ```
@@ -258,6 +328,11 @@ mv skills/btc-alert/rules/<rule-name>.js skills/btc-alert/rules-archive/
 非价格警报候选：
   - xxx
   - xxx
+
+**开仓相关价位（必须包含）：**
+  - 止损位: $xxx
+  - 止盈位1: $xxx
+  - 止盈位2: $xxx
 ```
 
 **⚠️ 何时设定非价格类警报？**
@@ -311,7 +386,7 @@ mv skills/btc-alert/rules/<rule-name>.js skills/btc-alert/rules-archive/
 
 | 优先级 | 选择依据 | 说明 |
 |-------|---------|------|
-| **高** | 触发后需要执行操作的价位 | 入场触发价、止损/止盈位 |
+| **高** | 触发后需要执行操作的价位 | 入场触发价、**止损/止盈位** |
 | **中** | 报告明确指出的关键支撑/阻力 | 技术分析关键位置 |
 | **低** | 整数关口、斐波那契等参考价位 | 心理关口，有参考价值 |
 
@@ -321,12 +396,21 @@ mv skills/btc-alert/rules/<rule-name>.js skills/btc-alert/rules-archive/
 - **改为**「最有价值的 ≤6 个价位打包进一个规则文件」
 - 单次触发可传递组合信息（多个价位同时被触发）
 
+**⚠️ 止盈止损价位的优先级：**
+
+止损位和止盈位在筛选时具有**最高优先级**——即使候选列表中其他价位更有「技术分析价值」，也必须确保止盈止损价位被纳入最终列表。
+
 **示例筛选**（当前价格 $78,500）：
 
 ```
 候选价位（共8个）：
   上方：$79,443 (旗形顶部)、$80,000 (整数关口)、$81,500 (前高)、$82,000 (心理压力)
   下方：$77,500 (关键支撑)、$74,980 (情景C目标)、$73,596 (深度支撑)、$72,000 (整数关口)
+
+**开仓相关价位（必须保留）：**
+  ✅ $76,688 (SL止损位) — 最高优先级
+  ✅ $77,858 (TP1止盈位) — 最高优先级
+  ✅ $78,500 (TP2止盈位) — 最高优先级
 
 筛选逻辑：
   ✅ $79,443 - 触发做多B（高优先级）
@@ -576,6 +660,7 @@ echo "[$NOW] ========== 山寨分析流程结束 ========== " >> logs/alt-${COIN
 | ☐ 候选阶段是否有发散思维？ | 主动评估交易量、波动率等维度 | 只盯着价格 |
 | ☐ 候选列表是否只有价格警报？ | 必须有非价格候选 | 思维固化 |
 | ☐ 触发条件是否有数据源支持？ | 参考 set-alert.md 可用 API | 无法获取数据 |
+| ☐ **若存在仓位，设定k线警报是否包含最近止损和止盈点？** | **必须包含 SL/TP1/TP2 价位** | **遗漏止盈止损警报** |
 
 ### 延迟确认核对（防假突破）
 

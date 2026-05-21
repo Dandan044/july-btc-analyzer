@@ -507,8 +507,8 @@ async function getLiquidationData(proxy, currentPrice = 80000) {
  * @param {string} proxy - 代理地址
  */
 async function getDailyDataCLI(proxy) {
-  const LIMIT_DISPLAY = 14;
-  const LIMIT_STATS = 50;  // 50根用于完整计算 RSI/MACD/BB，仅输出14根
+  const LIMIT_DISPLAY = 50;  // 输出50根日线（约2个月）
+  const LIMIT_STATS = 100;  // 100根用于完整计算 RSI/MACD/BB，输出50根
   
   // 1. 获取 K线数据 (OKX CLI --json 直接返回数组)
   const klinesData = await okxCLIJson(`market candles ${OKX_INST_ID_SWAP} --bar 1D --limit ${LIMIT_STATS}`, proxy);
@@ -587,8 +587,8 @@ async function getDailyDataCLI(proxy) {
   const allDataAsc = [...allDataDesc].reverse();
   const closes = allDataAsc.map(d => d.close);
 
-  // ═══ 技术指标计算（用全部50根K线）═══
-  // EMA 均线（输出14根，新→旧）
+  // ═══ 技术指标计算（用全部100根K线）═══
+  // EMA 均线（输出50根，新→旧）
   const ema7 = calcEMASequence(closes, 7, LIMIT_DISPLAY);
   const ema12 = calcEMASequence(closes, 12, LIMIT_DISPLAY);
   const ema20 = calcEMASequence(closes, 20, LIMIT_DISPLAY);
@@ -726,16 +726,16 @@ async function getDailyDataCLI(proxy) {
     }
   }
   
-  // 计算统计
-  const prices14d = displayData.map(d => d.close);
-  const maxPrice14d = Math.max(...prices14d);
-  const minPrice14d = Math.min(...prices14d);
-  const avgPrice14d = prices14d.reduce((a, b) => a + b, 0) / prices14d.length;
+  // 计算统计（基于实际输出数量 LIMIT_DISPLAY=50）
+  const pricesDisplay = displayData.map(d => d.close);
+  const maxPriceDisplay = Math.max(...pricesDisplay);
+  const minPriceDisplay = Math.min(...pricesDisplay);
+  const avgPriceDisplay = pricesDisplay.reduce((a, b) => a + b, 0) / pricesDisplay.length;
   
-  const volumes14d = displayData.slice(1).map(d => d.volume).filter(v => v);
-  const maxVolume14d = volumes14d.length > 0 ? Math.max(...volumes14d) : null;
-  const minVolume14d = volumes14d.length > 0 ? Math.min(...volumes14d) : null;
-  const avgVolume14d = volumes14d.length > 0 ? volumes14d.reduce((a, b) => a + b, 0) / volumes14d.length : null;
+  const volumesDisplay = displayData.slice(1).map(d => d.volume).filter(v => v);
+  const maxVolumeDisplay = volumesDisplay.length > 0 ? Math.max(...volumesDisplay) : null;
+  const minVolumeDisplay = volumesDisplay.length > 0 ? Math.min(...volumesDisplay) : null;
+  const avgVolumeDisplay = volumesDisplay.length > 0 ? volumesDisplay.reduce((a, b) => a + b, 0) / volumesDisplay.length : null;
   
   const prices30d = allDataAsc.slice(-30).map(d => d.close);
   const maxPrice30d = Math.max(...prices30d);
@@ -770,21 +770,21 @@ async function getDailyDataCLI(proxy) {
     } : null,
     liquidation: liquidationData,
     statistics: {
-      days14: {
+      days50: {
         price: {
-          max: fmtPrice(maxPrice14d, currentPrice),
-          min: fmtPrice(minPrice14d, currentPrice),
-          avg: fmtPrice(avgPrice14d, currentPrice),
-          rangePosition: parseFloat(((currentPrice - minPrice14d) / (maxPrice14d - minPrice14d) * 100).toFixed(1))
+          max: fmtPrice(maxPriceDisplay, currentPrice),
+          min: fmtPrice(minPriceDisplay, currentPrice),
+          avg: fmtPrice(avgPriceDisplay, currentPrice),
+          rangePosition: parseFloat(((currentPrice - minPriceDisplay) / (maxPriceDisplay - minPriceDisplay) * 100).toFixed(1))
         },
         volume: {
-          max: maxVolume14d ? parseFloat(maxVolume14d.toFixed(0)) : null,
-          maxFormatted: formatVol(maxVolume14d),
-          min: minVolume14d ? parseFloat(minVolume14d.toFixed(0)) : null,
-          minFormatted: formatVol(minVolume14d),
-          avg: avgVolume14d ? parseFloat(avgVolume14d.toFixed(0)) : null,
-          avgFormatted: formatVol(avgVolume14d),
-          volumeRatio: (volume24h && avgVolume14d) ? parseFloat((volume24h / avgVolume14d).toFixed(2)) : null
+          max: maxVolumeDisplay ? parseFloat(maxVolumeDisplay.toFixed(0)) : null,
+          maxFormatted: formatVol(maxVolumeDisplay),
+          min: minVolumeDisplay ? parseFloat(minVolumeDisplay.toFixed(0)) : null,
+          minFormatted: formatVol(minVolumeDisplay),
+          avg: avgVolumeDisplay ? parseFloat(avgVolumeDisplay.toFixed(0)) : null,
+          avgFormatted: formatVol(avgVolumeDisplay),
+          volumeRatio: (volume24h && avgVolumeDisplay) ? parseFloat((volume24h / avgVolumeDisplay).toFixed(2)) : null
         }
       },
       days30: {
@@ -1355,9 +1355,9 @@ function formatAnalysis(data) {
     out += '── 📈 价格统计 ──\n';
     out += `   当前价格: $${ph.current.toLocaleString()}\n\n`;
     
-    out += `   14日: $${stats.days14.price.min.toLocaleString()} - $${stats.days14.price.max.toLocaleString()}`;
-    out += ` | 均值: $${stats.days14.price.avg.toLocaleString()}`;
-    out += ` | 位置: ${stats.days14.price.rangePosition}%\n`;
+    out += `   50日: $${stats.days50.price.min.toLocaleString()} - $${stats.days50.price.max.toLocaleString()}`;
+    out += ` | 均值: $${stats.days50.price.avg.toLocaleString()}`;
+    out += ` | 位置: ${stats.days50.price.rangePosition}%\n`;
     
     out += `   30日: $${stats.days30.price.min.toLocaleString()} - $${stats.days30.price.max.toLocaleString()}`;
     out += ` | 均值: $${stats.days30.price.avg.toLocaleString()}`;
@@ -1366,13 +1366,13 @@ function formatAnalysis(data) {
     out += '\n── 📊 交易量统计 ──\n';
     if (ph.volume24h) {
       out += `   24h聚合: ${formatVolume(ph.volume24h)}`;
-      if (stats.days14.volume.avg) {
-        out += ` (14日均值的${stats.days14.volume.volumeRatio}x)`;
+      if (stats.days50.volume.avg) {
+        out += ` (50日均值的${stats.days50.volume.volumeRatio}x)`;
       }
       out += '\n';
     }
-    out += `   14日: ${formatVolume(stats.days14.volume.min)} - ${formatVolume(stats.days14.volume.max)}`;
-    out += ` | 均值: ${formatVolume(stats.days14.volume.avg)}\n`;
+    out += `   50日: ${formatVolume(stats.days50.volume.min)} - ${formatVolume(stats.days50.volume.max)}`;
+    out += ` | 均值: ${formatVolume(stats.days50.volume.avg)}\n`;
     out += `   30日: ${formatVolume(stats.days30.volume.min)} - ${formatVolume(stats.days30.volume.max)}`;
     out += ` | 均值: ${formatVolume(stats.days30.volume.avg)}\n`;
     
@@ -1438,9 +1438,9 @@ function formatAnalysis(data) {
     out += '      61.8%(黄金分割)是最关键的支撑/阻力位。\n';
   }
   
-  // 14日日线数据
+  // 日线数据
   if (data.priceHistory?.history) {
-    out += '\n── 📊 14日日线 ──\n';
+    out += `\n── 📊 日线 (${data.priceHistory.history.length}根) ──\n`;
     for (const h of data.priceHistory.history) {
       out += `   ${h.date}: O$${h.open.toLocaleString()} H$${h.high.toLocaleString()} L$${h.low.toLocaleString()} C$${h.close.toLocaleString()}`;
       if (h.openInterest !== undefined) {

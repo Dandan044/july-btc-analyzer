@@ -1,1628 +1,182 @@
 # 设定市场警报任务
 
-当你需要"设定市场警报"时，按以下流程执行：
-
-## 0. ⚠️ 先测试数据获取逻辑（必须）
-
-**在编写警报规则之前，必须先验证数据获取逻辑可用！**
-
-### 0.1 执行步骤
-
-1. 根据警报需求，确定需要调用的 API 方法（如 `getOKXTicker`、`getOKXKlines`、`get24hVolume` 等）
-2. **手动调用一次**，检查返回数据：
-   - 数据是否成功返回？
-   - 数据格式是否符合预期？
-   - 数值范围是否合理？（如成交额应该是几亿级别，不是几万）
-
-### 0.2 测试方式
-
-使用 node 命令直接测试：
-
-```bash
-node -e "
-const api = require('./skills/btc-market-lite/scripts/api');
-async function test() {
-  const ticker = await api.getOKXTicker('BTC');
-  console.log('价格:', ticker.price);
-  console.log('change1h:', ticker.change1h);
-  console.log('volume24h:', ticker.volume24h);
-}
-test().catch(console.error);
-"
-```
-
-### 0.3 数据合理性检查
-
-| 数据类型 | 合理范围示例 | 异常情况（需排查） |
-|---------|-------------|-------------------|
-| BTC 价格 | $60,000-$100,000 | 0.01 或 null |
-| 24h成交额 | $300M-$500M | $0.01M |
-| K线成交量 | 百万级 USDT | 几十 USDT |
-| change1h/change24h | ±0.1% ~ ±5% | null 或 60000% |
-
-### 0.4 发现问题时
-
-**数据异常时，必须先修复 `skills/btc-market-lite/scripts/api.js`，再继续创建警报。**
-
-常见问题：
-- API 字段映射错误（如 OKX 返回数组 index 5/6 混淆）
-- 数据单位错误（BTC vs USDT）
-- limit 参数超出 API 限制
-
-**不要在未验证数据的情况下直接创建规则文件！**
+> 引擎热加载：每 60 秒自动扫描 `rules/` 目录，新规则自动生效。**禁止重启引擎。**
 
 ---
 
-## 1. 理解警报需求
-
-分析用户或自身分析发现的监控需求，确定：
-- 监控目标（价格、交易量、指标等）
-- 触发条件（突破、跌破、涨幅、跌幅等）
-- 数据需求（K线周期、数量等）
-- 触发后动作（执行即时分析任务）
-
-## 2. 编写警报规则
-
-根据需求，在 `skills/btc-alert/rules/` 目录下创建规则文件。
-
-规则文件必须导出包含以下属性的对象：
-
-```javascript
-const api = require('../../btc-market-lite/scripts/api');
-const { spawn } = require('child_process');
-
-const COIN = 'BTC';  // BTC 填 'BTC'，山寨币填具体币种如 'ZEC'、'DASH'
-
-// 警报创建日期（用于生命周期管理）
-const CREATED_DATE = 'YYYY-MM-DD';
-const TARGET_PRICE = xxxxx;
-const COOLDOWN_MS = 60 * 60 * 1000; // 冷却时间：1小时
-
-module.exports = {
-  name: '规则名称',
-  interval: 3 * 60 * 1000, // 检查间隔：3分钟（默认设定的技能检测间隔为3分钟）
-
-  // 冷却状态（必须）
-  lastTriggered: 0,
-
-  async check() {
-    // 冷却检查（必须放在最前面）
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
-
-    // 检测条件，返回 true/false
-    // ⚠️ 注意：API 错误必须抛出，不能吞掉，否则引擎无法监控错误
-    try {
-      const ticker = await api.getTicker('BTC');
-      return ticker.price >= TARGET_PRICE; // 或 <= TARGET_PRICE
-    } catch (error) {
-      console.error('[警报检查错误]', error.message);
-      throw error; // 必须抛出，让引擎监控到错误
-    }
-  },
-
-  async collect() {
-    // 收集数据，返回要传递给触发器的数据
-    // ⚠️ 注意：API 错误必须抛出，不能吞掉，否则引擎无法监控错误
-    try {
-      const ticker = await api.getTicker('BTC');
-      const klines = await api.getKlines('BTC', '15m', 5);
-      const fgi = await api.getFearGreedIndex(7);
-
-      return {
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        // ... 其他数据
-      };
-    } catch (error) {
-      console.error('[数据收集错误]', error.message);
-      throw error; // 必须抛出，让引擎监控到错误
-    }
-  },
-
-  async trigger(data) {
-    // 使用 cron 创建隔离会话，每次警报触发独立分析
-    const now = new Date().toISOString();
-    const jobName = `alert-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
-      '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-
-    // 更新冷却时间（必须）
-    this.lastTriggered = Date.now();
-  },
-
-  lifetime() {
-    // ⭐ 触发后即归档（引擎自动移动文件到 rules-archive/，不会删除）
-    if (this.lastTriggered > 0) return 'completed';
-
-    // 保底：超过 3 天未触发也归档（过期）
-    // ⚠️ 必须使用 api.getLocalDate() 而非 new Date().toISOString()（后者返回UTC日期，UTC+8下会差一天）
-    const today = api.getLocalDate();
-    const created = new Date(CREATED_DATE);
-    const now = new Date(today);
-    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
-  }
-};
-
-// ⚠️ 如需「触发后保留」（持久监控），使用以下备选模式：
-// lifetime() {
-//   // 保底：超过 3 天归档
-//   const daysDiff = ...;
-//   return daysDiff <= 3 ? 'active' : 'expired';
-// }
-```
-
-## 3. 必须遵守的规则
-
-### 3.1 check() 日志输出规范（必须）
-
-**每次心跳检查时，`check()` 的 console.log 必须包含以下三部分信息：**
-
-#### ① API 数据来源说明
-
-明确表示使用什么 API 获取了什么数据：
-
-```
-格式：[API] <数据源>获取<数据描述>
-示例：[API] OKX获取BTC当前价格 | [API] CryptoCompare获取4根15分钟K线 | [API] OKX获取1H多空比数据
-```
-
-#### ② 触发进度可视化
-
-当前值、阈值、触发状态组成可视化触发进程：
-
-```
-格式：[进度] <规则名> | <当前值描述> | <阈值描述> | 触发: <true/false>
-
-示例：
-- 价格警报：[进度] 关键支撑跌破-77500 | 当前价: $78938 | 目标: $77500 | 触发: false
-- 多空比警报：[进度] 多空比恶化-0.65 | 当前比: 0.67 | 阈值: 0.65 | 触发: false
-- 延迟触发：[进度] 延迟确认突破 | 突破已持续: 15分钟 | 等待: 30分钟 | 触发: false
-- 定时器：[进度] 计划入场定时器 | 剩余时间: 2小时30分 | 触发时间: 14:00 | 触发: false
-```
-
-#### ③ 设立警报的来源依据
-
-记录该警报设立的原因，来源于哪份报告的什么观点：
-
-```
-格式：[来源] <报告类型+日期>: "<核心观点摘要>"
-示例：[来源] 04-22 21:00日报: "longShortRatio恶化至0.67，若继续恶化至0.65以下则空头挤压大概率爆发"
-```
-
-#### 完整示例
-
-```javascript
-async check() {
-  if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
-
-  try {
-    const ticker = await api.getTicker('BTC');
-    const currentPrice = ticker.price;
-    const triggered = currentPrice < TARGET_PRICE;
-
-    console.log(`[🔍警报检查] [API] CryptoCompare获取BTC实时价格 | [进度] ${this.name} | 当前价: $${currentPrice} | 目标: $${TARGET_PRICE} | 触发: ${triggered} | [来源] 04-22 21:51即时分析: "$77,500是关键支撑，跌破将破坏4H上升结构"`);
-    
-    return triggered;
-  } catch (error) {
-    console.error('[❌警报检查错误]', error.message);
-    throw error;
-  }
-}
-```
-
-**日志输出效果：**
-```
-[🔍警报检查] [API] CryptoCompare获取BTC实时价格 | [进度] 关键支撑跌破警报-77500 | 当前价: $78938 | 目标: $77500 | 触发: false | [来源] 04-22 21:51即时分析: "$77,500是关键支撑，跌破将破坏4H上升结构"
-```
-
-#### 延迟触发警报的特殊格式
-
-延迟触发警报需要额外显示等待进度：
-
-```javascript
-async check() {
-  // ... 检测逻辑
-  
-  if (ticker.price >= TARGET_PRICE) {
-    if (!this.breakthroughTime) {
-      this.breakthroughTime = Date.now();
-    }
-    
-    const elapsedMs = Date.now() - this.breakthroughTime;
-    const elapsedMins = Math.floor(elapsedMs / 60000);
-    const targetMins = DELAY_MS / 60000;
-    
-    console.log(`[🔍警报检查] [API] CryptoCompare获取BTC实时价格 | [进度] ${this.name} | 突破已持续: ${elapsedMins}分钟 | 等待确认: ${targetMins}分钟 | 当前价: $${ticker.price} | 目标: $${TARGET_PRICE} | 触发: ${elapsedMins >= targetMins} | [来源] 04-22 日报: "突破需确认，避免假突破"`);
-  }
-}
-```
-
-### 3.2 价格警报数量限制（必须）
-
-**⚠️ 已废弃「上方1个/下方1个」限制，改为多价位监控模式。**
-
-**新限制规则：**
-
-| 类型 | 最大数量 | 说明 |
-|------|---------|------|
-| **价格价位** | **≤6 个** | 单个规则文件可包含多个价位（上方/下方不限） |
-| 非价格警报 | ≤2 个 | 独立规则文件 |
-
-**多价位监控的优势：**
-
-1. 一次警报配置包含所有关键价位
-2. 不需要在工作流中筛选价位
-3. 单次触发可传递组合信息（多个价位同时被触发）
-4. 减少规则文件数量
-
-**新增警报时的处理逻辑**：
-
-1. 检查 `skills/btc-alert/rules/` 目录下是否已有价格类警报
-2. 若已有，评估是否需要更新价位列表：
-   - 读取现有规则的价位配置
-   - 对比新旧价位的有价值程度
-   - 若新分析提供了更有价值的价位，更新规则文件
-   - 若旧价位仍有意义但超出6个限制，保留最有价值的 ≤6 个
-3. 确保总价位不超过6个
-
-**例外**：非价格类警报（交易量、持仓量等）不受价位限制，但总数 ≤2 个。
-
-### 3.2 禁止使用恐惧贪婪指数作为警报触发条件（必须）
-
-❌ **FGI 不适合作为警报监控值**，原因：
-- **更新频率低**：一天才更新一次，无法捕捉日内变化
-- **警报器需要高频数据**：警报器检查间隔为分钟级，FGI 无法提供足够的敏感度
-- **用途定位**：FGI 应作为**日报分析时的情绪参考**，而非**警报触发条件**
-
-⚠️ 已存在的 FGI 警报必须删除。警报设计时禁止包含 FGI 相关的触发逻辑。
-
-### 3.2.1 ⚠️ 禁止使用 execSync / 同步 curl（必须）
-
-**警报规则中禁止使用 `execSync`、`execSync(curl)` 或任何同步阻塞的 HTTP 请求方式。**
-
-❌ **禁止**：
-```javascript
-const { execSync } = require('child_process');
-const result = execSync(`curl -s --proxy ... "${url}"`, { encoding: 'utf8' });
-```
-
-**原因**：警报引擎是 Node.js 单进程，`execSync` 会阻塞整个事件循环，导致所有其他规则的定时器被延迟。当规则数量增加时，阻塞会累积，导致警报触发不及时。
-
-✅ **正确做法**：
-1. **优先使用 `api` 模块**：所有常用数据获取方法已封装在 `api.js` 中，全部异步非阻塞
-2. **如果 api.js 没有你需要的方法**：
-   - 先用 `api.fetch(url)` 调用任意 API（异步，通过代理，不阻塞）
-   - 向 `skills/btc-market-lite/API_REQUESTS.md` 追加诉求条目（详见 §4 方式2）
-3. **绝对不要**在规则文件中直接 `execSync(curl)` 或 `require('child_process').execSync`
-4. **绝对不要**直接修改 `api.js`——通过诉求文档提需求
-
-**检查方法**：规则文件中不应出现 `execSync` 关键字。`spawn`（用于 trigger 异步派发）是允许的。
-
-### 3.3 连续数据获取规范（必须）
-
-**⚠️ 核心原则：使用K线区间数据，而非瞬时价格。**
-
-**问题背景：**
-
-警报器每隔 N 分钟检查一次。如果使用瞬时价格：
-- 价格可能在两次检查之间短暂突破后拉回
-- 警报器无法感知瞬时突破
-- 导致错过重要的触发信号
-
-**正确做法：获取K线片段，从区间高低价判断触发**
-
-```javascript
-// ❌ 错误：获取瞬时价格
-async check() {
-  const ticker = await api.getTicker('BTC');
-  return ticker.price >= TARGET_PRICE; // 单点比较，可能漏掉瞬时突破
-}
-
-// ✅ 正确：获取K线片段
-async check() {
-  // 获取覆盖检查间隔的K线（如3分钟间隔 → 获取3根1分钟K线）
-  const klines = await api.getKlines('BTC', '1m', 3);
-  
-  // 计算区间最高最低价
-  const periodHigh = Math.max(...klines.map(k => k.high));
-  const periodLow = Math.min(...klines.map(k => k.low));
-  
-  // 从区间判断是否曾到达目标位
-  return periodHigh >= TARGET_PRICE; // 或 periodLow <= TARGET_PRICE
-}
-```
-
-**数据获取规范：**
-
-| 数据类型 | 错误方式 | 正确方式 | API方法 |
-|---------|---------|---------|---------|
-| **价格** | `getTicker()` 单点 | `getKlines()` K线区间 | `getKlines('BTC', '1m', N)` |
-| **持仓量OI** | 单点数值 | OI历史数据 | OKX `/rubik/stat/contracts/open-interest-volume` |
-| **交易量** | 单点数值 | 多根K线累计 | K线volume字段累加 |
-| **多空比** | 单点数值 | 多时间点采样 | OKX `/rubik/stat/contracts/long-short-account-ratio` |
-| **Taker买卖比** | 单点数值 | 多时间点采样 | OKX `/rubik/stat/taker-volume` |
-
-**K线数量计算：**
-
-- 检查间隔 = N 分钟
-- 获取 N 根 1分钟K线（覆盖整个间隔）
-- 或获取 ceil(N/5) 根 5分钟K线
-
-**示例：**
-- interval = 3分钟 → 获取 3 根 1m K线
-- interval = 5分钟 → 获取 5 根 1m K线 或 1 根 5m K线
-- interval = 15分钟 → 获取 15 根 1m K线 或 3 根 5m K线
-
-### 3.4 创造性警报设计（必须）
-
-**不要局限于简单的"价格到达目标位就触发"！** 警报器支持多种灵活的触发方式：
-
-| 警报类型 | 适用场景 | 优势 |
-|---------|---------|------|
-| **延迟触发警报** | 突破后等待确认、避免假突破 | 观察突破后的走势稳定性，过滤假突破 |
-| **定时器警报** | 计划入场时间、等待事件发酵 | 不依赖市场数据，纯时间驱动 |
-| **交易量异动警报** | 大资金进出、市场活跃度变化 | 提前捕捉价格变动前的资金动向 |
-| **振幅/波动率警报** | 剧烈波动、变盘前夕 | 捕捉市场异常状态 |
-| **持仓量变化警报** | OI 增减、多空博弈 | 衍生品市场信号 |
-| **多空比变化警报** | 散户情绪反转 | 交易侧数据，比价格更敏感 |
-| **Taker买卖比警报** | 主动买/卖力量 | 实时交易意愿 |
-| **资金费率警报** | 多空付费压力 | 衍生品市场情绪 |
-| **组合条件警报** | 多维度同时满足 | 更精准的触发条件 |
-
-**每次设定警报时，必须主动问自己：**
-1. 除了价格，还有什么维度值得监控？
-2. 当前市场有什么异常现象可能被价格警报忽略？
-3. 是否需要延迟确认而非立即触发？
-
-**如果连续多次只设定价格警报，说明思维已固化，需要主动打破。**
-
-### 3.5 ⭐ 延迟确认要求（必须）
-
-**多价位价格警报必须包含延迟确认逻辑，禁止所有价位使用 instant 策略。**
-
-假突破是警报器最频繁的误触发来源：价格在 K 线影线中短暂触及价位 → 警报触发 → 即时分析生成 → 模型误判"已突破"。
-
-**强制要求：**
-- 止损位 (SL) → `instant`, 0 min（唯一允许 instant 的价位类型）
-- 止盈位 (TP) → `touch`, 3-5 min
-- 入场触发位 / 结构位 → `hold`, 10-20 min
-- 整数关口 / 远处观测位 → `deep_hold`, 20-30 min
-- 创建多价位规则时，优先使用 §13 延迟确认模板
-
-**检查方法：** 规则代码中 `PRICE_LEVELS` 数组每个元素必须有 `confirmPolicy` 和 `confirmMs` 字段。
-
-### 3.2 冷却机制（必须）
-
-每条规则都必须包含冷却机制，防止频繁触发：
-
-```javascript
-// 在模块顶部定义冷却时间
-const COOLDOWN_MS = 60 * 60 * 1000; // 建议 1 小时
-
-// 在导出对象中维护状态
-module.exports = {
-  lastTriggered: 0, // 上次触发时间
-
-  async check() {
-    // 冷却检查必须放在 check() 最前面
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
-    // ... 其他检测逻辑
-  },
-
-  async trigger(data) {
-    // 触发后必须更新冷却时间
-    this.lastTriggered = Date.now();
-  }
-};
-```
-
-### 3.2 异步触发（必须）
-
-trigger() 必须使用异步方式（spawn），不能使用 execSync：
-
-```javascript
-// ❌ 错误：同步方式会阻塞引擎
-const { execSync } = require('child_process');
-execSync('openclaw agent ...', { timeout: 30000 });
-
-// ✅ 正确：异步方式，创建隔离会话执行即时分析
-const { spawn } = require('child_process');
-const now = new Date().toISOString();
-spawn('openclaw', [
-  'cron', 'add',
-  '--agent', 'july',
-  '--session', 'isolated',
-  '--at', now,
-  '--message', message,
-  '--name', `alert-${Date.now()}`,
-  '--delete-after-run',
-  '--no-deliver'
-], {
-  detached: true,
-  stdio: 'ignore'
-});
-```
-
-**原因**：即时分析任务执行时间较长，使用同步方式会导致：
-- 引擎被阻塞，无法检查其他规则
-- 超时错误导致触发失败
-
-### 3.3 生命周期管理（⭐ 默认：触发即归档）
-
-**默认模式**：触发后返回 `'completed'`，引擎自动将规则文件移动到 `rules-archive/`（归档，不删除）。
-
-```javascript
-lifetime() {
-  // ⭐ 触发后即归档
-  if (this.lastTriggered > 0) return 'completed';
-  // 保底：超过 N 天未触发也归档
-  const daysDiff = ...;
-  return daysDiff <= N ? 'active' : 'expired';
-}
-```
-
-**备选模式**（少数场景）：触发后保留，靠冷却节制重复触发。
-
-```javascript
-lifetime() {
-  // 持久监控：存活 N 天，触发多少次都行
-  const daysDiff = ...;
-  return daysDiff <= N ? 'active' : 'expired';
-}
-```
-
-| 模式 | `lifetime()` | 触发后 | 适用场景 |
-|------|-------------|--------|---------|
-| **默认** | `'completed'` | 归档到 `rules-archive/` | 绝大多数警报 |
-| 备选 | `'expired'`（N天后） | 冷却后继续监控 | 需要多次触发的场景 |
-
-⚠️ `'completed'` 和 `'expired'` 都走归档流程（`fs.renameSync → rules-archive/`），**不会删除文件**。
-
-## 3.6 ⭐ 必须使用 SWAP 合约数据（重要！）
-
-**⚠️ 所有 `getOKXKlines()` 和 `getOKXTicker()` 调用必须传入 `'SWAP'` 参数！**
-
-原因：
-- 我们只对合约市场做分析，不使用现货数据
-- 部分山寨币现货（如 JTO-USDT）的 1m K线在 OKX `history-candles` 端点上间歇性不可用
-- SWAP 合约（如 JTO-USDT-SWAP）流动性更好，数据更稳定
-
-**错误写法（会导致间歇性 API 错误）：**
-```javascript
-const klines = await api.getOKXKlines('JTO', '1m', 3);  // ❌ 默认 SPOT
-```
-
-**正确写法：**
-```javascript
-const klines = await api.getOKXKlines('JTO', '1m', 3, 'SWAP');   // ✅ SWAP 合约
-const ticker = await api.getOKXTicker('JTO', 'SWAP');              // ✅ SWAP
-```
-
-**例外：**
-- BTC 可以使用默认参数（BTC-USDT 现货市场流动性足够）
-- CryptoCompare 的 `getKlines()` 和 `getTicker()` 不区分 SPOT/SWAP，无需修改
+## 🛡️ 合规速查（创建规则前扫一眼）
+
+以下约束已全部融入模板代码。若你只修改模板中的价位/阈值，无需逐条核对——模板本身就是合规的。
+
+| # | 约束 | 模板中如何满足 |
+|---|------|---------------|
+| C1 | catch 块必须 `throw`，禁止 `return false` | 模板中所有 catch 块最后一行为 `throw error` |
+| C2 | 必须用 K 线区间数据，禁止瞬时价格 | `check()` 调 `getOKXKlines('1m', 3, 'SWAP')` 取 3 根 1m K 线 |
+| C3 | 必须传 `'SWAP'`，禁止默认 SPOT | 所有 API 调用显式传 `instType='SWAP'` |
+| C4 | 禁止 `execSync` / 同步 curl | `trigger()` 用 `spawn`，数据获取用 `api` 模块 |
+| C5 | 禁止 FGI 触发 | 模板不含 FGI 调用 |
+| C6 | API 参数只能传 string/number | 模板中所有参数均为基本类型 |
+| C7 | 数据非空检查后再访问子属性 | 模板对 API 返回值做 `if (!data) return false` |
+| C8 | `trigger()` 必须异步 spawn | 模板使用 `spawn('openclaw', ['cron', 'add', ...])` |
+| C9 | 每个价位必须有 `confirmPolicy` + `confirmMs` | 模板 `PRICE_LEVELS` 每项均含两个字段 |
+| C10 | SL 用 `instant`，入场用 `hold`，TP 用 `touch` | 模板注释标注每种价位的推荐策略 |
+| C11 | 价格价位 ≤6 个 | 模板示例含 6 个价位，修改时勿超 |
+| C12 | 冷却 ≥ 1 小时 | 模板 `COOLDOWN_MS = 60 * 60 * 1000` |
+| C13 | `check()` 日志含 API 来源 + 进度 + 设立来源 | 模板 `console.log` 三部分完整 |
+| C14 | `lifetime()` 返回 `'active'` | 模板末尾固定写法 |
+| C15 | 山寨 `trigger()` 指向 alt-instant-stage1 | 模板代码注释标注 `[山寨]` 需改的路径 |
+| C16 | 山寨 `collect()` 返回 `coin` 字段 | 模板 `collect()` 已含 `coin` 字段 |
+| C17 | 山寨文件命名 `{COIN}-描述.js` | 模板注释说明 |
+| C18 | Rubik `period` 仅 `5m/1H/1D` | API 参考表中标注 |
+| C19 | `module.exports` 必须含完整元数据（10 字段：ruleType/coin/cycleId/status/createdAt/createdBy/sourceReport/archivedAt/archivedBy/archiveReason） | 模板 `name:` 下已含完整元数据块 |
 
 ---
 
-## 4. 可用的 API
+## 1. 多价位延迟确认
 
-引入市场数据 API：
-```javascript
-const api = require('../../btc-market-lite/scripts/api');
-```
+### 1.1 确认策略速查
 
-**已封装的方法**（定义在 `skills/btc-market-lite/scripts/api.js`）：
+创建 `PRICE_LEVELS` 时，为每个价位选择策略：
 
-| 方法 | 说明 | 数据源 |
-|------|------|--------|
-| `getKlines(symbol, interval, limit)` | 获取K线数据（支持 1m, 5m, 15m, 1h, 4h, 1d） | OKX |
-| `getTicker(symbol)` | 获取实时价格 + 涨跌幅 | OKX |
-| `get24hVolume(symbol)` | 获取24小时交易量（小时级） | OKX |
-| `getPriceHistory(symbol, days)` | 获取历史价格（日线） | OKX |
-| `getOKXKlines(symbol, interval, limit, instType)` | 获取OKX K线（支持 1m, 5m, 15m, 1h, 2h, 4h, 1d 等，**小写自动映射大写**） | OKX |
-| `getOKXTicker(symbol, instType)` | 获取OKX实时价格（instType: 'SPOT'/'SWAP'） | OKX |
-| `getOKXOpenInterest(symbol)` | 获取OKX持仓量数据（**支持山寨币**） | OKX |
-| `getOKXTakerRatio(symbol)` | 获取OKX Taker买卖比（**支持山寨币**） | OKX |
-| `getOKXLongShortRatio(symbol)` | 获取OKX多空比（**支持山寨币**） | OKX |
-| `getOKXTopTraderRatio(symbol)` | 获取OKX顶级交易者多空比（**支持山寨币**） | OKX |
-| `getOKXFundingRate(symbol)` | 获取OKX资金费率（**支持山寨币**） | OKX |
-| `getOKXLiquidation()` | 获取BTC合约清算数据 | OKX |
-| `getGlobalVolume(symbol)` | 获取跨交易所全球24h交易量 | CryptoCompare |
-| `getFearGreedIndex(days)` | 获取恐惧贪婪指数 | alternative.me |
-| `fetch(url, timeout)` | **通用异步 HTTP 请求工具**（通过代理，不阻塞事件循环） | 任意 API |
+| 价位类型 | `confirmPolicy` | `confirmMs` | 原因 |
+|---------|----------------|-------------|------|
+| 止损位 (SL) | `'instant'` | `0` | 最后防线，不能延迟 |
+| 止盈位 (TP) | `'touch'` | `3-5 min` | 短暂确认即可 |
+| 入场触发位 | `'hold'` | `15-20 min` | 假突破高发区，必须站稳 |
+| 关键支撑/阻力 | `'hold'` | `10-20 min` | 确认后才有操作意义 |
+| 整数关口 | `'deep_hold'` | `20-30 min` | 易假突破，操作性弱 |
+| 远处观测位 | `'deep_hold'` | `20-30 min` | 不急，长确认后分析 |
 
-### ⚠️ OKX API 参数规范（必读）
-
-**`getOKXKlines()` 的 interval 参数已支持小写自动映射**（`'1h'`→`'1H'`），无需手动转大写。
-
-**但直接调用 OKX REST API 时，必须严格遵守参数格式：**
-
-| API | 参数 | 允许的值 | ⚠️ 常见错误 |
-|-----|------|---------|------------|
-| K线 `bar` | `1m, 3m, 5m, 15m, 30m, 1H, 2H, 4H, 6H, 12H, 1D, 1W` | 分钟级小写m，小时级大写H，日/周大写D/W | ❌ `1h` `4h` → Parameter bar error |
-| Rubik stat `period` | **仅 `5m, 1H, 1D`** | 只支持3个值 | ❌ `4H` `15m` `1h` → 参数错误 |
-| Rubik stat `ccy` | 币种如 `BTC`, `ETH` | 大写 | ❌ `btc` → 无数据 |
-
-**重点：OKX Rubik 统计 API（taker-volume、long-short-account-ratio、open-interest-volume）的 `period` 参数只支持 `5m`、`1H`、`1D` 三个值，没有 `15m`、`4H` 等选项！** 如需更细粒度，取 `5m` 后在代码中聚合。
-
----
-
-### ⚠️ API 扩展机制
-
-**这些方法不是全部！** 只是已封装的常用方法。你有两种方式扩展：
-
-#### 方式 1：使用 `api.fetch()` 调用任意 API
-
-`fetch` 方法已导出，可以直接调用任意 HTTP API：
-
-```javascript
-const api = require('../../btc-market-lite/scripts/api');
-
-async check() {
-  // 示例：获取交易所净流入流出数据
-  const data = await api.fetch('https://api.example.com/btc/flow');
-  return data.netflow > 10000;
-}
-```
-
-#### 方式 2：提交 API 诉求（api.js 不允许直接修改）
-
-⚠️ **禁止直接修改 `skills/btc-market-lite/scripts/api.js`！** 该脚本是共享基础设施，每天可能被数十个规则引用，无审查的修改极易引入 bug。
-
-如果 `api.fetch()` 无法满足需求（例如需要复杂的参数处理、数据转换、或某个 API 需要反复使用），按以下流程处理：
-
-1. **在诉求文档中记录**：向 `skills/btc-market-lite/API_REQUESTS.md` 追加一条诉求
-2. **继续当前流程**：在规则中用 `api.fetch()` 临时绕过，完成规则创建
-3. **定期收集**：我们会定期审查诉求文档，将有价值的封装入 api.js
-
-**诉求文档格式**：
-
-```markdown
-## API 诉求列表
-
-### [YYYY-MM-DD] 诉求标题
-- **需求**：需要什么数据/功能
-- **API endpoint**：具体的 URL 和参数
-- **返回格式**：关键字段说明
-- **使用场景**：哪些规则需要用到
-- **状态**：待处理 / 已封装
-```
-
-**示例**：
-
-```markdown
-### [2026-05-09] OKX 清算热力图数据
-- **需求**：获取指定币种的清算订单分布（按价格区间聚合）
-- **API endpoint**：`GET /api/v5/public/liquidation-orders?instFamily={coin}-USDT&instType=SWAP`
-- **返回格式**：`{ details: [{ sz, posSide, ts, bkPrice }] }`
-- **使用场景**：BTC 清算热力图警报、山寨币清算压力监控
-- **状态**：待处理
-```
-
-**在规则创建流程中的检查点**：
-
-当你发现需要的数据获取逻辑在 api.js 中不存在时，必须：
-1. 在 `check()` / `collect()` 的日志中输出 `[📋API诉求]` 标记
-2. 向 `API_REQUESTS.md` 追加诉求条目
-3. 在规则中用 `api.fetch()` 临时实现
-4. 继续完成规则创建
-
-```javascript
-// 临时绕过示例
-async check() {
-  // 用 api.fetch() 临时获取数据
-  const data = await api.fetch('https://www.okx.com/api/v5/public/liquidation-orders?instFamily=BTC-USDT&instType=SWAP');
-  // ... 处理逻辑
-  console.log('[📋API诉求] 需要封装 getOKXLiquidationMap(symbol) → 已记录到 API_REQUESTS.md');
-  return data.netflow > 10000;
-}
-```
-
-#### 可扩展的数据源（举例）
-
-| 数据类型 | 可用 API | 用途 |
-|---------|---------|------|
-| 链上数据 | Blockchain.info, Glassnode | 交易所流入流出、活跃地址 |
-| 衍生品数据 | Coinglass API | 期货持仓、资金费率、清算数据 |
-| 交易所数据 | OKX API | 订单簿深度、大单监控（国内需代理） |
-| 市场情绪 | LunarCrush, Santiment | 社交媒体情绪、趋势 |
-| 宏观经济 | FRED API | 利率、通胀数据 |
-
-**注意**：使用新 API 前，请确认：
-1. API 是否需要认证（API Key）
-2. 是否有请求频率限制
-3. 返回数据格式是否稳定
-
-## 5. 创建规则文件
-
-使用 write 工具创建规则文件：
-```
-/root/.openclaw/workspace-july/skills/btc-alert/rules/<YYYY-MM-DD>-<类型>-<价格>.js
-```
-
-命名示例：
-- `2026-03-05-resistance-75000.js` - 压力位突破
-- `2026-03-05-support-71000.js` - 支撑位跌破
-
-## 6. 日志记录
-
-创建完成后，必须记录到日志文件 `logs/alert-setup.log`：
-
-格式：
-```
-[YYYY-MM-DD HH:mm:ss] 警报设定完成
-  规则名称: xxx
-  文件路径: skills/btc-alert/rules/xxx.js
-  检查间隔: xx 分钟
-  冷却时间: xx 分钟
-  触发条件: xxx
-  有效期: xxx
-```
-
-## 7. 确认输出
-
-创建完成后：
-1. 输出规则文件路径
-2. 说明规则将在什么条件下触发
-3. 提醒用户重启警报器引擎（如果引擎正在运行）
-
----
-
-## 完整示例
+### 1.2 完整模板
 
 ```javascript
 /**
- * 压力位突破警报
- * 监控 BTC 价格突破目标位
- */
-
-const api = require('../../btc-market-lite/scripts/api');
-const { spawn } = require('child_process');
-
-const CREATED_DATE = '2026-03-05';
-const TARGET_PRICE = 75000;
-const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
-
-module.exports = {
-  name: '压力位突破警报-75000',
-  interval: 3 * 60 * 1000, // 默认设定的技能检测间隔为3分钟
-  lastTriggered: 0,
-
-  async check() {
-    // 冷却检查
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
-
-    try {
-      const ticker = await api.getTicker('BTC');
-      console.log(`[警报检查] 当前价格: ${ticker.price}, 目标: ${TARGET_PRICE}`);
-      return ticker.price >= TARGET_PRICE;
-    } catch (error) {
-      console.error('[警报检查错误]', error.message);
-      throw error; // 必须抛出，让引擎监控到错误
-    }
-  },
-
-  async collect() {
-    try {
-      const ticker = await api.getTicker('BTC');
-      const klines = await api.getKlines('BTC', '15m', 5);
-      const fgi = await api.getFearGreedIndex(7);
-
-      return {
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        priceChange: {
-          '1h': ticker.change1h,
-          '24h': ticker.change24h,
-          '7d': ticker.change7d
-        },
-        volume24h: ticker.volume24h,
-        fearGreedIndex: fgi.current,
-        klines15m: klines.map(k => ({
-          time: k.datetime,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close,
-          volume: k.volume
-        })),
-        triggerPrice: TARGET_PRICE,
-        alertType: '压力位突破'
-      };
-    } catch (error) {
-      console.error('[数据收集错误]', error.message);
-      throw error; // 必须抛出，让引擎监控到错误
-    }
-  },
-
-  async trigger(data) {
-    // 使用 cron 创建隔离会话，每次警报触发独立分析
-    const now = new Date().toISOString();
-    const jobName = `alert-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
-      '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-
-    console.log(`[警报触发] 已创建即时分析任务: ${jobName}`);
-
-    // 更新冷却时间
-    this.lastTriggered = Date.now();
-  },
-
-  lifetime() {
-    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
-    if (this.lastTriggered > 0) return 'completed';
-    const today = api.getLocalDate();
-    const created = new Date(CREATED_DATE);
-    const now = new Date(today);
-    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
-  }
-};
-```
-
-⚠️ 所有新规则默认触发即归档。如需持久监控（触发后保留），参考 §3.3 备选模式。
-
----
-
-## 8. 非价格类警报示例
-
-除了支撑/阻力位的价格警报，系统支持监控多种市场维度。以下是一个**交易量异动警报**的完整示例：
-
-```javascript
-/**
- * 交易量异动警报
- * 监控 BTC 小时交易量异常放大（超过30日均值2倍）
- */
-
-const api = require('../../btc-market-lite/scripts/api');
-const { spawn } = require('child_process');
-
-const CREATED_DATE = '2026-03-25';
-const VOLUME_MULTIPLIER = 2; // 触发阈值：均值倍数
-const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
-
-module.exports = {
-  name: '交易量异动警报',
-  interval: 5 * 60 * 1000, // 5分钟检查一次
-  lastTriggered: 0,
-
-  async check() {
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
-    
-    try {
-      // 获取24小时交易量（小时级数据）
-      const volumeData = await api.get24hVolume('BTC');
-      
-      // 获取30日历史交易量
-      const priceHistory = await api.getPriceHistory('BTC', 30);
-      const avgVolume = priceHistory.volumes.reduce((a, b) => a + b, 0) / priceHistory.volumes.length;
-      
-      const currentVolume = volumeData.volume24h;
-      const ratio = currentVolume / avgVolume;
-      
-      console.log(`[警报检查] 当前交易量: $${(currentVolume/1e9).toFixed(2)}B, 均值: $${(avgVolume/1e9).toFixed(2)}B, 比率: ${ratio.toFixed(2)}x`);
-      
-      return ratio >= VOLUME_MULTIPLIER;
-    } catch (error) {
-      console.error('[警报检查错误]', error.message);
-      throw error; // 必须抛出，让引擎监控到错误
-    }
-  },
-
-  async collect() {
-    try {
-      const ticker = await api.getTicker('BTC');
-      const volumeData = await api.get24hVolume('BTC');
-      const priceHistory = await api.getPriceHistory('BTC', 30);
-      const avgVolume = priceHistory.volumes.reduce((a, b) => a + b, 0) / priceHistory.volumes.length;
-      const klines = await api.getKlines('BTC', '1h', 6);
-
-      return {
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        currentVolume: volumeData.volume24h,
-        averageVolume: avgVolume,
-        volumeRatio: (volumeData.volume24h / avgVolume).toFixed(2),
-        hourlyVolume: volumeData.hourlyData,
-        klines1h: klines.map(k => ({
-          time: k.datetime,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close,
-          volume: k.volume
-        })),
-        alertType: '交易量异动',
-        significance: '大资金可能正在进场或离场，需关注价格突破方向'
-      };
-    } catch (error) {
-      console.error('[数据收集错误]', error.message);
-      throw error; // 必须抛出，让引擎监控到错误
-    }
-  },
-
-  async trigger(data) {
-    const spawnMessage = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-    const now = new Date().toISOString();
-    const jobName = `alert-volume-${Date.now()}`;
-
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', spawnMessage,
-      '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-
-    console.log(`[警报触发] 已创建即时分析任务: ${jobName}`);
-    this.lastTriggered = Date.now();
-  },
-
-  lifetime() {
-    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
-    if (this.lastTriggered > 0) return 'completed';
-    const today = api.getLocalDate();
-    const created = new Date(CREATED_DATE);
-    const now = new Date(today);
-    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
-  }
-};
-```
-
----
-
-## 9. ⭐ 定时器警报示例（纯时间触发）
-
-**定时器警报不依赖市场数据，只依赖时间判断。** 适用场景：
-- 计划入场时间提醒（如"N小时后检查入场条件"）
-- 定时检查市场状态
-- 等待某事件发生后的定时观察
-
-```javascript
-/**
- * 定时器警报（延迟触发）
- * 不依赖市场数据，纯时间触发
- * 适用场景：计划入场时间提醒
- */
-
-const { spawn } = require('child_process');
-const api = require('../../btc-market-lite/scripts/api');
-
-const CREATED_DATE = '2026-03-31';
-const CREATED_TIME = Date.now();          // 规则创建时间
-const TRIGGER_DELAY_MS = 4 * 60 * 60 * 1000; // 4小时后触发
-
-module.exports = {
-  name: '计划入场定时器-4小时',
-  interval: 30 * 60 * 1000, // 30分钟检查一次（定时器不需要高频检查）
-  lastTriggered: 0,
-
-  async check() {
-    // 简单判断：当前时间是否超过计划触发时间
-    const now = Date.now();
-    const triggerTime = CREATED_TIME + TRIGGER_DELAY_MS;
-    
-    if (now >= triggerTime) {
-      console.log(`[定时器检查] 已到达触发时间: ${new Date(triggerTime).toISOString()}`);
-      return true;
-    }
-    
-    const remainingMs = triggerTime - now;
-    const remainingHours = Math.floor(remainingMs / (60 * 60 * 1000));
-    const remainingMins = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
-    console.log(`[定时器检查] 距触发时间还有 ${remainingHours}小时${remainingMins}分钟`);
-    
-    return false;
-  },
-
-  async collect() {
-    // 定时器触发时，收集当前市场快照供即时分析使用
-    try {
-      const ticker = await api.getTicker('BTC');
-      const klines = await api.getKlines('BTC', '1h', 4);
-      
-      return {
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        priceChange: {
-          '1h': ticker.change1h,
-          '24h': ticker.change24h
-        },
-        klines1h: klines.map(k => ({
-          time: k.datetime,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close
-        })),
-        alertType: '计划入场提醒',
-        message: '设定的入场观察时间已到，请检查是否满足入场条件'
-      };
-    } catch (error) {
-      console.error('[数据收集错误]', error.message);
-      throw error;
-    }
-  },
-
-  async trigger(data) {
-    const now = new Date().toISOString();
-    const jobName = `timer-alert-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
-      '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-
-    console.log(`[定时器触发] 已创建即时分析任务: ${jobName}`);
-    this.lastTriggered = Date.now();
-  },
-
-  lifetime() {
-    // 定时器是一次性的，触发后即归档（引擎自动移动到 rules-archive/）
-    const now = Date.now();
-    if (now >= CREATED_TIME + TRIGGER_DELAY_MS) {
-      return 'completed';
-    }
-    return 'active';
-  }
-};
-```
-
-**⚠️ 定时器警报命名建议：**
-
-使用格式：`YYYY-MM-DD-timer-Nh.js`（N表示延迟小时数）
-
-例如：`2026-03-31-timer-4h.js`
-
----
-
-## 10. ⭐ 延迟触发警报示例（价格条件 + 延迟确认）
-
-**延迟触发警报在价格条件满足后，等待一段时间再触发即时分析。** 适用场景：
-- 突破后等待确认（避免假突破）
-- 跌破后等待反弹确认
-- 价格触及关键位后观察走势
-
-```javascript
-/**
- * 延迟触发警报
- * 价格条件满足后，延迟一段时间再触发即时分析
- * 用于观察突破是否有效，避免假突破
- */
-
-const api = require('../../btc-market-lite/scripts/api');
-const { spawn } = require('child_process');
-
-const CREATED_DATE = '2026-03-31';
-const TARGET_PRICE = 75000;
-const DELAY_MS = 30 * 60 * 1000; // 突破后等待30分钟
-const COOLDOWN_MS = 60 * 60 * 1000;
-
-module.exports = {
-  name: '压力位突破-延迟确认-75000',
-  interval: 3 * 60 * 1000,
-  lastTriggered: 0,
-  
-  // ⭐ 延迟状态管理
-  breakthroughTime: null,  // 记录突破发生时间
-
-  async check() {
-    // 冷却检查
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
-
-    try {
-      const ticker = await api.getTicker('BTC');
-
-      if (ticker.price >= TARGET_PRICE) {
-        // 突破发生
-        if (!this.breakthroughTime) {
-          this.breakthroughTime = Date.now();
-          console.log(`[突破检测] 价格已突破 ${TARGET_PRICE}，开始计时...`);
-        }
-        
-        // 检查是否已延迟足够时间
-        if (Date.now() - this.breakthroughTime >= DELAY_MS) {
-          console.log(`[延迟确认] 突破已稳定 ${DELAY_MS / 60000} 分钟，触发警报`);
-          return true; // 延迟确认完成，触发警报
-        }
-        
-        const elapsedMs = Date.now() - this.breakthroughTime;
-        const elapsedMins = Math.floor(elapsedMs / 60000);
-        console.log(`[等待确认] 突破已持续 ${elapsedMins} 分钟，等待 ${DELAY_MS / 60000} 分钟`);
-      } else {
-        // 价格回落，重置计时
-        if (this.breakthroughTime) {
-          console.log(`[突破失效] 价格回落至 ${ticker.price}，重置计时`);
-          this.breakthroughTime = null;
-        }
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('[警报检查错误]', error.message);
-      throw error;
-    }
-  },
-
-  async collect() {
-    try {
-      const ticker = await api.getTicker('BTC');
-      const klines = await api.getKlines('BTC', '15m', 10); // 获取延迟期间的K线
-      
-      return {
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        triggerPrice: TARGET_PRICE,
-        breakthroughTime: this.breakthroughTime ? new Date(this.breakthroughTime).toISOString() : null,
-        delayMinutes: DELAY_MS / 60000,
-        klines15m: klines.map(k => ({
-          time: k.datetime,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close,
-          volume: k.volume
-        })),
-        alertType: '延迟确认警报',
-        message: `价格突破 ${TARGET_PRICE} 后已稳定 ${DELAY_MS / 60000} 分钟，确认有效突破`
-      };
-    } catch (error) {
-      console.error('[数据收集错误]', error.message);
-      throw error;
-    }
-  },
-
-  async trigger(data) {
-    const now = new Date().toISOString();
-    const jobName = `delayed-alert-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
-      '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-
-    console.log(`[警报触发] 已创建即时分析任务: ${jobName}`);
-    this.lastTriggered = Date.now();
-    this.breakthroughTime = null; // 重置突破时间
-  },
-
-  lifetime() {
-    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
-    if (this.lastTriggered > 0) return 'completed';
-    const today = api.getLocalDate();
-    const created = new Date(CREATED_DATE);
-    const now = new Date(today);
-    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
-  }
-};
-```
-
-**⚠️ 延迟触发警报命名建议：**
-
-使用格式：`YYYY-MM-DD-delayed-<类型>-<价格>.js`
-
-例如：`2026-03-31-delayed-resistance-75000.js`
-
----
-
-## 11. ⚠️ 发散思维：警报类型的可能性
-
-**不要局限于价格警报！** 系统框架支持任意维度的监控，只要 `check()` 返回布尔值即可。
-
-**可实现的警报类型（举例，非穷尽）**：
-
-| 警报类型 | 实现思路 | 适用场景 |
-|---------|---------|---------|
-| **价格警报** | 价格 >= 或 <= 目标位 | 支撑/阻力位监控 |
-| **定时器警报** | 纯时间判断，无数据依赖 | 计划入场时间提醒、定时检查 |
-| **延迟触发警报** | 条件满足后等待N分钟 | 确认突破有效性、避免假突破 |
-| **交易量异动** | 小时交易量 > N日均值 × M | 大资金进出 |
-| **振幅警报** | 1小时 high-low > 阈值% | 剧烈波动 |
-| **波动率收窄** | 连续N小时振幅递减 | 变盘前夕 |
-| **快速涨跌** | N分钟内涨跌幅 > 阈值% | 突发行情 |
-| **连阳/连阴** | 连续N根同向K线 | 趋势加速 |
-| **交易量萎缩** | 交易量 < 均值 × 0.5 | 市场冷清 |
-| **持仓量变化** | OI 24h内增减 > 阈值% | 多空博弈 |
-| **多空比反转** | 多空比从 <1 反转为 >1.2 | 散户情绪反转 |
-| **Taker买卖比** | Taker比偏离常态 | 主动交易意愿 |
-| **资金费率异常** | 费率 > 0.01% 或 < -0.01% | 多空付费压力 |
-| **突破失败确认** | 突破后N小时内跌回 | 假突破 |
-| **...** | **自由发挥** | **不限** |
-
-**警示**：每次设定警报时，主动问自己：
-
-1. 当前市场有什么异常？
-2. 有哪些维度的变化值得提前预警？
-3. 是否只盯着价格而忽略了其他信号？
-
-**如果连续多次只设定价格警报，说明思维已固化，需要主动打破。**
-
----
-
-## 12. ⭐ 多价位监控规则模板（推荐）
-
-**单规则监控多个价位，一次触发传递组合信息。**
-
-**核心特性：**
-- 单个规则文件可包含 ≤6 个价位
-- 使用K线区间数据判断触发（而非瞬时价格）
-- 单次触发传递所有被触发的价位信息（组合触发）
-- 避免多次触发导致的冗余即时分析
-
-**完整模板：**
-
-```javascript
-/**
- * 多价位监控警报
- * 监控多个关键价位，使用K线区间数据捕捉瞬时突破
- * 单次触发传递组合信息
- */
-
-const api = require('../../btc-market-lite/scripts/api');
-const { spawn } = require('child_process');
-
-const CREATED_DATE = '2026-04-23';
-const COOLDOWN_MS = 60 * 60 * 1000; // 1小时冷却
-
-// ⭐ 多价位配置（最多6个）
-// 每个价位包含：价格、类型（resistance/support）、标签、触发动作、优先级
-const PRICE_LEVELS = [
-  { price: 79443, type: 'resistance', label: '旗形顶部', action: '做多B', priority: 'high' },
-  { price: 80000, type: 'resistance', label: '整数关口', action: null, priority: 'low' },
-  { price: 81500, type: 'resistance', label: '前高压力', action: '趋势反转', priority: 'medium' },
-  { price: 77500, type: 'support', label: '关键支撑', action: '情景C', priority: 'high' },
-  { price: 74980, type: 'support', label: '情景C目标', action: '止盈', priority: 'medium' },
-  { price: 73596, type: 'support', label: '深度支撑', action: null, priority: 'medium' }
-];
-
-module.exports = {
-  name: '多价位监控警报',
-  interval: 3 * 60 * 1000,
-  lastTriggered: 0,
-  
-  // ⭐ 当前触发的价位组合（供 collect() 使用）
-  currentTriggeredLevels: [],
-  
-  // 触发历史记录（可选，用于调试）
-  triggeredHistory: [],
-
-  async check() {
-    // 冷却检查
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
-
-    try {
-      // ⭐ 获取K线片段（而非瞬时价格）
-      // 获取覆盖检查间隔的K线数量：interval=3分钟 → 3根1分钟K线
-      const klines = await api.getKlines('BTC', '1m', 3);
-      
-      // 计算区间高低价
-      const periodHigh = Math.max(...klines.map(k => k.high));
-      const periodLow = Math.min(...klines.map(k => k.low));
-      const latestPrice = klines[klines.length - 1].close;
-
-      // ⭐ 批量检查所有价位
-      const triggeredLevels = [];
-      
-      for (const level of PRICE_LEVELS) {
-        const wasTriggered = 
-          (level.type === 'resistance' && periodHigh >= level.price) ||
-          (level.type === 'support' && periodLow <= level.price);
-        
-        if (wasTriggered) {
-          triggeredLevels.push(level);
-        }
-      }
-
-      // ⭐ 组合触发：如果有任何价位被触发，返回true
-      if (triggeredLevels.length > 0) {
-        // 存储触发的价位组合，供 collect() 使用
-        this.currentTriggeredLevels = triggeredLevels;
-        
-        // 记录日志（组合信息）
-        const levelStr = triggeredLevels.map(l => `$${l.price}(${l.label})`).join(', ');
-        console.log(`[🔍警报检查] [API] CryptoCompare获取BTC 3分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 触发价位: ${levelStr} | 触发: true`);
-        
-        return true;
-      }
-
-      // 未触发日志
-      console.log(`[🔍警报检查] [API] CryptoCompare获取BTC 3分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 触发: false`);
-      
-      return false;
-    } catch (error) {
-      console.error('[❌警报检查错误]', error.message);
-      throw error;
-    }
-  },
-
-  async collect() {
-    try {
-      // ⭐ 传递组合触发信息
-      const triggeredLevels = this.currentTriggeredLevels || [];
-      
-      const ticker = await api.getTicker('BTC');
-      const klines15m = await api.getKlines('BTC', '15m', 8);
-      
-      // 尝试获取OKX数据（如果可用）
-      let oiData = null;
-      let takerData = null;
-      try {
-        oiData = await api.getOKXOpenInterest ? await api.getOKXOpenInterest() : null;
-        takerData = await api.getOKXTakerRatio ? await api.getOKXTakerRatio() : null;
-      } catch (e) {
-        console.log('[数据收集] OKX数据获取失败，继续使用其他数据');
-      }
-
-      return {
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        
-        // ⭐ 组合触发信息（关键字段）
-        triggeredLevels: triggeredLevels.map(l => ({
-          price: l.price,
-          type: l.type,
-          label: l.label,
-          action: l.action,
-          priority: l.priority
-        })),
-        
-        // 区间信息（证明触发依据）
-        periodRange: {
-          high: Math.max(...klines15m.slice(-3).map(k => k.high)),
-          low: Math.min(...klines15m.slice(-3).map(k => k.low))
-        },
-        
-        // 其他市场数据
-        priceChange: {
-          '1h': ticker.change1h,
-          '24h': ticker.change24h
-        },
-        openInterest: oiData?.currentOI,
-        takerBuyRatio: takerData?.currentRatio,
-        klines15m: klines15m.map(k => ({
-          time: k.datetime,
-          open: k.open,
-          high: k.high,
-          low: k.low,
-          close: k.close,
-          volume: k.volume
-        })),
-        
-        alertType: '多价位触发',
-        significance: this.buildSignificance(triggeredLevels)
-      };
-    } catch (error) {
-      console.error('[❌数据收集错误]', error.message);
-      throw error;
-    }
-  },
-
-  // ⭐ 构建组合触发的重要性描述
-  buildSignificance(levels) {
-    if (levels.length === 0) return '无触发';
-    
-    const actions = levels.filter(l => l.action).map(l => l.action);
-    const labels = levels.map(l => `${l.label}($${l.price})`);
-    
-    if (levels.length === 1) {
-      const l = levels[0];
-      return l.action 
-        ? `价格触及${l.label}($${l.price})，触发动作: ${l.action}`
-        : `价格触及${l.label}($${l.price})`;
-    }
-    
-    // 多价位组合触发
-    const actionStr = actions.length > 0 ? `，触发动作: ${actions.join(' / ')}` : '';
-    return `价格区间跨越多个关键位: ${labels.join('、')}${actionStr}`;
-  },
-
-  async trigger(data) {
-    const now = new Date().toISOString();
-    const jobName = `alert-multi-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}`;
-
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
-      '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
-    ], {
-      detached: true,
-      stdio: 'ignore'
-    });
-
-    // 记录触发历史
-    this.triggeredHistory.push({
-      time: new Date().toISOString(),
-      levels: data.triggeredLevels
-    });
-    
-    console.log(`[警报触发] 已创建即时分析任务: ${jobName}，触发价位: ${data.triggeredLevels.length}个`);
-    this.lastTriggered = Date.now();
-    
-    // 清空当前触发记录
-    this.currentTriggeredLevels = [];
-  },
-
-  lifetime() {
-    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
-    if (this.lastTriggered > 0) return 'completed';
-    const today = api.getLocalDate();
-    const created = new Date(CREATED_DATE);
-    const now = new Date(today);
-    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
-  }
-};
-```
-
-**组合触发说明：**
-
-| 场景 | 区间示例 | 触发价位 | collect返回 |
-|------|---------|---------|------------|
-| 单价位触发 | $78,000-$78,500 | 仅$77,500(支撑跌破) | `triggeredLevels: [{price:77500,...}]` |
-| 多价位组合 | $77,000-$79,500 | $77,500+$74,980+$79,443 | `triggeredLevels: [{...},{...},{...}]` |
-| 无触发 | $78,200-$78,400 | 无 | 不触发 |
-
-**即时分析如何处理组合信息：**
-
-阶段二收到 `triggeredLevels` 数组后：
-- 单价位 → 按原逻辑处理
-- 多价位 → 综合判断优先级：
-  - `priority: 'high'` 且有 `action` → 优先执行
-  - 多个高位价位同时触发 → 可能意味着剧烈波动，需谨慎
-
----
-
-**⚠️ 多价位规则命名建议：**
-
-使用格式：`YYYY-MM-DD-multi-price.js`
-
-例如：`2026-04-23-multi-price.js`
-
----
-
-## 13. ⭐ 延迟确认多价位规则模板（强烈推荐）
-
-**为什么需要延迟确认？**
-
-价格经常在关键位附近产生「影线穿透」——短暂触达后立即弹回。如果立即触发分析，模型看到的是"已突破"，但实际只是假突破。
-
-**延迟确认解决：** 价格触及价位后不立即触发，而是等待一段时间观察：
-- 价格是否**站稳**在价位上方/下方？
-- 是否有**持续同向**走势？
-- 还是只是**影线探针**后弹回？
-
-### 13.1 确认策略分级
-
-每个价位必须指定 `confirmPolicy`，决定延迟策略：
-
-| 策略 | `confirmMs` | 适用场景 | 判断逻辑 |
-|------|------------|---------|---------|
-| **`instant`** | 0 | 止损位、紧急信号 | 一触即发，无需确认 |
-| **`touch`** | 3-5 分钟 | 止盈位、近期关键位 | 短暂确认，避免假TP |
-| **`hold`** | 10-20 分钟 | 结构位、突破确认、入场触发位 | 需站稳，避免影线假破 |
-| **`deep_hold`** | 20-30 分钟 | 远处观测位、低优先级价位 | 长确认，这类价位不急 |
-
-**确认策略选择指南：**
-
-| 价位类型 | 推荐策略 | 理由 |
-|---------|---------|------|
-| 止损位 (SL) | `instant` | 止损是最后防线，不能延迟 |
-| 止盈位 (TP) | `touch` | 到了就止盈，只需短暂确认 |
-| 入场触发位（开仓/加仓） | `hold` | **假突破高发区**，必须等待站稳 |
-| 关键支撑/阻力（有 action） | `hold` | 跌破/突破确认后才有操作意义 |
-| 整数关口（心理位） | `deep_hold` | 容易被假突破，且操作性弱 |
-| 远处观测位（14d高点等） | `deep_hold` | 不急，长确认后再分析 |
-| 非价格警报（Taker比等） | 按需选择 | 数据本身有延迟，可设 `touch` |
-
-### 13.2 稳定性检查（核心创新）
-
-延迟期间不仅仅是等时间，还检查价格稳定性：
-
-```javascript
-// 稳定性检查参数
-const STABILITY = {
-  maxRetracePercent: 0.1,    // 最大回穿幅度（%）：突破后价格最多允许回穿价位的 0.1%
-  minConfirmPercent: 0.05,   // 最小确认深度（%）：价格必须超过价位至少 0.05%
-  resetOnCrossback: true     // 价格回穿价位是否重置计时
-};
-```
-
-**稳定性检查逻辑：**
-
-```
-突破发生（price >= resistance 或 price <= support）
-  ├─ 记录 firstTouchTime
-  ├─ 每次 check() 检查：
-  │   ├─ 价格是否仍在「确认侧」？（突破后 > 价位，跌破后 < 价位）
-  │   │   ├─ 是 → 累计 elapsed，检查是否 >= confirmMs
-  │   │   │   ├─ 是 → 确认完成，触发
-  │   │   │   └─ 否 → 继续等待
-  │   │   └─ 否 → 价格回穿了
-  │   │       ├─ 回穿幅度 > maxRetracePercent → 假突破，重置计时
-  │   │       └─ 回穿幅度 < maxRetracePercent → 小幅回踩，继续计时
-```
-
-### 13.3 触发元数据增强
-
-确认完成后，传递给即时分析的元数据包含确认信息：
-
-```javascript
-return {
-  // ... 其他字段
-  
-  // ⭐ 确认增强字段
-  confirmation: {
-    policy: 'hold',
-    confirmMs: 20 * 60 * 1000,
-    firstTouchTime: '2026-04-29T14:31:00+08:00',
-    confirmedAt: '2026-04-29T14:51:00+08:00',
-    elapsedMs: 1200000,
-    stability: {
-      maxRetracePct: 0.08,      // 最大回穿 %
-      maxDeviation: -15,         // 最大偏移（美元）
-      crossbacks: 0,             // 回穿次数
-      breakoutDepth: {           // 突破深度统计
-        max: 77250,              // 突破后最高到达
-        current: 77180           // 当前价格
-      }
-    }
-  }
-};
-```
-
-这让阶段二的即时分析知道："这个突破不是刚发生的，已经确认了20分钟，回穿0次" vs "刚才碰了一下"。
-
-### 13.4 完整模板
-
-```javascript
-/**
- * 延迟确认多价位监控警报（推荐）
- * 每个价位有独立的确认策略和延迟时间
- * 价格触及价位后等待确认，避免假突破误触发
+ * {COIN} 多价位监控（延迟确认）
  *
- * 来源：<报告路径>
- * 报告观点：<核心判断摘要>
+ * 来源报告: {报告文件名}
+ * 设立理由: {一句话说明为什么设这些价位}
+ *
+ * [山寨] 文件名: {COIN}-price-levels.js  (BTC用: 20xx-xx-xx-price-levels.js)
  */
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
 
-const CREATED_DATE = '2026-04-29';
-const COOLDOWN_MS = 60 * 60 * 1000; // 整体冷却 1小时
+const COIN = 'BTC';  // [山寨] 改为具体币种，如 'DOGE'、'MOVE'
+const COOLDOWN_MS = 60 * 60 * 1000;  // 冷却 ≥1小时
 
 // ============================================================
-// ⭐ 多价位配置（每个价位带确认策略）
+// 价位配置（≤6个）
 // ============================================================
 const PRICE_LEVELS = [
-  // 上方价位
-  { price: 77304, type: 'resistance', label: 'BB中轨/多头确认位',
-    action: '站上确认多头，评估加仓', priority: 'high',
-    // ⭐ 新字段：确认策略
-    confirmPolicy: 'hold', confirmMs: 20 * 60 * 1000 },
-    
-  { price: 77858, type: 'resistance', label: 'TP1/斐波那契78.6%',
-    action: '第一止盈(50%)', priority: 'high',
-    confirmPolicy: 'touch', confirmMs: 3 * 60 * 1000 },
-    
-  { price: 78500, type: 'resistance', label: 'TP2/筹码密集区上沿',
-    action: '第二止盈(全部)', priority: 'high',
-    confirmPolicy: 'touch', confirmMs: 3 * 60 * 1000 },
-  
-  // 下方价位
-  { price: 77050, type: 'support', label: '多头防线/近期低点',
-    action: '跌破评估减仓', priority: 'high',
-    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
-    
-  { price: 76800, type: 'support', label: '结构弱化位',
-    action: '减仓至50%', priority: 'high',
-    confirmPolicy: 'hold', confirmMs: 15 * 60 * 1000 },
-    
-  { price: 76688, type: 'support', label: '止损位',
-    action: '全平止损', priority: 'critical',
-    confirmPolicy: 'instant', confirmMs: 0 }
+  // --- 上方价位（阻力/入场触发） ---
+  {
+    price: 0,        // 替换为实际价格
+    type: 'resistance',
+    label: '阻力位描述',
+    action: '触发后应做什么',
+    priority: 'high',                      // high / medium / low
+    confirmPolicy: 'hold',                 // instant | touch | hold | deep_hold
+    confirmMs: 15 * 60 * 1000
+  },
+  // --- 下方价位（支撑/止盈/止损） ---
+  {
+    price: 0,
+    type: 'support',
+    label: '止损位',
+    action: '止损触发',
+    priority: 'high',
+    confirmPolicy: 'instant',
+    confirmMs: 0
+  },
+  {
+    price: 0,
+    type: 'support',
+    label: 'TP1止盈位',
+    action: '第一档止盈',
+    priority: 'high',
+    confirmPolicy: 'touch',
+    confirmMs: 3 * 60 * 1000
+  }
+  // ... 最多6个价位
 ];
 
 // ============================================================
-// ⭐ 稳定性检查参数
+// 稳定性检查参数
 // ============================================================
 const STABILITY = {
-  maxRetracePercent: 0.1,     // 最大回穿幅度 %
-  resetOnCrossback: true      // 价格回穿超过阈值时重置计时
+  maxRetracePercent: 0.3,    // 回穿容忍度（山寨波动大可上调至 0.5-1.0）
+  resetOnCrossback: true
 };
 
 module.exports = {
-  name: '延迟确认多价位监控',
+  name: '{COIN}-多价位监控',
+
+  // ═══════════════════════════════════════════════
+  // ⭐ C19: 规则元数据（必填，勿删）
+  // ═══════════════════════════════════════════════
+  // —— 身份 ——
+  ruleType: 'price-levels',                   // [固定] 价位规则始终写 'price-levels'
+  coin: 'BTC',                                // [必填] BTC: 'BTC'  |  山寨: 币种大写，如 'DOGE', 'MOVE'
+  cycleId: 'cycle-YYYYMMDD-NNN',              // [必填] BTC: cycle-20260518-001
+                                              //        山寨: alt-DOGE-20260514-0930
+  status: 'active',                           // [固定] 创建时一律写 'active'
+
+  // —— 创建信息 ——
+  createdAt: '2026-05-19T09:00:00+08:00',    // [必填] 当前北京时间 ISO 时间戳，替换为实际时间
+  createdBy: 'daily-report-stage4',           // [必填] 谁创建的？
+                                              //   BTC 日报阶段四:  daily-report-stage4
+                                              //   山寨扫描阶段四:  alt-intel-stage4
+                                              //   警报触发即时分析: alt-instant-stage1
+                                              //   自愈系统:        alert-self-heal
+                                              //   人工设定:        manual
+  sourceReport: 'active/cycle-20260518-001/reports/btc-report-2026-05-19-0900.md',
+                                              // [必填] 来源报告路径（相对于工作区根目录）
+                                              //   BTC: active/cycle-YYYYMMDD-NNN/reports/btc-report-*.md
+                                              //   山寨: active/alt-{COIN}-YYYYMMDD-HHMM/reports/alt-report-*.md
+
+  // —— 归档信息（活跃时全部为 null，归档时由归档脚本/流程填写） ——
+  archivedAt: null,                           // 归档时间 ISO（归档时写入）
+  archivedBy: null,                           // 归档来源（归档时写入）：
+                                              //   stage4-cleanup      — 阶段四正常清理
+                                              //   trigger-fired       — 触发后自动归档
+                                              //   cycle-archived      — 周期归档批量清零
+                                              //   cycle-health-check  — 健康检测清理
+                                              //   manual              — 人工归档
+                                              //   lifetime-expired    — 引擎自动过期
+  archiveReason: null,                        // 归档原因自由文本（归档时写入）
+  // ⭐ C19 END ⭐
+
   interval: 3 * 60 * 1000,
   lastTriggered: 0,
-  
-  // ⭐ 每个价位的独立确认状态
-  // 格式: { "<price>": { firstTouch: ms, lastCheck: ms, touches: N, crossbacks: N } }
   levelStates: {},
-  
-  // 本次触发的价位列表（供 collect 使用）
   currentTriggeredLevels: [],
-  
-  // 突破深度追踪（供稳定性检查使用）
   breakoutExtremes: {},
+  longShortRatio: null,
+  takerBuyRatio: null,
 
   async check() {
-    if (Date.now() - this.lastTriggered < COOLDOWN_MS) {
-      return false;
-    }
+    // C12: 冷却检查
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
 
     try {
-      const klines = await api.getKlines('BTC', '1m', 3);
+      // C2: 用 K 线区间数据（非瞬时价格）
+      const klines = await api.getOKXKlines(COIN, '1m', 3, 'SWAP');
+      if (!klines || klines.length === 0) return false;
+
       const periodHigh = Math.max(...klines.map(k => k.high));
       const periodLow = Math.min(...klines.map(k => k.low));
       const latestPrice = klines[klines.length - 1].close;
+
+      // 后台拉取合约数据（供 collect 用，不影响 check 结果）
+      try {
+        const lsData = await api.getOKXLongShortRatio(COIN, 'CONTRACTS');
+        this.longShortRatio = lsData?.currentRatio;
+      } catch (_) {}
+      try {
+        const takerData = await api.getOKXTakerRatio(COIN, '1H');
+        this.takerBuyRatio = takerData?.currentRatio;
+      } catch (_) {}
 
       const now = Date.now();
       const confirmedLevels = [];
@@ -1635,82 +189,73 @@ module.exports = {
         }
         const state = this.levelStates[key];
 
-        // ⭐ 检测是否触及
-        const wasTouched = (level.type === 'resistance' && periodHigh >= level.price) ||
-                          (level.type === 'support' && periodLow <= level.price);
+        // 检测是否触及
+        const touched = (level.type === 'resistance' && periodHigh >= level.price)
+                     || (level.type === 'support' && periodLow <= level.price);
 
-        if (!wasTouched) {
-          // 价格未触及 → 检查是否需要重置已开始的计时
+        if (!touched) {
+          // 回穿检测（假突破重置）
           if (state.firstTouch && !state.confirmed) {
-            // 价格回穿，检查回穿幅度
-            const isAboveLevel = (level.type === 'resistance' && latestPrice < level.price) ||
-                                 (level.type === 'support' && latestPrice > level.price);
-            if (isAboveLevel) {
+            const aboveLevel = (level.type === 'resistance' && latestPrice < level.price)
+                            || (level.type === 'support' && latestPrice > level.price);
+            if (aboveLevel) {
               const retrace = Math.abs((latestPrice - level.price) / level.price * 100);
               if (retrace > STABILITY.maxRetracePercent) {
                 state.crossbacks++;
-                state.firstTouch = null; // 重置计时
-                allLogs.push(`${level.label}: 假突破，回穿${retrace.toFixed(2)}%，重置`);
+                state.firstTouch = null;
+                allLogs.push(`${level.label}: 回穿 ${retrace.toFixed(2)}%，重置`);
               }
             }
           }
           continue;
         }
 
-        // ⭐ 触及了 → 按确认策略处理
-        
-        // Instant: 直接触发
+        // C10: instant 直接触发
         if (level.confirmPolicy === 'instant') {
           confirmedLevels.push(level);
-          allLogs.push(`${level.label}: INSTANT触发`);
+          allLogs.push(`${level.label}: INSTANT 触发`);
           continue;
         }
 
-        // ⭐ 延迟确认：记录首次触及时间
+        // 延迟确认：记录首次触及
         if (!state.firstTouch) {
           state.firstTouch = now;
           state.touches++;
-          allLogs.push(`${level.label}: 首次触及，开始${level.confirmMs/60000}分钟确认...`);
+          allLogs.push(`${level.label}: 首次触及，${level.confirmMs / 60000}min 确认中`);
           continue;
         }
 
         // 追踪突破深度
-        if (!this.breakoutExtremes[key]) {
-          this.breakoutExtremes[key] = level.type === 'resistance' ? latestPrice : latestPrice;
-        }
+        if (!this.breakoutExtremes[key]) this.breakoutExtremes[key] = latestPrice;
         if (level.type === 'resistance') {
           this.breakoutExtremes[key] = Math.max(this.breakoutExtremes[key], latestPrice);
         } else {
           this.breakoutExtremes[key] = Math.min(this.breakoutExtremes[key], latestPrice);
         }
 
-        // ⭐ 检查确认时间是否达到
+        // 确认时间是否达到
         const elapsed = now - state.firstTouch;
-        if (elapsed >= level.confirmMs) {
-          if (!state.confirmed) {
-            state.confirmed = true;
-            confirmedLevels.push(level);
-            const elapsedMins = Math.floor(elapsed / 60000);
-            allLogs.push(`${level.label}: 确认完成(${elapsedMins}分钟)`);
-          }
+        if (elapsed >= level.confirmMs && !state.confirmed) {
+          state.confirmed = true;
+          confirmedLevels.push(level);
+          allLogs.push(`${level.label}: 确认完成 (${Math.floor(elapsed / 60000)}min)`);
         } else {
-          const elapsedMins = Math.floor(elapsed / 60000);
-          const targetMins = Math.floor(level.confirmMs / 60000);
-          allLogs.push(`${level.label}: 确认中(${elapsedMins}/${targetMins}分钟)`);
+          allLogs.push(`${level.label}: 确认中 (${Math.floor(elapsed / 60000)}/${level.confirmMs / 60000}min)`);
         }
       }
 
-      // ⭐ 日志输出
+      // C13: 日志含三部分 — [API] 来源 + [进度] 状态 + [来源] 设立依据
       const statusStr = allLogs.length > 0 ? allLogs.join(' | ') : '无触及';
-      console.log(`[🔍警报检查] [API] CryptoCompare获取BTC ${klines.length}根1分钟K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(0)}-$${periodHigh.toFixed(0)} | 当前: $${latestPrice.toFixed(0)} | 状态: ${statusStr} | 触发: ${confirmedLevels.length > 0}`);
+      console.log(`[🔍警报检查] [API] OKX获取${COIN} 3根1m K线 | [进度] ${this.name} | 区间: $${periodLow.toFixed(5)}-$${periodHigh.toFixed(5)} | 当前: $${latestPrice.toFixed(5)} | ${statusStr} | 触发: ${confirmedLevels.length > 0} | [来源] {报告}: "{设立理由摘要}"`);
 
       if (confirmedLevels.length > 0) {
         this.currentTriggeredLevels = confirmedLevels;
         return true;
       }
-
       return false;
+
     } catch (error) {
+      // C1: 必须 throw，不能 return false
       console.error('[❌警报检查错误]', error.message);
       throw error;
     }
@@ -1720,21 +265,21 @@ module.exports = {
     try {
       const triggeredLevels = this.currentTriggeredLevels || [];
       const now = Date.now();
-      
-      const ticker = await api.getTicker('BTC');
-      const klines15m = await api.getKlines('BTC', '15m', 8);
-      
-      let oiData = null, takerData = null;
-      try {
-        oiData = await api.getOKXOpenInterest();
-        takerData = await api.getOKXTakerRatio();
-      } catch (e) { /* 静默 */ }
+
+      // C3: 显式传 SWAP
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const klines4h = await api.getOKXKlines(COIN, '4h', 3, 'SWAP');
+
+      let oiData = null;
+      try { oiData = await api.getOKXOpenInterest(COIN); } catch (_) {}
+      let frData = null;
+      try { frData = await api.getOKXFundingRate(COIN); } catch (_) {}
 
       return {
+        coin: COIN,  // C16: 必须返回 coin 字段
         alertTime: new Date().toISOString(),
         currentPrice: ticker.price,
-        
-        // ⭐ 确认增强字段
+
         triggeredLevels: triggeredLevels.map(l => {
           const key = String(l.price);
           const state = this.levelStates[key] || {};
@@ -1744,7 +289,6 @@ module.exports = {
             label: l.label,
             action: l.action,
             priority: l.priority,
-            // ⭐ 确认元数据
             confirmPolicy: l.confirmPolicy,
             confirmMs: l.confirmMs,
             firstTouchTime: state.firstTouch ? new Date(state.firstTouch).toISOString() : null,
@@ -1754,28 +298,32 @@ module.exports = {
               touches: state.touches || 0,
               crossbacks: state.crossbacks || 0,
               breakoutExtreme: this.breakoutExtremes[key] || ticker.price,
-              maxRetracePct: l.confirmPolicy === 'instant' ? null : 
-                Math.abs((ticker.price - l.price) / l.price * 100).toFixed(3)
+              maxRetracePct: l.confirmPolicy === 'instant' ? null
+                : Math.abs((ticker.price - l.price) / l.price * 100).toFixed(3)
             }
           };
         }),
-        
+
         periodRange: {
-          high: Math.max(...klines15m.slice(-3).map(k => k.high)),
-          low: Math.min(...klines15m.slice(-3).map(k => k.low))
+          high: Math.max(...klines4h.slice(-3).map(k => k.high)),
+          low: Math.min(...klines4h.slice(-3).map(k => k.low))
         },
-        
-        priceChange: { '1h': ticker.change1h, '24h': ticker.change24h },
+
         openInterest: oiData?.currentOI,
-        takerBuyRatio: takerData?.currentRatio,
-        klines15m: klines15m.map(k => ({
-          time: k.datetime, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume
-        })),
-        
-        alertType: '多价位触发（延迟确认）',
+        fundingRate: frData?.fundingRate,
+        longShortRatio: this.longShortRatio,
+        takerBuyRatio: this.takerBuyRatio,
+        klines4h: klines4h ? klines4h.slice(0, 3).map(k => ({
+          time: k.datetime || k.time, open: k.open, high: k.high,
+          low: k.low, close: k.close, volume: k.volume
+        })) : null,
+
+        alertType: 'price-multi-level',
         significance: this.buildSignificance(triggeredLevels)
       };
+
     } catch (error) {
+      // C1: 必须 throw，不能 return {}
       console.error('[❌数据收集错误]', error.message);
       throw error;
     }
@@ -1783,22 +331,28 @@ module.exports = {
 
   buildSignificance(levels) {
     if (levels.length === 0) return '无触发';
-    if (levels.length === 1) {
-      const l = levels[0];
-      const confirmDesc = l.confirmPolicy === 'instant' ? '立即触发' : `确认${l.confirmMs/60000}分钟后触发`;
-      return l.action
-        ? `${l.label}($${l.price}) ${confirmDesc}，${l.action}`
-        : `${l.label}($${l.price}) ${confirmDesc}`;
-    }
     const labels = levels.map(l => `${l.label}($${l.price}, ${l.confirmPolicy})`);
-    return `多价位确认触发: ${labels.join('、')}`;
+    const actions = levels.map(l => l.action).filter(Boolean);
+    return `${labels.join('、')} 触发；${actions.join('；')}`;
   },
 
   async trigger(data) {
+    // C8: 异步 spawn，不阻塞引擎
     const now = new Date().toISOString();
-    const jobName = `alert-confirmed-${Date.now()}`;
-    const message = `[SPAWN_INSTANT_ANALYSIS]${JSON.stringify(data)}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/instant-analysis-stage1.md 执行数据获取\n2. 读取 tasks/daily-report-stage2.md 执行技术分析\n3. 读取 tasks/daily-report-stage3.md 执行仓位管理\n4. 读取 tasks/daily-report-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
+    const jobName = `alert-${COIN}-price-${Date.now()}`;
 
+    // [山寨] 改为 tasks/alt-instant-stage1.md，后续阶段改为 alt-intel-stage2/3/4
+    const message = `${JSON.stringify(data)}
+
+以上为警报触发数据。请按顺序完成即时分析：
+1. 读取 tasks/instant-analysis-stage1.md 执行数据获取
+2. 读取 tasks/daily-report-stage2.md 执行交叉验证分析
+3. 读取 tasks/daily-report-stage3.md 执行仓位管理
+4. 读取 tasks/daily-report-stage4.md 执行警报管理`;
+
+    // ⚠️ CLI 参数名 ≠ Tool API 参数名！
+    // ✅ --agent --session --at --message --name --delete-after-run --no-deliver
+    // ❌ --sessionTarget --kind --deleteAfterRun（这些 CLI 全都不认识）
     spawn('openclaw', [
       'cron', 'add',
       '--agent', 'july',
@@ -1810,93 +364,266 @@ module.exports = {
       '--no-deliver'
     ], { detached: true, stdio: 'ignore' });
 
-    console.log(`[警报触发] 已派发即时分析全四阶段任务: ${jobName} | 确认触发价位: ${data.triggeredLevels.length}个 | 确认策略: ${data.triggeredLevels.map(l=>l.confirmPolicy).join(',')}`);
-    
-    // ⭐ 重置所有价位状态
     this.lastTriggered = Date.now();
+    console.log(`[🔔警报触发] ${this.name} | 确认触发: ${data.triggeredLevels.length}个价位 | 当前价: $${data.currentPrice}`);
+
+    // 重置状态
     this.currentTriggeredLevels = [];
     this.levelStates = {};
     this.breakoutExtremes = {};
   },
 
+  // C14: 生命周期由引擎统一管理，返回 'active' 即可
   lifetime() {
-    // ⭐ 触发后即归档（引擎自动移动到 rules-archive/，不删除）
-    if (this.lastTriggered > 0) return 'completed';
-    const today = api.getLocalDate();
-    const created = new Date(CREATED_DATE);
-    const now = new Date(today);
-    const daysDiff = Math.floor((now - created) / (1000 * 60 * 60 * 24));
-    return daysDiff <= 3 ? 'active' : 'expired';
+    return 'active';
   }
 };
 ```
 
-### 13.5 与普通多价位规则的对比
+### 1.3 BTC ⇄ 山寨差异
 
-| 维度 | 普通多价位 (12节) | 延迟确认多价位 (13节) |
-|------|------------------|---------------------|
-| 触发时机 | 价格触及立即触发 | 价格触及 + 延迟确认后才触发 |
-| 假突破 | 高（影线即触发） | 低（需站稳确认） |
-| 分析元数据 | 仅传递被触发的价位 | 额外传递确认时长、稳定性数据 |
-| 适用场景 | 低波动环境 | **通用推荐**，尤其波动期 |
-| 复杂度 | 简单 | 中等（多了状态追踪） |
+在模板代码中搜索 `[山寨]` 注释，创建山寨币规则时修改以下 3 处：
 
-**⚠️ 建议：新规则优先使用延迟确认模板（第13节）。仅在没有假突破风险的特殊场景才使用普通模板（第12节）。**
+| 修改点 | BTC | 山寨 |
+|--------|-----|------|
+| `COIN` | `'BTC'` | `'DOGE'` 等 |
+| `trigger()` 分析路径 | `tasks/instant-analysis-stage1.md` → `daily-report-stage2/3/4` | `tasks/alt-instant-stage1.md` → `alt-intel-stage2/3/4` |
+| 文件名 | `20xx-xx-xx-price-levels.js` | `{COIN}-price-levels.js` |
 
 ---
 
-## 14. 山寨币 trigger() 参考
+## 2. 非价格指标
 
-创建山寨币警报规则时，`trigger()` 使用以下模板（与 BTC 的 `[SPAWN_INSTANT_ANALYSIS]` 前缀 + `cron add` 机制一致）：
+### 2.1 常见类型速查
+
+| 类型 | 触发条件示例 | API |
+|------|-------------|-----|
+| OI 异动 | OI 变化超过阈值 | `getOKXOpenInterest()` |
+| 资金费率极端 | 费率超过 ±0.1% | `getOKXFundingRate()` |
+| Taker 买卖比 | 比值偏离常态 | `getOKXTakerRatio()` |
+| 多空比反转 | 比值突破阈值 | `getOKXLongShortRatio()` |
+| 波动率突破 | BB 带宽或 ATR | `getOKXKlines()` 自行计算 |
+
+### 2.2 完整模板
 
 ```javascript
-async trigger(alertData) {
-  const json = JSON.stringify(alertData);
-  const now = new Date().toISOString();
-  const jobName = `alert-${alertData.coin}-${Date.now()}`;
-  const message = `[SPAWN_INSTANT_ANALYSIS]${json}\n\n以上为警报触发数据。请按顺序完成即时分析全四阶段：\n1. 读取 tasks/alt-instant-stage1.md 执行数据获取\n2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析\n3. 读取 tasks/alt-intel-stage3.md 执行仓位管理\n4. 读取 tasks/alt-intel-stage4.md 执行警报管理\n每个阶段完成后自动进入下一阶段，最终输出全流程摘要。`;
+/**
+ * {COIN} {指标类型}监控
+ *
+ * 来源报告: {报告文件名}
+ * 设立理由: {一句话说明}
+ *
+ * [山寨] 文件名: {COIN}-{指标}-monitor.js
+ */
 
-  spawn('openclaw', [
-    'cron', 'add',
-    '--agent', 'july',
+const api = require('../../btc-market-lite/scripts/api');
+const { spawn } = require('child_process');
+
+const COIN = 'BTC';  // [山寨] 改为具体币种
+const COOLDOWN_MS = 60 * 60 * 1000;
+
+// 触发阈值（按需修改）
+const THRESHOLD = 0;  // 替换为实际阈值
+
+module.exports = {
+  name: '{COIN}-{指标}监控',
+
+  // ═══════════════════════════════════════════════
+  // ⭐ C19: 规则元数据（必填，勿删）
+  // ═══════════════════════════════════════════════
+  // —— 身份 ——
+  ruleType: '{非价格类型}',                   // [必填] 选择以下之一（不含引号替换花括号）：
+                                              //   oi-monitor           — OI 持仓量异动
+                                              //   funding-reversal     — 资金费率极端/反转
+                                              //   taker-ratio          — Taker 买卖比偏离
+                                              //   ls-reversal          — 多空比反转
+                                              //   composite            — 多指标组合（如 OI+Taker、OI+RSI）
+  coin: 'BTC',                                // [必填] BTC: 'BTC'  |  山寨: 币种大写，如 'DOGE', 'MOVE'
+  cycleId: 'cycle-YYYYMMDD-NNN',              // [必填] BTC: cycle-20260518-001
+                                              //        山寨: alt-DOGE-20260514-0930
+  status: 'active',                           // [固定] 创建时一律写 'active'
+
+  // —— 创建信息 ——
+  createdAt: '2026-05-19T09:00:00+08:00',    // [必填] 当前北京时间 ISO 时间戳，替换为实际时间
+  createdBy: 'daily-report-stage4',           // [必填] 谁创建的？（取值同上）
+  sourceReport: 'active/cycle-20260518-001/reports/btc-report-2026-05-19-0900.md',
+                                              // [必填] 来源报告路径（相对于工作区根目录）
+
+  // —— 归档信息（活跃时全部为 null） ——
+  archivedAt: null,
+  archivedBy: null,
+  archiveReason: null,
+  // ⭐ C19 END ⭐
+
+  interval: 5 * 60 * 1000,
+  lastTriggered: 0,
+
+  async check() {
+    if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
+
+    try {
+      // ---- 按需选择一个数据源 ----
+
+      // OI 持仓量
+      // const data = await api.getOKXOpenInterest(COIN);
+      // const currentValue = data.currentOI;
+      // const triggered = currentValue >= THRESHOLD;
+
+      // 资金费率
+      // const data = await api.getOKXFundingRate(COIN);
+      // const currentValue = data.fundingRate;
+      // const triggered = Math.abs(currentValue) >= THRESHOLD;
+
+      // Taker 买卖比
+      // const data = await api.getOKXTakerRatio(COIN, '1H');
+      // const currentValue = data.currentRatio;
+      // const triggered = currentValue >= THRESHOLD;
+
+      // 多空比
+      // const data = await api.getOKXLongShortRatio(COIN, 'CONTRACTS');
+      // const currentValue = data.currentRatio;
+      // const triggered = currentValue <= THRESHOLD;
+
+      // ---- 替换上面的注释块为实际逻辑 ----
+      const data = await api.getOKXOpenInterest(COIN);
+      const currentValue = data.currentOI;
+      const triggered = currentValue >= THRESHOLD;
+
+      // C13: 日志含 API 来源 + 进度 + 设立来源
+      console.log(`[🔍警报检查] [API] OKX获取${COIN}持仓量 | [进度] ${this.name} | 当前: ${currentValue} | 阈值: ${THRESHOLD} | 触发: ${triggered} | [来源] {报告}: "{设立理由摘要}"`);
+
+      return triggered;
+
+    } catch (error) {
+      // C1: 必须 throw
+      console.error('[❌警报检查错误]', error.message);
+      throw error;
+    }
+  },
+
+  async collect() {
+    try {
+      // C3: 显式传 SWAP
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const oiData = await api.getOKXOpenInterest(COIN);
+      const klines = await api.getOKXKlines(COIN, '1h', 6, 'SWAP');
+
+      return {
+        coin: COIN,  // C16: 必须返回
+        alertTime: new Date().toISOString(),
+        currentPrice: ticker.price,
+        currentOI: oiData.currentOI,
+        oiChange24h: oiData.change24h,
+        klines1h: klines ? klines.map(k => ({
+          time: k.datetime, open: k.open, high: k.high,
+          low: k.low, close: k.close, volume: k.volume
+        })) : null,
+        alertType: '{指标类型}',
+        message: `${COIN} {指标} 触发阈值`
+      };
+
+    } catch (error) {
+      console.error('[❌数据收集错误]', error.message);
+      throw error;
+    }
+  },
+
+  async trigger(data) {
+    const now = new Date().toISOString();
+    const jobName = `alert-${COIN}-indicator-${Date.now()}`;
+
+    // [山寨] 改为 tasks/alt-instant-stage1.md → alt-intel-stage2/3/4
+    const message = `${JSON.stringify(data)}
+
+以上为警报触发数据。请按顺序完成即时分析：
+1. 读取 tasks/instant-analysis-stage1.md 执行数据获取
+2. 读取 tasks/daily-report-stage2.md 执行交叉验证分析
+3. 读取 tasks/daily-report-stage3.md 执行仓位管理
+4. 读取 tasks/daily-report-stage4.md 执行警报管理`;
+
+    // ⚠️ CLI 参数名 ≠ Tool API 参数名！
+    // ✅ --agent --session --at --message --name --delete-after-run --no-deliver
+    // ❌ --sessionTarget --kind --deleteAfterRun（这些 CLI 全都不认识）
+    spawn('openclaw', [
+      'cron', 'add',
+      '--agent', 'july',
       '--session', 'isolated',
-    '--at', now,
-    '--message', message,
-    '--name', jobName,
-    '--delete-after-run',
-    '--no-deliver'
-  ], {
-    detached: true,
-    stdio: 'ignore'
-  });
+      '--at', now,
+      '--message', message,
+      '--name', jobName,
+      '--delete-after-run',
+      '--no-deliver'
+    ], { detached: true, stdio: 'ignore' });
 
-  console.log(`[${alertData.coin}警报触发] 已派发即时分析任务: ${jobName}`);
-  this.lastTriggered = Date.now();
-}
+    this.lastTriggered = Date.now();
+    console.log(`[🔔警报触发] ${this.name} | 当前值: ${data.currentOI || data.fundingRate || '-'} | 阈值: ${THRESHOLD}`);
+  },
+
+  lifetime() {
+    return 'active';
+  }
+};
 ```
 
-**⚠️ `collect()` 必须返回 `coin` 字段**，否则阶段一无法定位周期：
+---
+
+## 3. API 参考
 
 ```javascript
-async collect() {
-  return {
-    coin: 'DOGE',           // ← 必须
-    alertTime: new Date().toISOString(),
-    currentPrice: ...,
-    triggerPrice: ...,
-    // ...其他数据
-  };
-}
+const api = require('../../btc-market-lite/scripts/api');
 ```
 
-**与 BTC trigger() 的区别：**
+| 方法 | 说明 | 注意 |
+|------|------|------|
+| `getOKXKlines(sym, interval, limit, instType)` | K 线数据 | `instType` 必传 `'SWAP'` |
+| `getOKXTicker(sym, instType)` | 实时价格 | `instType` 必传 `'SWAP'` |
+| `getOKXOpenInterest(sym)` | 当前 OI + 24h 变化 | |
+| `getOKXFundingRate(sym)` | 当前资金费率 | |
+| `getOKXTakerRatio(sym, period)` | Taker 买卖比 | `period`: `'5m'`/`'1H'`/`'1D'` |
+| `getOKXLongShortRatio(sym, instType)` | 多空比 | `instType`: `'CONTRACTS'` |
+| `getOKXTopTraderRatio(sym)` | 顶级交易者多空比 | |
+| `getFearGreedIndex(days)` | 恐惧贪婪指数 | ⚠️ 日级更新，**不可用于触发条件** |
+| `fetch(url)` | 通用 HTTP 请求 | 需要新 API 时用，勿改 api.js |
 
-| | BTC | 山寨币 |
-|---|-----|--------|
-| 阶段一 | `instant-analysis-stage1.md` | `alt-instant-stage1.md` |
-| 阶段二 | `daily-report-stage2.md` | `alt-intel-stage2.md` |
-| 阶段三 | `daily-report-stage3.md` | `alt-intel-stage3.md` |
-| 阶段四 | `daily-report-stage4.md` | `alt-intel-stage4.md` |
-| 消息前缀 | `[SPAWN_INSTANT_ANALYSIS]` | **相同** |
-| 触发方式 | `cron add` | **相同** |
-| `collect().coin` | 不需要（固定 BTC） | **必须返回** |
+### 3.1 参数规范
+
+| API | 参数 | 合法值 | 常见错误 |
+|-----|------|--------|---------|
+| K线 `bar` | `interval` | `1m/5m/15m/1H/4H/1D` | ❌ `1h` `4h`（小写 h） |
+| Rubik stat | `period` | **仅 `5m` `1H` `1D`** | ❌ `15m` `4H` `1h` |
+
+### 3.2 数据源扩展
+
+**禁止直接修改 `api.js`。** 如需新 API：
+1. 在规则中用 `api.fetch(url)` 临时实现
+2. 日志输出 `[📋API诉求]` 标记
+3. 向 `skills/btc-market-lite/API_REQUESTS.md` 追加诉求
+
+---
+
+## 4. 规则文件命名与存放
+
+| 规则类型 | 文件名 | 存放位置 |
+|---------|--------|---------|
+| BTC | `20xx-xx-xx-{类型}-{描述}.js` | `skills/btc-alert/rules/` |
+| 山寨 | `{COIN}-{描述}.js` | `skills/btc-alert/rules/` |
+
+创建后记录到 `logs/alert-setup.log`：
+```
+[时间] 规则创建 | {文件名} | {规则名} | 类型: {多价位/非价格} | 来源: {报告}
+```
+
+---
+
+## ⚠️ 触发后自动化
+
+引擎检测到 `check() === true` 后自动执行：
+1. 调用 `collect()` 收集上下文数据
+2. 调用 `trigger()` 派发分析任务（spawn 隔离会话）
+3. **自动归档规则文件到 `rules-archive/`，停止定时器**
+
+规则文件无需自行管理冷却、过期、自我销毁。
+
+---
+
+*版本 v5.0 — 收敛为 2 个模板，23 项补丁融入代码*

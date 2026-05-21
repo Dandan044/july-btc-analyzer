@@ -1,0 +1,2658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📈 七月 BTC 监控面板</title>
+<style>
+/* ═══════════════════════════════════════════════════
+   CSS Variables & Reset
+   ═══════════════════════════════════════════════════ */
+:root {
+  --bg-primary: #0c0e14;
+  --bg-secondary: #12151e;
+  --bg-card: #171b26;
+  --bg-card-alt: #1a1f2c;
+  --bg-hover: #1e2435;
+  --border: #252a3a;
+  --border-light: #2f3548;
+  --text-primary: #e8eaf0;
+  --text-secondary: #9499b0;
+  --text-muted: #5a5f75;
+  --accent: #4f8cff;
+  --accent-dim: #3a6fd8;
+  --accent-glow: rgba(79,140,255,0.15);
+  --green: #34d399;
+  --green-bg: rgba(52,211,153,0.1);
+  --green-dim: rgba(52,211,153,0.06);
+  --red: #f87171;
+  --red-bg: rgba(248,113,113,0.1);
+  --red-dim: rgba(248,113,113,0.06);
+  --yellow: #fbbf24;
+  --yellow-bg: rgba(251,191,36,0.1);
+  --orange: #fb923c;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-xs: 4px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+  --transition: 0.18s ease;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 800px; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 4px var(--green); }
+  50% { box-shadow: 0 0 12px var(--green); }
+}
+
+.tab-content.active { animation: fadeIn 0.3s ease; }
+.cycle-card { animation: fadeIn 0.25s ease both; }
+.cycle-detail-row { animation: slideDown 0.3s ease; }
+
+/* ═══════════════════════════════════════════════════
+   Layout
+   ═══════════════════════════════════════════════════ */
+.app-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+header {
+  background: rgba(18,21,30,0.85);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px) saturate(1.2);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.logo {
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+}
+.logo .dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--green);
+  animation: glow 2s ease-in-out infinite;
+}
+.logo .dot.offline {
+  background: var(--red);
+  animation: none;
+  box-shadow: 0 0 6px var(--red);
+}
+.logo .title-text {
+  background: linear-gradient(135deg, var(--accent), #7eb8ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.refresh-info {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Navigation Tabs ──────────────────────────────── */
+.nav-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.nav-tab {
+  padding: 11px 22px;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color 0.2s, border-color 0.2s;
+  font-family: var(--font-sans);
+  position: relative;
+}
+.nav-tab:hover { color: var(--text-secondary); }
+.nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.nav-tab .badge {
+  display: inline-block;
+  background: var(--accent-dim);
+  color: #fff;
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 10px;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+/* ── Main Content ─────────────────────────────────── */
+.tab-content { display: none; padding: 24px 0 60px; }
+.tab-content.active { display: block; }
+
+/* ═══════════════════════════════════════════════════
+   Overview Section (merged dashboard + cycles)
+   ═══════════════════════════════════════════════════ */
+
+/* ── Hero Stats ─────────────────────────────────── */
+/* Hero cards are now in a grid, no separate .hero-stats needed */
+
+.hero-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.hero-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-light);
+  box-shadow: var(--shadow);
+}
+.hero-card:hover::before { opacity: 1; }
+
+.hero-card .icon {
+  font-size: 1.3rem;
+  margin-bottom: 8px;
+  display: block;
+}
+.hero-card .label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+.hero-card .value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1.1;
+}
+.hero-card .value.green { color: var(--green); }
+.hero-card .value.red { color: var(--red); }
+.hero-card .value.accent { color: var(--accent); }
+.hero-card .sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ── Info Row (status + alerts side by side) ──── */
+.info-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.info-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.info-panel-header {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.info-panel-body { padding: 0; }
+
+/* Status chips */
+.status-chips {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  flex-wrap: wrap;
+}
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.status-chip.alive { background: var(--green-bg); color: var(--green); }
+.status-chip.dead { background: var(--red-bg); color: var(--red); }
+.status-chip .chip-count {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* Alert timeline */
+.alert-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.alert-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 18px;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(37,42,58,0.5);
+  transition: background 0.15s;
+}
+.alert-item:hover { background: var(--bg-hover); }
+.alert-item:last-child { border-bottom: none; }
+.alert-time {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  min-width: 80px;
+  padding-top: 1px;
+}
+.alert-msg {
+  color: var(--text-secondary);
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* ── Section Divider ────────────────────────────── */
+.section-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 8px 0 20px;
+}
+.section-divider .line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-light), transparent);
+}
+.section-divider .label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* ── Cycle Toolbar ─────────────────────────────── */
+.cycle-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.cycle-toolbar .search-input {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: var(--font-sans);
+  flex: 1;
+  min-width: 180px;
+  outline: none;
+  transition: var(--transition);
+}
+.cycle-toolbar .search-input:focus { border-color: var(--accent); }
+.cycle-toolbar .search-input::placeholder { color: var(--text-muted); }
+
+.sort-pills {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.sort-pill {
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: var(--transition);
+}
+.sort-pill:hover { color: var(--text-secondary); border-color: var(--border-light); }
+.sort-pill.active {
+  color: #fff;
+  background: var(--accent-dim);
+  border-color: var(--accent-dim);
+}
+
+/* ═══════════════════════════════════════════════════
+   Cycle Cards
+   ═══════════════════════════════════════════════════ */
+.cycle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.cycle-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+  position: relative;
+  min-height: 120px;
+}
+.cycle-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+.cycle-card.expanded {
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.cycle-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.cycle-card-coin {
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-family: var(--font-mono);
+}
+.cycle-card-tag {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.cycle-card-tag.btc { background: var(--yellow-bg); color: var(--yellow); }
+.cycle-card-tag.alt { background: var(--accent-glow); color: var(--accent); }
+
+.cycle-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.cycle-card-stats .stat-val {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+
+.cycle-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.cycle-card-id {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 50%;
+  font-family: var(--font-mono);
+}
+.cycle-card-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.analysis-status {
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 10px;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.analysis-status.queued { background: rgba(90,95,117,0.15); color: var(--text-muted); }
+.analysis-status.running { background: var(--accent-glow); color: var(--accent); animation: pulse 1.5s infinite; }
+.analysis-status.ok { background: var(--green-bg); color: var(--green); }
+.analysis-status.error { background: var(--red-bg); color: var(--red); }
+
+/* Full-width detail row */
+.cycle-detail-row {
+  grid-column: 1 / -1;
+  background: var(--bg-card);
+  border: 1px solid var(--accent-dim);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+/* Status dot */
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.alive { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.dead { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+/* Cycle detail subtabs */
+.cycle-subtab {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+.cycle-subtab-btn {
+  padding: 10px 18px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-sans);
+  transition: var(--transition);
+}
+.cycle-subtab-btn:hover { color: var(--text-secondary); }
+.cycle-subtab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.cycle-subpanel { display: none; padding: 16px 20px; max-height: 480px; overflow-y: auto; }
+.cycle-subpanel.active { display: block; }
+
+/* Rule log viewer */
+.rule-log-toggle {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  color: var(--accent);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  margin-left: 6px;
+  transition: var(--transition);
+}
+.rule-log-toggle:hover { background: var(--accent-dim); color: #fff; border-color: var(--accent-dim); }
+.rule-log-viewer {
+  margin-top: 6px;
+  background: #080a10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  max-height: 180px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  display: none;
+}
+.rule-log-viewer.open { display: block; }
+
+/* ═══════════════════════════════════════════════════
+   Position Tables
+   ═══════════════════════════════════════════════════ */
+.pos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+}
+.pos-table th {
+  text-align: left;
+  padding: 7px 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.pos-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(37,42,58,0.4);
+  color: var(--text-primary);
+}
+.pos-table .pnl-pos { color: var(--green); }
+.pos-table .pnl-neg { color: var(--red); }
+.pos-table .side-long { color: var(--green); }
+.pos-table .side-short { color: var(--red); }
+.pos-table .text-muted { color: var(--text-muted); }
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ═══════════════════════════════════════════════════
+   Rule Table
+   ═══════════════════════════════════════════════════ */
+.rule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.rule-table th {
+  text-align: left;
+  padding: 7px 8px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+}
+.rule-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(37,42,58,0.4);
+}
+.rule-status-active { color: var(--green); }
+.rule-status-archived { color: var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════
+   System Tab
+   ═══════════════════════════════════════════════════ */
+.pm2-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.pm2-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.pm2-card:hover { border-color: var(--border-light); box-shadow: var(--shadow); }
+.pm2-card .name {
+  font-weight: 600;
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+}
+.pm2-card .meters { display: flex; gap: 16px; font-size: 0.76rem; color: var(--text-secondary); flex-wrap: wrap; }
+.pm2-status-online { color: var(--green); font-weight: 600; }
+.pm2-status-offline { color: var(--red); font-weight: 600; }
+
+.health-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.log-viewer {
+  background: #080a10;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════
+   Common Utilities
+   ═══════════════════════════════════════════════════ */
+.btn {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--bg-hover); border-color: var(--border-light); }
+.btn:active { transform: scale(0.97); }
+.btn-accent { background: var(--accent-dim); border-color: var(--accent-dim); color: #fff; }
+.btn-accent:hover { background: var(--accent); border-color: var(--accent); }
+.btn-danger { background: var(--red-bg); border-color: rgba(248,113,113,0.3); color: var(--red); }
+.btn-danger:hover { background: var(--red); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 0.7rem; }
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.empty-state {
+  text-align: center;
+  padding: 36px 20px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+.empty-state .icon { font-size: 1.8rem; margin-bottom: 8px; display: block; }
+
+.loading { text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.82rem; }
+.error-msg { 
+  background: var(--red-bg); 
+  color: var(--red); 
+  padding: 10px 16px; 
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  margin: 8px 0;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  transition: color 0.15s;
+}
+.collapsible-header:hover { color: var(--text-primary); }
+.collapsible-header .arrow { transition: transform 0.2s; font-size: 0.6rem; }
+.collapsible-header.open .arrow { transform: rotate(90deg); }
+.collapsible-body { display: none; }
+.collapsible-body.open { display: block; }
+
+.live-indicator {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 4px;
+  animation: pulse 1.5s infinite;
+}
+
+.report-link {
+  display: block;
+  padding: 5px 0;
+  font-size: 0.78rem;
+  color: var(--accent);
+  text-decoration: none;
+  font-family: var(--font-mono);
+}
+.report-link:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════════════════
+   Responsive
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 1200px) {
+  .cycle-grid { grid-template-columns: repeat(2, 1fr); }
+  #top-stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .info-row { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .cycle-grid { grid-template-columns: 1fr; }
+  #top-stats-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+  #top-stats-row .hero-card { padding: 8px 10px !important; }
+  #top-stats-row .hero-card .value { font-size: 1.1rem !important; }
+  #top-stats-row .hero-card .label { font-size: 0.65rem !important; }
+  #top-stats-row .hero-card .sub { font-size: 0.6rem !important; }
+  .nav-tab { padding: 10px 14px; font-size: 0.8rem; }
+  .header-inner { padding: 10px 16px; }
+  .app-container { padding: 0 14px; }
+  .pos-table { font-size: 0.7rem; }
+  .pos-table th, .pos-table td { padding: 5px 6px; }
+  .cycle-toolbar { flex-direction: column; align-items: stretch; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════
+   Report Modal
+   ═══════════════════════════════════════════════════ */
+.report-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.report-modal {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 900px;
+  height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+}
+.report-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.report-modal-header .title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+.report-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 24px;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+.report-modal-body h1 { font-size: 1.2rem; margin: 0 0 12px; color: var(--accent); }
+.report-modal-body h2 { font-size: 1rem; margin: 16px 0 8px; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
+.report-modal-body h3 { font-size: 0.9rem; margin: 12px 0 6px; color: var(--text-secondary); }
+.report-modal-body p { margin: 4px 0; }
+.report-modal-body strong { color: var(--accent); }
+.report-modal-body code { background: var(--bg-primary); padding: 1px 4px; border-radius: 3px; font-family: var(--font-mono); font-size: 0.78rem; }
+.report-modal-body pre { background: var(--bg-primary); padding: 10px 14px; border-radius: var(--radius-sm); overflow-x: auto; font-family: var(--font-mono); font-size: 0.75rem; margin: 8px 0; }
+.report-modal-body table { border-collapse: collapse; margin: 8px 0; font-size: 0.78rem; }
+.report-modal-body th, .report-modal-body td { border: 1px solid var(--border); padding: 4px 8px; text-align: left; }
+.report-modal-body th { background: var(--bg-primary); color: var(--text-muted); font-weight: 500; }
+.report-modal-body blockquote { border-left: 3px solid var(--accent-dim); padding-left: 12px; margin: 8px 0; color: var(--text-secondary); }
+.report-modal-body hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.report-modal-body ul, .report-modal-body ol { padding-left: 20px; margin: 4px 0; }
+.report-modal-body li { margin: 2px 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <span class="dot" id="engine-dot"></span>
+      <span class="title-text">📈 七月 BTC 监控</span>
+    </div>
+    <div class="refresh-info" id="refresh-info">--</div>
+  </div>
+  <div class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" data-tab="overview">总览</button>
+    <button class="nav-tab" data-tab="archived">归档</button>
+    <button class="nav-tab" data-tab="cron">Cron</button>
+    <button class="nav-tab" data-tab="system">系统</button>
+  </div>
+</header>
+
+<!-- ═══════════════ TAB: OVERVIEW (merged dashboard + cycles) ═══════════════ -->
+<div class="app-container">
+<div class="tab-content active" id="tab-overview">
+
+  <!-- Top Stats Row: 4 cards (status inside cycles card) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:18px;align-items:start;" id="top-stats-row" class="stats-grid">
+    <div class="hero-card" style="padding:12px 16px;" id="stat-cycles">
+      <div class="label">活跃周期</div>
+      <div style="display:flex;align-items:baseline;gap:8px;">
+        <div class="value accent" style="font-size:1.4rem;" id="stat-cycles-val">--</div>
+        <div style="display:flex;gap:4px;" id="status-chips"></div>
+      </div>
+      <div class="sub" id="stat-cycles-sub">--</div>
+    </div>
+    <div class="hero-card" style="padding:12px 16px;" id="stat-rules">
+      <div class="label">活跃规则</div>
+      <div class="value accent" style="font-size:1.4rem;" id="stat-rules-val">--</div>
+      <div class="sub" id="stat-rules-sub">--</div>
+    </div>
+    <div class="hero-card" style="padding:12px 16px;" id="stat-positions">
+      <div class="label">持仓数</div>
+      <div class="value" style="font-size:1.4rem;" id="stat-positions-val">--</div>
+      <div class="sub" id="stat-positions-sub">--</div>
+    </div>
+    <div class="hero-card" style="padding:12px 16px;" id="pnl-card">
+      <div class="label">未实现盈亏 <button class="btn btn-sm btn-ghost" onclick="loadLivePnl()" style="padding:2px 6px;font-size:0.6rem;vertical-align:middle;margin-left:4px" title="手动刷新实盘盈亏">🔄</button></div>
+      <div class="value" id="pnl-value" style="font-size:1.4rem;">--</div>
+      <div class="sub" id="pnl-sub">加载中...</div>
+    </div>
+    <div class="hero-card" style="padding:12px 16px;" id="realized-card">
+      <div class="label">已实现盈亏 <span style="font-weight:400;font-size:0.6rem;color:var(--text-muted)">5.11起</span></div>
+      <div class="value" id="realized-value" style="font-size:1.4rem;">--</div>
+      <div class="sub" id="realized-sub">加载中...</div>
+    </div>
+  </div>
+
+  <!-- PnL Chart -->
+  <div class="info-panel" style="margin-bottom:18px;">
+    <div class="info-panel-header">
+      📊 已实现盈亏趋势
+      <div style="margin-left:auto;display:flex;gap:4px;">
+        <button class="sort-pill active" data-chart-range="7" onclick="setChartRange(7)">周</button>
+        <button class="sort-pill" data-chart-range="30" onclick="setChartRange(30)">月</button>
+        <button class="sort-pill" data-chart-range="0" onclick="setChartRange(0)">总</button>
+      </div>
+    </div>
+    <div style="padding:12px 18px 8px;position:relative;">
+      <canvas id="pnl-chart" height="180" style="width:100%;cursor:crosshair;"></canvas>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div class="info-panel" style="margin-bottom:18px;">
+    <div class="info-panel-header">🔔 近 6h 警报 <span style="font-weight:400;color:var(--text-muted)" id="alert-count"></span></div>
+    <div class="info-panel-body alert-scroll" id="recent-alerts" style="max-height:120px;"></div>
+  </div>
+
+  <!-- Divider -->
+  <div class="section-divider">
+    <span class="label">活跃周期</span>
+    <div class="line"></div>
+    <button class="btn btn-ghost btn-sm" onclick="refreshOverview()">🔄</button>
+  </div>
+
+  <!-- Cycle Toolbar -->
+  <div class="cycle-toolbar">
+    <input type="text" class="search-input" id="cycle-search" placeholder="搜索币种或周期 ID...">
+    <div class="sort-pills" id="sort-pills">
+      <button class="sort-pill active" data-sort="default">默认</button>
+      <button class="sort-pill" data-sort="coin">名称</button>
+      <button class="sort-pill" data-sort="time">时间</button>
+      <button class="sort-pill" data-sort="silence">静默</button>
+      <button class="sort-pill" data-sort="positions">持仓</button>
+      <button class="sort-pill" data-sort="rules">规则</button>
+      <button class="sort-pill" data-sort="status">状态</button>
+      <button class="btn btn-sm btn-ghost" id="sort-order-btn" onclick="toggleSortOrder()" title="切换正序/倒序">↑ 倒序</button>
+    </div>
+  </div>
+
+  <!-- Cycle Grid -->
+  <div class="cycle-grid" id="cycle-grid"></div>
+
+</div>
+
+<!-- ═══════════════ TAB: ARCHIVED ═══════════════ -->
+<div class="tab-content" id="tab-archived">
+  <div class="cycle-toolbar">
+    <input type="text" class="search-input" id="archived-search" placeholder="搜索币种或周期 ID...">
+    <div class="sort-pills" id="archived-sort-pills">
+      <button class="sort-pill" data-sort="default">默认</button>
+      <button class="sort-pill active" data-sort="time">时间</button>
+      <button class="sort-pill" data-sort="coin">名称</button>
+      <button class="sort-pill" data-sort="rules">规则</button>
+      <button class="sort-pill" data-sort="pnl">盈亏</button>
+      <button class="sort-pill" data-filter="pnl-zero" id="filter-pnl-zero" title="隐藏盈亏为0的周期">隐藏盈亏=0</button>
+    </div>
+    <button class="btn btn-sm btn-ghost" onclick="loadArchivedCycles()" style="margin-left:auto">🔄 刷新</button>
+  </div>
+  <div class="cycle-grid" id="archived-grid"></div>
+</div>
+
+<!-- ═══════════════ TAB: CRON ═══════════════ -->
+<div class="tab-content" id="tab-cron">
+  <div class="info-panel" style="margin-bottom:14px">
+    <div class="info-panel-header">
+      ⏱ Cron 任务管理
+      <button class="btn btn-sm btn-accent" onclick="loadCronJobs()" style="margin-left:auto">🔄 刷新</button>
+    </div>
+    <div class="table-scroll" style="padding:0;">
+      <table class="rule-table" id="cron-table">
+        <thead><tr>
+          <th>名称</th><th>Agent</th><th>调度</th><th>状态</th><th>下次运行</th><th>上次运行</th><th>耗时</th><th>错误</th><th>操作</th>
+        </tr></thead>
+        <tbody id="cron-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: SYSTEM ═══════════════ -->
+<div class="tab-content" id="tab-system">
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">⚙️ PM2 进程</div>
+    <div class="pm2-grid" id="pm2-grid" style="padding: 12px;"></div>
+  </div>
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">📋 系统信息</div>
+    <div class="info-panel-body" id="sys-info" style="padding: 14px 18px;"></div>
+  </div>
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">🩺 最新健康报告</div>
+    <div class="health-content" id="health-report"></div>
+  </div>
+  <div class="info-panel">
+    <div class="info-panel-header">📜 操作日志 (actions.log)</div>
+    <div class="log-viewer" id="actions-log"></div>
+  </div>
+</div>
+</div><!-- /app-container -->
+
+<!-- Tooltip at body level (not clipped by any parent overflow) -->
+<div id="pnl-tooltip" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:0.75rem;pointer-events:none;z-index:9999;box-shadow:var(--shadow-lg);max-width:280px;"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   Dashboard App — Vanilla JS SPA
+   ═══════════════════════════════════════════════════ */
+
+const API = {
+  async get(path) {
+    const r = await fetch(path);
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  },
+  async post(path, body) {
+    const r = await fetch(path, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  },
+  async patch(path, body) {
+    const r = await fetch(path, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  },
+  async del(path) {
+    const r = await fetch(path, { method: 'DELETE' });
+    if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+    return r.json();
+  }
+};
+
+// ── Navigation ──────────────────────────────────────
+let activeTab = 'overview';
+let lastRefresh = null;
+let cycleData = [];
+let expandedCycles = {};
+let sortField = 'default';
+let sortDesc = true;
+let analysisJobs = {};
+let analysisPollTimer = null;
+
+function switchTab(name) {
+  activeTab = name;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${name}`));
+  if (name === 'overview') refreshOverview();
+  else if (name === 'archived') loadArchivedCycles();
+  else if (name === 'cron') loadCronJobs();
+  else if (name === 'system') loadSystem();
+}
+
+document.getElementById('nav-tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.nav-tab');
+  if (tab) switchTab(tab.dataset.tab);
+});
+
+function setRefreshTime() {
+  lastRefresh = new Date();
+  document.getElementById('refresh-info').textContent = `更新: ${lastRefresh.toLocaleTimeString('zh-CN')}`;
+}
+
+// ═══════════════════════════════════════════════════
+//  OVERVIEW TAB (merged dashboard + cycles)
+// ═══════════════════════════════════════════════════
+
+async function refreshOverview() {
+  try {
+    // Load dashboard + cycles in parallel
+    const [dash, cyc] = await Promise.all([
+      API.get('/api/dashboard'),
+      API.get('/api/cycles')
+    ]);
+
+    // ── Engine dot ──
+    const dot = document.getElementById('engine-dot');
+    dot.className = 'dot' + (dash.engineStatus !== 'online' ? ' offline' : '');
+
+    // ── Update stat cards individually (no innerHTML rewrite) ──
+    document.getElementById('stat-cycles-val').textContent = dash.summary.activeCycles.total;
+    document.getElementById('stat-cycles-sub').textContent = `BTC ${dash.summary.activeCycles.btc} · 山寨 ${dash.summary.activeCycles.altcoin}`;
+    document.getElementById('stat-rules-val').textContent = dash.summary.activeRules;
+    document.getElementById('stat-rules-sub').textContent = `已归档 ${dash.summary.archivedRules}`;
+    document.getElementById('stat-positions-val').textContent = dash.summary.totalPositions;
+    document.getElementById('stat-positions-sub').textContent = `引擎 ${dash.engineStatus === 'online' ? '🟢 在线' : '🔴 离线'}`;
+
+    // ── Status chips (inside cycles card, inline) ──
+    const statusLabels = { alive: '🟢', dead: '🔴' };
+    document.getElementById('status-chips').innerHTML = Object.entries(dash.cyclesByStatus).map(([k, v]) =>
+      `<span style="font-size:0.68rem;padding:1px 5px;border-radius:3px;${k==='alive'?'background:var(--green-bg);color:var(--green)':'background:var(--red-bg);color:var(--red)'}">${statusLabels[k]||''} ${v}</span>`
+    ).join('');
+
+    // ── Recent alerts ──
+    const alertsEl = document.getElementById('recent-alerts');
+    document.getElementById('alert-count').textContent = dash.recentAlerts.length ? `(${dash.recentAlerts.length})` : '';
+    if (dash.recentAlerts.length === 0) {
+      alertsEl.innerHTML = '<div style="padding:20px 18px;text-align:center;color:var(--text-muted);font-size:0.82rem;">🔕 近 6 小时无触发警报</div>';
+    } else {
+      alertsEl.innerHTML = dash.recentAlerts.map(a => `
+        <div class="alert-item">
+          <span class="alert-time">${formatTime(a.time)}</span>
+          <span class="alert-msg">${escHtml(a.rule)}</span>
+        </div>`).join('');
+    }
+
+    // ── Cycles ──
+    cycleData = cyc.cycles;
+    renderCycleGrid(sortCycles(cyc.cycles));
+
+    setRefreshTime();
+  } catch (e) {
+    document.getElementById('stat-cycles-val').textContent = 'err';
+  }
+}
+
+// ── Sort ──────────────────────────────────────────
+function sortCycles(cycles) {
+  const arr = [...cycles];
+  if (sortField === 'default') {
+    arr.sort((a, b) => {
+      if (a.type === 'btc' && b.type !== 'btc') return -1;
+      if (a.type !== 'btc' && b.type === 'btc') return 1;
+      return (b.lastReportTime || '') > (a.lastReportTime || '') ? 1 : -1;
+    });
+    return arr;
+  }
+  const keyFn = {
+    coin: c => c.coin.toLowerCase(),
+    time: c => c.lastReportTime || '',
+    silence: c => Number.isFinite(parseFloat(c.silenceHours)) ? parseFloat(c.silenceHours) : 999,
+    positions: c => c.positionCount,
+    rules: c => c.activeRuleCount,
+    status: c => ({ alive: 0, dead: 1 })[c.status] ?? 9,
+  }[sortField];
+  if (!keyFn) return arr;
+  arr.sort((a, b) => {
+    const va = keyFn(a), vb = keyFn(b);
+    if (typeof va === 'string') return sortDesc ? vb.localeCompare(va) : va.localeCompare(vb);
+    return sortDesc ? vb - va : va - vb;
+  });
+  return arr;
+}
+
+function setSort(field) {
+  sortField = field;
+  document.querySelectorAll('.sort-pill').forEach(b => b.classList.toggle('active', b.dataset.sort === field));
+  if (cycleData.length) renderCycleGrid(sortCycles(cycleData));
+}
+
+function toggleSortOrder() {
+  sortDesc = !sortDesc;
+  document.getElementById('sort-order-btn').textContent = sortDesc ? '↑ 倒序' : '↓ 正序';
+  if (cycleData.length) renderCycleGrid(sortCycles(cycleData));
+}
+
+document.getElementById('sort-pills').addEventListener('click', e => {
+  const btn = e.target.closest('.sort-pill');
+  if (btn) setSort(btn.dataset.sort);
+});
+
+// ── Cycle Grid ──────────────────────────────────
+function renderCycleGrid(cycles) {
+  const container = document.getElementById('cycle-grid');
+  if (cycles.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div>没有找到周期</div>';
+    return;
+  }
+
+  container.innerHTML = cycles.map(c => {
+    const statusIcon = { alive: '🟢', dead: '🔴' }[c.status] || '⚪';
+    const sh = parseFloat(c.silenceHours);
+    const silence = !Number.isFinite(sh) || sh >= 999 ? '从未' : (sh >= 24 ? `${Math.floor(sh/24)}d${Math.floor(sh%24)}h` : `${sh.toFixed(1)}h`);
+    const isOpen = !!expandedCycles[c.cycleId];
+
+    return `
+    <div class="cycle-card${isOpen ? ' expanded' : ''}" data-cycle="${c.cycleId}" onclick="expandCycle('${c.cycleId}', event)">
+      <div class="cycle-card-top">
+        <span class="status-dot ${c.status}"></span>
+        <span class="cycle-card-coin">${c.coin}</span>
+        <span class="cycle-card-tag ${c.type === 'btc' ? 'btc' : 'alt'}">${c.type === 'btc' ? 'BTC' : '山寨'}</span>
+      </div>
+      <div class="cycle-card-stats">
+        <div>持仓 <span class="stat-val">${c.hasPositions ? '×' + c.positionCount : '—'}</span></div>
+        <div>规则 <span class="stat-val">${c.activeRuleCount}</span></div>
+        <div>报告 <span class="stat-val">${c.reportCount}</span></div>
+        <div>静默 <span class="stat-val">${silence}</span></div>
+      </div>
+      <div class="cycle-card-footer">
+        <span class="cycle-card-id">${c.cycleId}</span>
+        <div class="cycle-card-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-accent" onclick="triggerAnalysis('${c.cycleId}','${c.coin}')" title="触发即时分析">⚡ 分析</button>
+          <button class="btn btn-sm btn-danger" onclick="archiveCycle('${c.cycleId}','${c.coin}')" title="归档周期">📦 归档</button>
+        </div>
+      </div>
+      <div class="analysis-status" id="as-${c.cycleId}" style="display:none"></div>
+    </div>`;
+  }).join('');
+
+  for (const cid of Object.keys(expandedCycles)) {
+    renderDetailRow(cid);
+  }
+}
+
+function renderDetailRow(cycleId) {
+  const c = cycleData.find(x => x.cycleId === cycleId);
+  if (!c) return;
+  const old = document.getElementById(`detail-${cycleId}`);
+  if (old) old.remove();
+  const card = document.querySelector(`.cycle-card[data-cycle="${cycleId}"]`);
+  if (!card) return;
+  const detail = document.createElement('div');
+  detail.className = 'cycle-detail-row';
+  detail.id = `detail-${cycleId}`;
+  detail.innerHTML = renderCycleDetail(c);
+  card.parentNode.insertBefore(detail, card.nextSibling);
+  const name = expandedCycles[cycleId];
+  if (name === 'positions') loadCyclePositions(cycleId);
+  else if (name === 'rules') loadCycleRules(cycleId);
+  else if (name === 'reports') loadCycleReports(cycleId);
+  else if (name === 'logs') loadCycleLogs(cycleId);
+}
+
+function expandCycle(cycleId, event) {
+  if (event.target.closest('button') || event.target.closest('.rule-log-toggle')) return;
+  if (expandedCycles[cycleId]) {
+    delete expandedCycles[cycleId];
+    const detail = document.getElementById(`detail-${cycleId}`);
+    if (detail) detail.remove();
+    document.querySelector(`.cycle-card[data-cycle="${cycleId}"]`)?.classList.remove('expanded');
+  } else {
+    expandedCycles[cycleId] = 'positions';
+    document.querySelector(`.cycle-card[data-cycle="${cycleId}"]`)?.classList.add('expanded');
+    renderDetailRow(cycleId);
+  }
+}
+
+function renderCycleDetail(c) {
+  return `
+    <div class="cycle-subtab">
+      <button class="cycle-subtab-btn${expandedCycles[c.cycleId]==='positions'?' active':''}" onclick="switchSubtab('${c.cycleId}','positions')">📊 仓位</button>
+      <button class="cycle-subtab-btn${expandedCycles[c.cycleId]==='rules'?' active':''}" onclick="switchSubtab('${c.cycleId}','rules')">🔔 规则 (${c.activeRuleCount})</button>
+      <button class="cycle-subtab-btn${expandedCycles[c.cycleId]==='reports'?' active':''}" onclick="switchSubtab('${c.cycleId}','reports')">📝 报告 (${c.reportCount})</button>
+      <button class="cycle-subtab-btn${expandedCycles[c.cycleId]==='logs'?' active':''}" onclick="switchSubtab('${c.cycleId}','logs')">📜 日志</button>
+    </div>
+    <div class="cycle-subpanel${expandedCycles[c.cycleId]==='positions'?' active':''}" id="panel-${c.cycleId}-positions">
+      <div class="loading">加载实盘仓位中...</div>
+    </div>
+    <div class="cycle-subpanel${expandedCycles[c.cycleId]==='rules'?' active':''}" id="panel-${c.cycleId}-rules">
+      ${renderRulesPlaceholder(c)}
+    </div>
+    <div class="cycle-subpanel${expandedCycles[c.cycleId]==='reports'?' active':''}" id="panel-${c.cycleId}-reports">
+      ${renderReportsPlaceholder(c)}
+    </div>
+    <div class="cycle-subpanel${expandedCycles[c.cycleId]==='logs'?' active':''}" id="panel-${c.cycleId}-logs">
+      <div class="loading">加载日志中...</div>
+    </div>`;
+}
+
+function switchSubtab(cycleId, name) {
+  expandedCycles[cycleId] = name;
+  renderDetailRow(cycleId);
+}
+
+// ── Load live positions ──────────────────────────────
+async function loadCyclePositions(cycleId) {
+  const panel = document.getElementById(`panel-${cycleId}-positions`);
+  if (!panel) return;
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}/positions/live`);
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-size:0.78rem;color:var(--text-secondary)">
+          <span class="live-indicator"></span>实盘仓位 · ${data.coin} · ${data.count} 个 · ${new Date(data.timestamp).toLocaleTimeString('zh-CN')}
+        </span>
+        <button class="btn btn-sm btn-ghost" onclick="loadCyclePositions('${cycleId}')">🔄</button>
+      </div>
+      ${renderLivePositions(data)}
+      ${renderSnapshotSection(cycleId)}`;
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">实盘仓位加载失败: ${e.message}</div>${renderSnapshotSection(cycleId)}`;
+  }
+}
+
+function renderLivePositions(data) {
+  if (!data.positions || data.positions.length === 0) {
+    return '<div style="color:var(--text-muted);padding:12px 0;font-size:0.82rem;">当前无持仓</div>';
+  }
+  return `<div class="table-scroll"><table class="pos-table">
+    <thead><tr>
+      <th>合约</th><th>方向</th><th>张数</th><th>入场价</th><th>标记价</th><th>最新价</th>
+      <th>杠杆</th><th>未实现盈亏</th><th>盈亏%</th><th>保证金模式</th>
+    </tr></thead>
+    <tbody>${data.positions.map(p => `
+      <tr>
+        <td>${p.instId}</td>
+        <td class="${p.posSide==='long'?'side-long':'side-short'}">${p.posSide==='long'?'多':'空'}</td>
+        <td>${p.pos}</td>
+        <td>${p.avgPx}</td>
+        <td>${p.markPx||'-'}</td>
+        <td>${p.last||'-'}</td>
+        <td>${p.lever}x</td>
+        <td class="${parseFloat(p.upl)>=0?'pnl-pos':'pnl-neg'}">${safeFixed(p.upl, 4)}</td>
+        <td class="${parseFloat(p.uplRatio)>=0?'pnl-pos':'pnl-neg'}">${safeFixed(parseFloat(p.uplRatio||0)*100, 2)}%</td>
+        <td class="text-muted">${p.mgnMode}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function renderSnapshotSection(cycleId) {
+  return `
+    <div class="collapsible-section" style="margin-top:14px;border-top:1px solid var(--border);">
+      <div class="collapsible-header" onclick="toggleCollapsible(this)">
+        <span class="arrow">▶</span> 📸 快照仓位 (positions.json)
+      </div>
+      <div class="collapsible-body" id="snapshot-${cycleId}">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>`;
+}
+
+async function toggleCollapsible(header) {
+  const body = header.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  if (isOpen) {
+    body.classList.remove('open');
+    header.classList.remove('open');
+    return;
+  }
+  body.classList.add('open');
+  header.classList.add('open');
+  if (body.querySelector('.loading')) {
+    const cycleId = body.id.replace('snapshot-', '');
+    try {
+      const data = await API.get(`/api/cycles/${cycleId}`);
+      body.innerHTML = renderSnapshotPositions(data.snapshotPositions);
+    } catch (e) {
+      body.innerHTML = `<div class="error-msg">${e.message}</div>`;
+    }
+  }
+}
+
+function renderSnapshotPositions(snapshot) {
+  if (!snapshot) return '<div style="color:var(--text-muted);padding:8px;font-size:0.8rem;">无快照数据</div>';
+  const positions = snapshot['当前持仓'] || [];
+  const summary = snapshot['汇总'] || {};
+  const syncTime = snapshot['同步时间'] || '未知';
+  const source = snapshot['数据来源'] || '未知';
+  let html = `<div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px;">
+    同步时间: ${syncTime} · 来源: ${source} · 当前持仓: ${summary['当前持仓数']||positions.length} 个
+  </div>`;
+  if (positions.length === 0) {
+    html += '<div style="color:var(--text-muted);padding:4px 0;font-size:0.8rem;">快照无持仓记录</div>';
+  } else {
+    html += `<div class="table-scroll"><table class="pos-table">
+      <thead><tr>
+        <th>合约</th><th>方向</th><th>张数</th><th>入场价</th><th>标记价</th>
+        <th>杠杆</th><th>未实现盈亏</th><th>保证金</th><th>强平价</th>
+      </tr></thead>
+      <tbody>${positions.map(p => `
+        <tr>
+          <td>${p['合约']||'-'}</td>
+          <td class="${p['持仓方向']==='long'?'side-long':'side-short'}">${p['持仓方向']==='long'?'多':'空'}</td>
+          <td>${p['持仓张数']||'-'}</td>
+          <td>${p['平均入场价']||'-'}</td>
+          <td>${p['标记价格']||'-'}</td>
+          <td>${p['杠杆']||'-'}x</td>
+          <td class="${parseFloat(p['未实现盈亏'])>=0?'pnl-pos':'pnl-neg'}">${p['未实现盈亏']||'-'}</td>
+          <td>${p['保证金']||'-'}</td>
+          <td>${p['强平价']||'-'}</td>
+        </tr>`).join('')}
+        ${positions.some(p => p['委托订单']?.length) ? `
+        <tr><td colspan="9" style="color:var(--yellow);padding-top:8px;">📌 委托订单:</td></tr>
+        ${positions.filter(p => p['委托订单']?.length).map(p => p['委托订单'].map(o => `
+        <tr>
+          <td colspan="2">${p['合约']} · ${o['订单类型']}</td>
+          <td>${o['数量']||'-'}</td>
+          <td colspan="2">止盈: ${o['止盈价']||'-'} / 止损: ${o['止损触发价']||'-'}</td>
+          <td colspan="2">${o['状态']||'-'}</td>
+          <td colspan="2" class="text-muted">${o['订单ID']?.slice(-8)||''}</td>
+        </tr>`).join('')).join('')}
+        ` : ''}
+      </tbody>
+    </table></div>`;
+  }
+  if (snapshot['备注']) {
+    html += `<div style="font-size:0.72rem;color:var(--text-muted);margin-top:8px;">📝 ${snapshot['备注']}</div>`;
+  }
+  return html;
+}
+
+// ── Load rules ──────────────────────────────────────
+async function loadCycleRules(cycleId) {
+  const panel = document.getElementById(`panel-${cycleId}-rules`);
+  if (!panel) return;
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}`);
+    panel.innerHTML = renderRulesTable(data.rules || []);
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+function renderRulesPlaceholder(c) {
+  if (c.activeRuleCount === 0) return '<div class="empty-state"><div class="icon">🔕</div>无规则</div>';
+  return '<div class="loading">加载规则中...</div>';
+}
+
+function renderRulesTable(rules) {
+  if (rules.length === 0) return '<div class="empty-state"><div class="icon">🔕</div>无规则</div>';
+  // Sort: active first, archived last
+  const sorted = [...rules].sort((a, b) => {
+    if (a.status === 'active' && b.status !== 'active') return -1;
+    if (a.status !== 'active' && b.status === 'active') return 1;
+    return 0;
+  });
+  return `<div class="table-scroll"><table class="rule-table">
+    <thead><tr><th>规则名</th><th>类型</th><th>状态</th><th>创建时间</th><th>最后检查</th><th>来源</th><th>日志</th></tr></thead>
+    <tbody>${sorted.map(r => `
+      <tr>
+        <td>${r.name||r.file}</td>
+        <td>${r.ruleType||'-'}</td>
+        <td class="${r.status==='active'?'rule-status-active':'rule-status-archived'}">${r.status==='active'?'● 活跃':'○ 归档'}</td>
+        <td>${formatTime(r.createdAt)}</td>
+        <td>${formatTime(r.lastCheckedAt)}</td>
+        <td>${r.createdBy||'-'}</td>
+        <td><span class="rule-log-toggle" onclick="loadRuleLogs('${escAttr(r.file)}','${escAttr(r.name||'')}', event)">📜 查看</span></td>
+      </tr>
+      <tr id="log-row-${r.file}" style="display:none;"><td colspan="7">
+        <div class="rule-log-viewer" id="log-view-${r.file}"></div>
+      </td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+async function loadRuleLogs(ruleFile, ruleName, event) {
+  event.stopPropagation();
+  const row = document.getElementById(`log-row-${ruleFile}`);
+  const viewer = document.getElementById(`log-view-${ruleFile}`);
+  if (viewer.classList.contains('open')) {
+    viewer.classList.remove('open');
+    row.style.display = 'none';
+    viewer.textContent = '';
+    return;
+  }
+  row.style.display = '';
+  viewer.classList.add('open');
+  viewer.textContent = '加载中...';
+  try {
+    const nameParam = ruleName ? `&name=${encodeURIComponent(ruleName)}` : '';
+    const data = await API.get(`/api/rules/${ruleFile}/logs?lines=120${nameParam}`);
+    viewer.textContent = data.entries.length === 0 ? '（无匹配日志记录）' : data.entries.map(e => e.text).join('\n');
+  } catch (e) {
+    viewer.textContent = `加载失败: ${e.message}`;
+  }
+}
+
+function escAttr(s) {
+  if (!s) return '';
+  return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+async function archiveCycle(cycleId, coin) {
+  if (!confirm(`确定归档周期 ${coin} (${cycleId}) 吗？\n\n将执行: 实盘盈亏同步 → 规则归档 → 目录移动`)) return;
+  try {
+    const data = await API.post(`/api/cycles/${cycleId}/archive`, { reason: '面板手动归档' });
+    alert(`✅ 归档完成\n${data.output || '成功'}`);
+    refreshOverview();
+  } catch (e) {
+    alert(`归档失败: ${e.message}`);
+  }
+}
+
+async function triggerAnalysis(cycleId, coin) {
+  if (!confirm(`确定触发 ${coin} (${cycleId}) 即时分析吗？\n\n将创建一次性 cron 任务，spawn 七月会话进行分析。`)) return;
+  try {
+    const data = await API.post(`/api/cycles/${cycleId}/analyze`);
+    if (data.success && data.jobId) {
+      analysisJobs[data.jobId] = { cycleId, coin, status: 'queued', _ts: Date.now() };
+      updateAnalysisStatus(cycleId);
+      startAnalysisPolling();
+    } else {
+      alert(`触发失败: ${JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    alert(`触发失败: ${e.message}`);
+  }
+}
+
+function updateAnalysisStatus(cycleId) {
+  const el = document.getElementById(`as-${cycleId}`);
+  if (!el) return;
+  const jobs = Object.entries(analysisJobs).filter(([id, j]) => j.cycleId === cycleId);
+  if (jobs.length === 0) { el.style.display = 'none'; return; }
+  const latest = jobs.sort((a, b) => b[1]._ts - a[1]._ts)[0];
+  const [, job] = latest;
+  const labels = { queued: '⏳ 排队中', running: '🔄 分析中', ok: '✅ 分析完成', error: '❌ 分析失败' };
+  const cls = job.status === 'ok' ? 'ok' : job.status === 'error' ? 'error' : job.status;
+  el.className = `analysis-status ${cls}`;
+  el.style.display = 'inline-flex';
+  el.textContent = labels[job.status] || job.status;
+  if (job.status === 'ok' || job.status === 'error') {
+    setTimeout(() => { delete analysisJobs[job.jobId]; updateAnalysisStatus(cycleId); }, 30000);
+  }
+}
+
+async function pollAnalysisJobs() {
+  const activeJobs = Object.entries(analysisJobs).filter(([id, j]) => j.status === 'queued' || j.status === 'running');
+  if (activeJobs.length === 0) { stopAnalysisPolling(); return; }
+  try {
+    const data = await API.get('/api/analysis/jobs');
+    const changedCycles = new Set();
+    for (const aj of data.jobs) {
+      const local = analysisJobs[aj.jobId];
+      if (local && local.status !== aj.status) { local.status = aj.status; changedCycles.add(local.cycleId); }
+    }
+    for (const [jobId, local] of activeJobs) {
+      if (!data.jobs.find(j => j.jobId === jobId)) { local.status = 'ok'; changedCycles.add(local.cycleId); }
+    }
+    changedCycles.forEach(cid => updateAnalysisStatus(cid));
+  } catch {}
+}
+
+function startAnalysisPolling() {
+  if (analysisPollTimer) return;
+  pollAnalysisJobs();
+  analysisPollTimer = setInterval(pollAnalysisJobs, 5000);
+}
+
+function stopAnalysisPolling() {
+  if (analysisPollTimer) { clearInterval(analysisPollTimer); analysisPollTimer = null; }
+}
+
+// ── Load reports ────────────────────────────────────
+async function loadCycleReports(cycleId) {
+  const panel = document.getElementById(`panel-${cycleId}-reports`);
+  if (!panel) return;
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}`);
+    panel.innerHTML = renderReportsList(data.reports || []);
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+// ── Load cycle logs ────────────────────────────────────
+async function loadCycleLogs(cycleId, lines = 200) {
+  const panel = document.getElementById(`panel-${cycleId}-logs`);
+  if (!panel) return;
+  panel.innerHTML = '<div class="loading">加载日志中...</div>';
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}/logs?lines=${lines}`);
+    panel.innerHTML = renderCycleLogs(cycleId, data);
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+function renderCycleLogs(cycleId, data) {
+  if (!data.exists) return '<div class="empty-state"><div class="icon">📜</div>日志文件不存在</div>';
+  if (data.entries.length === 0) return '<div class="empty-state"><div class="icon">📜</div>日志为空</div>';
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:0.72rem;color:var(--text-muted)">📜 ${data.logFile} · ${data.count} 行</span>
+      <div style="display:flex;gap:4px;">
+        <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 100)">100行</button>
+        <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 200)">200行</button>
+        <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 500)">500行</button>
+        <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 1000)">全量</button>
+      </div>
+    </div>
+    <div class="log-viewer" style="max-height:420px;font-size:0.7rem;line-height:1.5;">${renderLogEntries(data.entries)}</div>`;
+}
+
+function renderLogEntries(entries) {
+  return entries.map(e => {
+    let cls = '';
+    if (e.text.includes('⛔ ERROR') || e.text.includes('ERROR')) cls = 'color:var(--red);';
+    else if (e.text.includes('⚠️ WARN') || e.text.includes('WARN')) cls = 'color:var(--yellow);';
+    else if (e.text.includes('==========') ) cls = 'color:var(--accent);font-weight:600;';
+    return `<div style="${cls}">${escHtml(e.text)}</div>`;
+  }).join('');
+}
+
+function renderReportsPlaceholder(c) {
+  if (c.reportCount === 0) return '<div class="empty-state"><div class="icon">📝</div>无报告</div>';
+  return '<div class="loading">加载报告中...</div>';
+}
+
+function renderReportsList(reports) {
+  if (reports.length === 0) return '<div class="empty-state"><div class="icon">📝</div>无报告</div>';
+  return reports.map(r => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+      <a class="report-link" style="cursor:pointer;" onclick="openReport('${escAttr(r.path)}','${escAttr(r.name)}')" title="点击查看报告">📄 ${r.name}</a>
+      <span style="font-size:0.7rem;color:var(--text-muted)">${formatTime(r.time)}</span>
+    </div>`).join('');
+}
+
+
+// ═══════════════════════════════════════════════════
+//  TAB: ARCHIVED CYCLES
+// ═══════════════════════════════════════════════════
+
+let archivedData = [];
+let archivedSortField = 'time';
+let archivedSortDesc = true;
+let archivedExpanded = {};
+let archivedFilterPnlZero = false;
+
+async function loadArchivedCycles() {
+  try {
+    const data = await API.get('/api/cycles?archived=true');
+    archivedData = data.cycles;
+    renderArchivedGrid(applyArchivedFilters(archivedData));
+    setRefreshTime();
+  } catch (e) {
+    document.getElementById('archived-grid').innerHTML = `<div class="error-msg" style="grid-column:1/-1">加载失败: ${e.message}</div>`;
+  }
+}
+
+function applyArchivedFilters(cycles) {
+  let filtered = cycles;
+  if (archivedFilterPnlZero) {
+    filtered = filtered.filter(c => c.realizedPnl !== null && c.realizedPnl !== 0);
+  }
+  return sortArchived(filtered);
+}
+
+function sortArchived(cycles) {
+  const arr = [...cycles];
+  if (archivedSortField === 'default') {
+    arr.sort((a, b) => {
+      if (a.type === 'btc' && b.type !== 'btc') return -1;
+      if (a.type !== 'btc' && b.type === 'btc') return 1;
+      return (b.lastReportTime || '') > (a.lastReportTime || '') ? 1 : -1;
+    });
+    return arr;
+  }
+  const keyFn = {
+    coin: c => c.coin.toLowerCase(),
+    time: c => c.lastReportTime || '',
+    rules: c => c.ruleCount || 0,
+    pnl: c => c.realizedPnl ?? 0,
+  }[archivedSortField];
+  if (!keyFn) return arr;
+  arr.sort((a, b) => {
+    const va = keyFn(a), vb = keyFn(b);
+    if (typeof va === 'string') return archivedSortDesc ? vb.localeCompare(va) : va.localeCompare(vb);
+    return archivedSortDesc ? vb - va : va - vb;
+  });
+  return arr;
+}
+
+function renderArchivedGrid(cycles) {
+  const container = document.getElementById('archived-grid');
+  if (cycles.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📦</div>没有归档周期</div>';
+    return;
+  }
+  container.innerHTML = cycles.map(c => {
+    const sh = parseFloat(c.silenceHours);
+    const silence = !Number.isFinite(sh) || sh >= 999 ? '从未' : (sh >= 24 ? `${Math.floor(sh/24)}d${Math.floor(sh%24)}h` : `${sh.toFixed(1)}h`);
+    const isOpen = !!archivedExpanded[c.cycleId];
+    // Parse readable time from cycleId
+    const readableTime = parseCycleTime(c.cycleId, c.type);
+    // PnL display
+    const rp = c.realizedPnl;
+    const pnlHtml = rp !== null && rp !== undefined
+      ? `<div>盈亏 <span class="stat-val ${rp >= 0 ? 'pnl-pos' : 'pnl-neg'}">${rp >= 0 ? '+' : ''}${rp.toFixed(2)}</span></div>`
+      : `<div>盈亏 <span class="stat-val" style="color:var(--text-muted)">—</span></div>`;
+    return `
+    <div class="cycle-card${isOpen ? ' expanded' : ''}" data-archived-cycle="${c.cycleId}" onclick="expandArchivedCycle('${c.cycleId}', event)">
+      <div class="cycle-card-top">
+        <span class="status-dot dead"></span>
+        <span class="cycle-card-coin">${c.coin}</span>
+        <span class="cycle-card-tag ${c.type === 'btc' ? 'btc' : 'alt'}">${c.type === 'btc' ? 'BTC' : '山寨'}</span>
+        <span style="font-size:0.68rem;color:var(--text-muted);margin-left:auto">${readableTime}</span>
+      </div>
+      <div class="cycle-card-stats">
+        <div>报告 <span class="stat-val">${c.reportCount}</span></div>
+        <div>规则 <span class="stat-val">${c.ruleCount}</span></div>
+        ${pnlHtml}
+        <div>持仓 <span class="stat-val">${c.hasPositions ? '×' + c.positionCount : '—'}</span></div>
+      </div>
+      <div class="cycle-card-footer">
+        <span class="cycle-card-id">${c.cycleId}</span>
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteArchivedCycle('${c.cycleId}','${c.coin}')" title="删除此周期">🗑 删除</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  for (const cid of Object.keys(archivedExpanded)) {
+    renderArchivedDetailRow(cid);
+  }
+}
+
+function parseCycleTime(cycleId, type) {
+  if (type === 'btc') {
+    // cycle-20260515-001 -> 05-15
+    const m = cycleId.match(/cycle-(\d{4})(\d{2})(\d{2})-(\d+)/);
+    if (m) return `${m[2]}-${m[3]}`;
+  } else {
+    // alt-ACH-20260515-0427 -> 05-15 04:27
+    const m = cycleId.match(/^alt-\w+-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/);
+    if (m) return `${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
+  }
+  return '';
+}
+
+function expandArchivedCycle(cycleId, event) {
+  if (event.target.closest('button') || event.target.closest('.rule-log-toggle')) return;
+  if (archivedExpanded[cycleId]) {
+    delete archivedExpanded[cycleId];
+    const detail = document.getElementById(`archived-detail-${cycleId}`);
+    if (detail) detail.remove();
+    document.querySelector(`[data-archived-cycle="${cycleId}"]`)?.classList.remove('expanded');
+  } else {
+    archivedExpanded[cycleId] = 'rules';
+    document.querySelector(`[data-archived-cycle="${cycleId}"]`)?.classList.add('expanded');
+    renderArchivedDetailRow(cycleId);
+  }
+}
+
+function renderArchivedDetailRow(cycleId) {
+  const c = archivedData.find(x => x.cycleId === cycleId);
+  if (!c) return;
+  const old = document.getElementById(`archived-detail-${cycleId}`);
+  if (old) old.remove();
+  const card = document.querySelector(`[data-archived-cycle="${cycleId}"]`);
+  if (!card) return;
+  const detail = document.createElement('div');
+  detail.className = 'cycle-detail-row';
+  detail.id = `archived-detail-${cycleId}`;
+  detail.innerHTML = `
+    <div class="cycle-subtab">
+      <button class="cycle-subtab-btn${archivedExpanded[cycleId]==='pnl'?' active':''}" onclick="switchArchivedSubtab('${cycleId}','pnl')">💰 盈亏</button>
+      <button class="cycle-subtab-btn${archivedExpanded[cycleId]==='rules'?' active':''}" onclick="switchArchivedSubtab('${cycleId}','rules')">🔔 规则 (${c.ruleCount})</button>
+      <button class="cycle-subtab-btn${archivedExpanded[cycleId]==='reports'?' active':''}" onclick="switchArchivedSubtab('${cycleId}','reports')">📝 报告 (${c.reportCount})</button>
+      <button class="cycle-subtab-btn${archivedExpanded[cycleId]==='logs'?' active':''}" onclick="switchArchivedSubtab('${cycleId}','logs')">📜 日志</button>
+    </div>
+    <div class="cycle-subpanel${archivedExpanded[cycleId]==='pnl'?' active':''}" id="archived-panel-${cycleId}-pnl">
+      <div class="loading">加载盈亏数据中...</div>
+    </div>
+    <div class="cycle-subpanel${archivedExpanded[cycleId]==='rules'?' active':''}" id="archived-panel-${cycleId}-rules">
+      <div class="loading">加载规则中...</div>
+    </div>
+    <div class="cycle-subpanel${archivedExpanded[cycleId]==='reports'?' active':''}" id="archived-panel-${cycleId}-reports">
+      <div class="loading">加载报告中...</div>
+    </div>
+    <div class="cycle-subpanel${archivedExpanded[cycleId]==='logs'?' active':''}" id="archived-panel-${cycleId}-logs">
+      <div class="loading">加载日志中...</div>
+    </div>`;
+  card.parentNode.insertBefore(detail, card.nextSibling);
+  // Load data
+  if (archivedExpanded[cycleId] === 'pnl') loadArchivedPnl(cycleId);
+  else if (archivedExpanded[cycleId] === 'rules') loadArchivedRules(cycleId);
+  else if (archivedExpanded[cycleId] === 'reports') loadArchivedReports(cycleId);
+  else if (archivedExpanded[cycleId] === 'logs') loadArchivedLogs(cycleId);
+}
+
+function switchArchivedSubtab(cycleId, name) {
+  archivedExpanded[cycleId] = name;
+  renderArchivedDetailRow(cycleId);
+}
+
+// ── Report Modal ──────────────────────────────────
+async function openReport(filePath, fileName) {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'report-modal-overlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeReportModal(); };
+
+  overlay.innerHTML = `
+    <div class="report-modal">
+      <div class="report-modal-header">
+        <span class="title">${escHtml(fileName)}</span>
+        <button class="btn btn-sm btn-ghost" onclick="closeReportModal()">✕ 关闭</button>
+      </div>
+      <div class="report-modal-body" id="report-modal-body">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  // Fetch report content
+  try {
+    const data = await API.get(`/api/report?path=${encodeURIComponent(filePath)}`);
+    const body = document.getElementById('report-modal-body');
+    if (data.content) {
+      body.innerHTML = renderMarkdown(data.content);
+    } else {
+      body.innerHTML = '<div class="error-msg">报告内容为空</div>';
+    }
+  } catch (e) {
+    document.getElementById('report-modal-body').innerHTML = `<div class="error-msg">加载失败: ${e.message}</div>`;
+  }
+}
+
+function closeReportModal() {
+  const overlay = document.querySelector('.report-modal-overlay');
+  if (overlay) {
+    overlay.remove();
+    document.body.style.overflow = '';
+  }
+}
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeReportModal();
+});
+
+// Simple markdown-to-HTML renderer (no dependency)
+function renderMarkdown(md) {
+  let html = escHtml(md);
+  // Code blocks
+  html = html.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Horizontal rule
+  html = html.replace(/^---+$/gm, '<hr>');
+  // Blockquote
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered list
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--accent)">$1</a>');
+  // Paragraphs (lines not already wrapped in tags)
+  html = html.replace(/^(?!<[hublop]|<li|<hr|<pre|<code|<block)(.+)$/gm, '<p>$1</p>');
+  // Clean up empty paragraphs
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  return html;
+}
+
+async function deleteArchivedCycle(cycleId, coin) {
+  if (!confirm(`确定删除归档周期 ${coin} (${cycleId}) 吗？\n\n此操作将永久删除该周期的所有文件（报告、仓位快照等），不可恢复！`)) return;
+  if (!confirm(`二次确认：真的要删除 ${cycleId} 吗？`)) return;
+  try {
+    const data = await API.del(`/api/cycles/${cycleId}`);
+    if (data.success) {
+      // Remove from local data
+      archivedData = archivedData.filter(c => c.cycleId !== cycleId);
+      delete archivedExpanded[cycleId];
+      renderArchivedGrid(applyArchivedFilters(archivedData));
+    } else {
+      alert(`删除失败: ${data.error || JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    alert(`删除失败: ${e.message}`);
+  }
+}
+
+async function loadArchivedPnl(cycleId) {
+  const panel = document.getElementById(`archived-panel-${cycleId}-pnl`);
+  if (!panel) return;
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}`);
+    const snap = data.snapshotPositions;
+    const summary = snap?.['汇总'] || null;
+    const syncTime = snap?.['同步时间'] || null;
+    const source = snap?.['数据来源'] || null;
+    const realized = summary ? summary['已实现盈亏总计'] : null;
+    const unrealized = summary ? summary['未实现盈亏总计'] : null;
+    const posCount = summary ? summary['当前持仓数'] : null;
+    const recentCloses = snap?.['最近平仓'] || [];
+
+    let html = '';
+    if (!summary) {
+      html = '<div style="color:var(--text-muted);padding:12px 0;font-size:0.82rem;">📭 无快照盈亏数据</div>';
+    } else {
+      // Summary cards
+      const realizedClass = realized >= 0 ? 'pnl-pos' : 'pnl-neg';
+      const unrealizedClass = unrealized >= 0 ? 'pnl-pos' : 'pnl-neg';
+      const rSign = realized >= 0 ? '+' : '';
+      const uSign = unrealized >= 0 ? '+' : '';
+      html = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+          <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;">
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">已实现盈亏</div>
+            <div style="font-size:1.3rem;font-weight:700;font-family:var(--font-mono);" class="${realizedClass}">${rSign}${safeFixed(realized, 2)}</div>
+          </div>
+          <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;">
+            <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:4px;">未实现盈亏</div>
+            <div style="font-size:1.3rem;font-weight:700;font-family:var(--font-mono);" class="${unrealizedClass}">${uSign}${safeFixed(unrealized, 2)}</div>
+          </div>
+        </div>`;
+      if (syncTime) {
+        html += `<div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px;">同步时间: ${syncTime}${source ? ' · 来源: ' + source : ''}</div>`;
+      }
+    }
+    // Recent closed positions
+    if (recentCloses.length > 0) {
+      html += `<div style="font-size:0.78rem;color:var(--text-secondary);margin:10px 0 6px;font-weight:600;">最近平仓记录</div>`;
+      html += `<div class="table-scroll"><table class="pos-table">
+        <thead><tr><th>合约</th><th>方向</th><th>入场价</th><th>平仓价</th><th>已实现盈亏</th><th>保证金</th></tr></thead>
+        <tbody>${recentCloses.map(p => {
+          const pnl = parseFloat(p['已实现盈亏'] || 0);
+          return `<tr>
+            <td>${p['合约']||'-'}</td>
+            <td class="${p['持仓方向']==='long'?'side-long':'side-short'}">${p['持仓方向']==='long'?'多':'空'}</td>
+            <td>${p['平均入场价']||'-'}</td>
+            <td>${p['平仓价']||'-'}</td>
+            <td class="${pnl>=0?'pnl-pos':'pnl-neg'}">${pnl>=0?'+':''}${safeFixed(pnl,4)}</td>
+            <td>${p['保证金']||'-'}</td>
+          </tr>`;
+        }).join('')}</tbody></table></div>`;
+    }
+    panel.innerHTML = html;
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+async function loadArchivedRules(cycleId) {
+  const panel = document.getElementById(`archived-panel-${cycleId}-rules`);
+  if (!panel) return;
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}`);
+    panel.innerHTML = renderRulesTable(data.rules || []);
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+async function loadArchivedReports(cycleId) {
+  const panel = document.getElementById(`archived-panel-${cycleId}-reports`);
+  if (!panel) return;
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}`);
+    panel.innerHTML = renderReportsList(data.reports || []);
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+// ── Load archived cycle logs ─────────────────────────────
+async function loadArchivedLogs(cycleId, lines = 200) {
+  const panel = document.getElementById(`archived-panel-${cycleId}-logs`);
+  if (!panel) return;
+  panel.innerHTML = '<div class="loading">加载日志中...</div>';
+  try {
+    const data = await API.get(`/api/cycles/${cycleId}/logs?lines=${lines}`);
+    panel.innerHTML = renderCycleLogs(cycleId, data);
+  } catch (e) {
+    panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+// Archived sort pills
+document.getElementById('archived-sort-pills').addEventListener('click', e => {
+  const btn = e.target.closest('.sort-pill');
+  if (!btn) return;
+  // Handle filter toggle
+  if (btn.dataset.filter === 'pnl-zero') {
+    archivedFilterPnlZero = !archivedFilterPnlZero;
+    btn.classList.toggle('active', archivedFilterPnlZero);
+    if (archivedData.length) renderArchivedGrid(applyArchivedFilters(archivedData));
+    return;
+  }
+  // Handle sort
+  archivedSortField = btn.dataset.sort;
+  document.querySelectorAll('#archived-sort-pills .sort-pill[data-sort]').forEach(b => b.classList.toggle('active', b.dataset.sort === archivedSortField));
+  if (archivedData.length) renderArchivedGrid(applyArchivedFilters(archivedData));
+});
+
+// Archived search
+document.getElementById('archived-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  let filtered = archivedData;
+  if (q) {
+    filtered = filtered.filter(c =>
+      c.cycleId.toLowerCase().includes(q) || c.coin.toLowerCase().includes(q)
+    );
+  }
+  renderArchivedGrid(applyArchivedFilters(filtered));
+});
+
+// ═══════════════════════════════════════════════════
+//  TAB: CRON
+// ═══════════════════════════════════════════════════
+async function loadCronJobs() {
+  try {
+    const data = await API.get('/api/cron/jobs');
+    renderCronTable(data.jobs);
+    setRefreshTime();
+  } catch (e) {
+    document.getElementById('cron-tbody').innerHTML = `<tr><td colspan="9" style="color:var(--red);padding:10px;">${e.message}</td></tr>`;
+  }
+}
+
+function renderCronTable(jobs) {
+  const tbody = document.getElementById('cron-tbody');
+  if (jobs.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">无 Cron 任务</td></tr>';
+    return;
+  }
+  tbody.innerHTML = jobs.map(j => {
+    const state = j.state || {};
+    const isRunning = !!state.runningAtMs;
+    const scheduleStr = j.schedule?.kind === 'cron' ? j.schedule.expr :
+      j.schedule?.kind === 'at' ? '一次性 ' + new Date(j.schedule.at).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) :
+      j.schedule?.kind === 'every' ? '每' + Math.round(j.schedule.everyMs/60000) + 'm' : '-';
+
+    // Next run: countdown + faded date
+    let nextRunHtml = '-';
+    if (state.nextRunAtMs) {
+      const nextMs = state.nextRunAtMs - Date.now();
+      let countdown = '';
+      if (nextMs > 0) {
+        const d = Math.floor(nextMs / 86400000);
+        const h = Math.floor((nextMs % 86400000) / 3600000);
+        const m = Math.floor((nextMs % 3600000) / 60000);
+        if (d > 0) countdown = `${d}天${h}时${m}分`;
+        else if (h > 0) countdown = `${h}时${m}分`;
+        else countdown = `${m}分`;
+      } else {
+        countdown = '即将';
+      }
+      const dateStr = new Date(state.nextRunAtMs).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      nextRunHtml = `<span style="font-size:0.78rem;font-weight:500;">${countdown}</span><br><span style="font-size:0.6rem;color:var(--text-muted);">${dateStr}</span>`;
+    }
+
+    const lastRun = state.lastRunAtMs
+      ? formatTime(new Date(state.lastRunAtMs).toISOString()) + ' <span style="font-size:0.6rem;color:' + (state.lastRunStatus==='ok'?'var(--green)':'var(--red)') + '">' + (state.lastRunStatus||'') + '</span>'
+      : '-';
+    const duration = state.lastDurationMs
+      ? (state.lastDurationMs >= 60000 ? Math.round(state.lastDurationMs/60000)+'m' : Math.round(state.lastDurationMs/1000)+'s')
+      : '-';
+    const errors = state.consecutiveErrors > 0
+      ? '<span style="color:var(--red)">'+state.consecutiveErrors+'</span>'
+      : '<span style="color:var(--text-muted)">0</span>';
+
+    // Status: running > enabled > disabled
+    let statusBadge;
+    if (isRunning) {
+      const runDuration = Date.now() - state.runningAtMs;
+      const runStr = runDuration >= 60000 ? Math.round(runDuration/60000)+'m' : Math.round(runDuration/1000)+'s';
+      statusBadge = `<span style="color:var(--accent);animation:pulse 1.5s infinite;">● 运行中 ${runStr}</span>`;
+    } else if (j.enabled) {
+      statusBadge = '<span class="rule-status-active">● 启用</span>';
+    } else {
+      statusBadge = '<span style="color:var(--text-muted)">○ 禁用</span>';
+    }
+
+    const isDash = (j.name || '').startsWith('dash-');
+    const isOneShot = j.deleteAfterRun;
+    return `<tr>
+      <td title="${j.id}${isOneShot?' | 一次性(执行后自动删除)':''}">${j.name || j.id.slice(0,8)}${isDash ? ' <span style="font-size:0.6rem;color:var(--accent)">[分析]</span>' : ''}${isOneShot ? ' <span style="font-size:0.56rem;color:var(--text-muted)">[单次]</span>' : ''}</td>
+      <td>${j.agentId || '-'}</td>
+      <td style="font-size:0.7rem;">${scheduleStr}</td>
+      <td>${statusBadge}</td>
+      <td style="white-space:nowrap;">${nextRunHtml}</td>
+      <td style="font-size:0.72rem;">${lastRun}</td>
+      <td style="font-size:0.7rem;">${duration}</td>
+      <td style="font-size:0.72rem;">${errors}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="runCronJob('${j.id}')" title="立即执行">▶</button>
+        <button class="btn btn-sm" onclick="toggleCronJob('${j.id}',${!j.enabled})" title="${j.enabled?'禁用':'启用'}">${j.enabled?'⏸':'▶'}</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteCronJob('${j.id}','${(j.name||'').replace(/'/g,"\\'")}')" title="删除">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function runCronJob(id) {
+  try { await API.post('/api/cron/'+id+'/run'); loadCronJobs(); }
+  catch(e) { alert('失败: '+e.message); }
+}
+
+async function toggleCronJob(id, enable) {
+  try { await API.patch('/api/cron/'+id, {enabled:enable}); loadCronJobs(); }
+  catch(e) { alert('失败: '+e.message); }
+}
+
+async function deleteCronJob(id, name) {
+  if (!confirm('删除任务 "'+name+'"？')) return;
+  try { await API.del('/api/cron/'+id); loadCronJobs(); }
+  catch(e) { alert('失败: '+e.message); }
+}
+
+// ═══════════════════════════════════════════════════
+//  TAB: SYSTEM
+// ═══════════════════════════════════════════════════
+async function loadSystem() {
+  try {
+    const d = await API.get('/api/system');
+    document.getElementById('pm2-grid').innerHTML = d.pm2.map(p => {
+      const statusClass = p.status === 'online' ? 'pm2-status-online' : 'pm2-status-offline';
+      const uptime = p.uptime ? formatDuration(Date.now() - p.uptime) : '-';
+      return `<div class="pm2-card">
+        <div class="name">${p.name}</div>
+        <div class="meters">
+          <span>状态: <span class="${statusClass}">${p.status||'unknown'}</span></span>
+          <span>CPU: ${p.cpu||0}%</span>
+          <span>MEM: ${p.memory||0}MB</span>
+          <span>重启: ${p.restarts||0}</span>
+          <span>运行: ${uptime}</span>
+        </div>
+      </div>`;
+    }).join('') || '<div style="color:var(--text-muted);padding:8px;">无 PM2 进程数据</div>';
+
+    document.getElementById('sys-info').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:0.78rem;">
+        <div><span style="color:var(--text-muted)">磁盘:</span> ${d.disk.used||'-'} / ${d.disk.size||'-'} (${d.disk.usePct||'-'})</div>
+        <div><span style="color:var(--text-muted)">活跃规则文件:</span> ${d.rules.active}</div>
+        <div><span style="color:var(--text-muted)">已归档规则文件:</span> ${d.rules.archived}</div>
+        <div><span style="color:var(--text-muted)">健康报告数:</span> ${d.healthReports.length}</div>
+      </div>`;
+
+    if (d.healthSummary) {
+      document.getElementById('health-report').textContent = '加载中...';
+      const hd = await API.get(`/api/health/${d.healthSummary.date}`);
+      document.getElementById('health-report').textContent = hd.content || '无内容';
+    } else {
+      document.getElementById('health-report').textContent = '暂无健康报告';
+    }
+
+    document.getElementById('actions-log').textContent = d.actionsLog.join('\n') || '暂无操作日志';
+    setRefreshTime();
+  } catch (e) {
+    document.getElementById('pm2-grid').innerHTML = `<div class="error-msg">${e.message}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  Utility
+// ═══════════════════════════════════════════════════
+function formatTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now - d;
+  if (diffMs < 0 || diffMs > 86400000) {
+    return d.toLocaleDateString('zh-CN') + ' ' + d.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+  }
+  if (diffMs < 60000) return '刚刚';
+  if (diffMs < 3600000) return `${Math.floor(diffMs/60000)}分钟前`;
+  return `${Math.floor(diffMs/3600000)}小时前`;
+}
+
+function formatDuration(ms) {
+  if (ms < 0) return '-';
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h >= 24) return `${Math.floor(h/24)}d${h%24}h`;
+  if (h > 0) return `${h}h${m}m`;
+  return `${m}m`;
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function safeFixed(v, d) {
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n.toFixed(d) : '-';
+}
+
+// ── Search ─────────────────────────────────────────
+document.getElementById('cycle-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  let filtered = cycleData;
+  if (q) {
+    filtered = cycleData.filter(c =>
+      c.cycleId.toLowerCase().includes(q) || c.coin.toLowerCase().includes(q)
+    );
+  }
+  renderCycleGrid(sortCycles(filtered));
+});
+
+// ── Live PnL (5 min interval + manual refresh) ──
+let livePnlTimer = null;
+
+async function loadLivePnl() {
+  const valueEl = document.getElementById('pnl-value');
+  const subEl = document.getElementById('pnl-sub');
+  if (!valueEl) return;
+  // Don't overwrite existing value during refresh (avoid flicker)
+  const hadValue = valueEl.textContent !== '--';
+  if (!hadValue) {
+    subEl.textContent = '加载中...';
+  } else {
+    subEl.textContent = subEl.textContent.replace(/·.*$/, '') + ' · 刷新中...';
+  }
+  try {
+    const data = await API.get('/api/live-pnl');
+    const pnl = data.totalUpl;
+    const pnlClass = pnl >= 0 ? 'green' : 'red';
+    const pnlSign = pnl >= 0 ? '+' : '';
+    valueEl.className = `value ${pnlClass}`;
+    valueEl.textContent = `${pnlSign}${safeFixed(pnl, 2)}`;
+    const ts = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    subEl.textContent = `${data.positionCount} 个持仓 · 实盘 ${ts}`;
+  } catch (e) {
+    if (!hadValue) {
+      valueEl.className = 'value';
+      valueEl.textContent = '--';
+      subEl.textContent = '获取失败';
+    } else {
+      // Keep old value, just update sub
+      subEl.textContent = subEl.textContent.replace(/·.*$/, '') + ' · 刷新失败';
+    }
+  }
+}
+
+function startLivePnlTimer() {
+  if (livePnlTimer) clearInterval(livePnlTimer);
+  loadLivePnl();
+  livePnlTimer = setInterval(loadLivePnl, 300000); // 5 min
+}
+
+// ── Realized PnL ──────────────────────────────────
+let pnlHistoryData = null;
+let chartRange = 7; // days, 0 = all
+let chartAnimFrame = null;
+let chartPrevPoints = null; // previous data points for animation
+let chartAnimProgress = 1; // 0..1, 1 = done
+
+async function loadRealizedPnl() {
+  const valueEl = document.getElementById('realized-value');
+  const subEl = document.getElementById('realized-sub');
+  if (!valueEl) return;
+  try {
+    const data = await API.get('/api/realized-pnl-history');
+    pnlHistoryData = data;
+    const pnl = data.totalPnl;
+    const pnlClass = pnl >= 0 ? 'green' : 'red';
+    const pnlSign = pnl >= 0 ? '+' : '';
+    valueEl.className = `value ${pnlClass}`;
+    valueEl.textContent = `${pnlSign}${safeFixed(pnl, 2)}`;
+    subEl.textContent = `${data.days} 天 · 快照累计`;
+    // Animate initial chart render
+    chartAnimProgress = 0;
+    chartPrevPoints = null; // no previous, will animate from flat line
+    if (chartAnimFrame) cancelAnimationFrame(chartAnimFrame);
+    function animateInitial() {
+      chartAnimProgress = Math.min(1, chartAnimProgress + 0.04);
+      renderPnlChart(chartAnimProgress);
+      if (chartAnimProgress < 1) {
+        chartAnimFrame = requestAnimationFrame(animateInitial);
+      } else {
+        chartAnimFrame = null;
+      }
+    }
+    animateInitial();
+  } catch (e) {
+    valueEl.className = 'value';
+    valueEl.textContent = '--';
+    subEl.textContent = '获取失败';
+  }
+}
+
+function setChartRange(days) {
+  chartRange = days;
+  document.querySelectorAll('[data-chart-range]').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.chartRange) === days)
+  );
+  // Animate transition
+  chartPrevPoints = chartDataPoints.map(p => ({ x: p.x, y: p.y, pnl: p.data.pnl }));
+  chartAnimProgress = 0;
+  if (chartAnimFrame) cancelAnimationFrame(chartAnimFrame);
+  function animateChart() {
+    chartAnimProgress = Math.min(1, chartAnimProgress + 0.06);
+    renderPnlChart(chartAnimProgress);
+    if (chartAnimProgress < 1) {
+      chartAnimFrame = requestAnimationFrame(animateChart);
+    } else {
+      chartPrevPoints = null;
+      chartAnimFrame = null;
+    }
+  }
+  animateChart();
+}
+
+function renderPnlChart(animProgress = 1) {
+  if (!pnlHistoryData) return;
+  const canvas = document.getElementById('pnl-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Build chart data: daily PnL with re-based cumulative from 0
+  let dailyData = pnlHistoryData.daily;
+  if (chartRange > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - chartRange);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    dailyData = dailyData.filter(d => d.date >= cutoffStr);
+    if (dailyData.length === 0) dailyData = pnlHistoryData.daily;
+  }
+
+  // Re-compute cumulative from 0 for the selected range
+  let cumSum = 0;
+  const data = dailyData.map(d => {
+    cumSum += d.pnl;
+    return { date: d.date, pnl: Math.round(cumSum * 100) / 100, dailyPnl: d.pnl, detail: d.detail || [] };
+  });
+
+  if (data.length < 1) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#5a5f75';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('数据不足', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  // Resize canvas to actual pixel size
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = 180 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 180;
+
+  const padL = 60, padR = 16, padT = 16, padB = 30;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const values = data.map(d => d.pnl);
+  const minV = Math.min(...values, 0);
+  const maxV = Math.max(...values, 0);
+  const range = maxV - minV || 1;
+
+  const xScale = (i) => padL + (i / (data.length - 1)) * plotW;
+  const yScale = (v) => padT + plotH - ((v - minV) / range) * plotH;
+
+  // Animation: interpolate from previous positions
+  const easeT = animProgress < 1 ? (1 - Math.pow(1 - animProgress, 3)) : 1; // ease-out cubic
+  const interpY = (i, newY) => {
+    if (easeT >= 1) return newY;
+    if (!chartPrevPoints || chartPrevPoints.length === 0) {
+      // First load: animate from zero line
+      const zeroY = yScale(0);
+      return zeroY + (newY - zeroY) * easeT;
+    }
+    const newX = xScale(i);
+    let closestPrevY = newY;
+    let closestDist = Infinity;
+    for (const pp of chartPrevPoints) {
+      const dist = Math.abs(pp.x - newX);
+      if (dist < closestDist) { closestDist = dist; closestPrevY = pp.y; }
+    }
+    return closestPrevY + (newY - closestPrevY) * easeT;
+  };
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(42,45,58,0.5)';
+  ctx.lineWidth = 0.5;
+  const gridSteps = 4;
+  for (let i = 0; i <= gridSteps; i++) {
+    const v = minV + (range * i) / gridSteps;
+    const y = yScale(v);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    // Y label
+    ctx.fillStyle = '#5a5f75';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(0), padL - 6, y + 3);
+  }
+
+  // Zero line
+  if (minV < 0 && maxV > 0) {
+    const zeroY = yScale(0);
+    ctx.strokeStyle = 'rgba(148,153,176,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(padL, zeroY);
+    ctx.lineTo(W - padR, zeroY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Area fill
+  const gradient = ctx.createLinearGradient(0, padT, 0, H - padB);
+  gradient.addColorStop(0, 'rgba(79,140,255,0.2)');
+  gradient.addColorStop(1, 'rgba(79,140,255,0.02)');
+  ctx.beginPath();
+  ctx.moveTo(xScale(0), yScale(0));
+  for (let i = 0; i < data.length; i++) {
+    ctx.lineTo(xScale(i), interpY(i, yScale(data[i].pnl)));
+  }
+  ctx.lineTo(xScale(data.length - 1), yScale(0));
+  ctx.closePath();
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) {
+    const x = xScale(i);
+    const y = interpY(i, yScale(data[i].pnl));
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = '#4f8cff';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Dots on data points + store for hit-testing
+  chartDataPoints = [];
+  for (let i = 0; i < data.length; i++) {
+    const x = xScale(i);
+    const y = interpY(i, yScale(data[i].pnl));
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = data[i].pnl >= 0 ? '#34d399' : '#f87171';
+    ctx.fill();
+    chartDataPoints.push({ x, y, index: i, data: data[i] });
+  }
+
+  // X labels (show ~6 labels max)
+  ctx.fillStyle = '#5a5f75';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  const labelStep = Math.max(1, Math.floor(data.length / 6));
+  for (let i = 0; i < data.length; i += labelStep) {
+    const x = xScale(i);
+    const label = data[i].date.slice(5); // MM-DD
+    ctx.fillText(label, x, H - 6);
+  }
+  // Always show last
+  if (data.length > 1) {
+    const lastX = xScale(data.length - 1);
+    ctx.fillText(data[data.length - 1].date.slice(5), lastX, H - 6);
+  }
+
+  // End value label
+  const lastVal = data[data.length - 1].pnl;
+  const lastX = xScale(data.length - 1);
+  const lastY = interpY(data.length - 1, yScale(lastVal));
+  ctx.fillStyle = lastVal >= 0 ? '#34d399' : '#f87171';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = lastX > W / 2 ? 'right' : 'left';
+  ctx.fillText(`${lastVal >= 0 ? '+' : ''}${lastVal.toFixed(2)}`, lastX + (lastX > W / 2 ? -8 : 8), lastY - 8);
+}
+
+// ── Auto-refresh ───────────────────────────────────
+setInterval(() => {
+  if (activeTab === 'overview') refreshOverview();
+}, 300000); // 5 min
+
+// ── Init ────────────────────────────────────────────
+refreshOverview();
+startLivePnlTimer();
+loadRealizedPnl();
+
+// ── Responsive stats grid (JS-driven, more reliable than CSS breakpoints) ──
+function adjustStatsGrid() {
+  const row = document.getElementById('top-stats-row');
+  if (!row) return;
+  const w = window.innerWidth;
+  if (w < 600) {
+    row.style.gridTemplateColumns = '1fr';
+    row.querySelectorAll('.hero-card').forEach(c => { c.style.padding = '8px 12px'; });
+  } else if (w < 1000) {
+    row.style.gridTemplateColumns = '1fr 1fr';
+  } else {
+    row.style.gridTemplateColumns = '1fr 1fr 1fr 1fr 1fr';
+  }
+}
+adjustStatsGrid();
+window.addEventListener('resize', adjustStatsGrid);
+
+// ── Chart tooltip interaction ──────────────────────
+let chartDataPoints = []; // stored for hit-testing
+
+function setupChartInteraction() {
+  const canvas = document.getElementById('pnl-chart');
+  const tooltip = document.getElementById('pnl-tooltip');
+  if (!canvas || !tooltip) return;
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (!chartDataPoints.length) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Find nearest data point
+    let closest = null;
+    let closestDist = Infinity;
+    for (const pt of chartDataPoints) {
+      const dx = mx - pt.x;
+      const dy = my - pt.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = pt;
+      }
+    }
+
+    if (!closest || closestDist > 30) {
+      tooltip.style.display = 'none';
+      // Redraw without highlight
+      if (pnlHistoryData) renderPnlChart();
+      return;
+    }
+
+    // Build tooltip content - filter out pnl=0 items
+    const d = closest.data;
+    const filteredDetail = (d.detail || []).filter(item => item.pnl !== 0 && item.pnl !== null && item.pnl !== undefined);
+    const dailyPnl = d.dailyPnl !== undefined ? d.dailyPnl : d.pnl;
+    let html = `<div style="font-weight:600;margin-bottom:4px;color:var(--text-primary);">${d.date}</div>`;
+    html += `<div style="color:${dailyPnl>=0?'var(--green)':'var(--red)'};font-family:var(--font-mono);margin-bottom:6px;">当日盈亏: ${dailyPnl>=0?'+':''}${dailyPnl.toFixed(2)} USDT</div>`;
+    html += `<div style="color:var(--text-muted);font-family:var(--font-mono);font-size:0.68rem;margin-bottom:6px;">累计: ${d.pnl>=0?'+':''}${d.pnl.toFixed(2)} USDT</div>`;
+    if (filteredDetail.length > 0) {
+      html += '<div style="border-top:1px solid var(--border);padding-top:4px;">';
+      for (const item of filteredDetail) {
+        const coinLabel = item.type === 'btc' ? 'BTC' : item.coin;
+        const pnlColor = item.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+        html += `<div style="display:flex;justify-content:space-between;gap:12px;padding:1px 0;"><span style="color:var(--text-secondary)">${coinLabel}</span><span style="color:${pnlColor};font-family:var(--font-mono)">${item.pnl>=0?'+':''}${item.pnl.toFixed(2)}</span></div>`;
+      }
+      html += '</div>';
+    }
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+
+    // Position tooltip relative to viewport (not clipped by parent overflow)
+    const canvasRect = canvas.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    let tx = canvasRect.left + closest.x + 14;
+    let ty = canvasRect.top + closest.y - 10;
+    // Keep within viewport
+    if (tx + tooltipRect.width + 10 > window.innerWidth) tx = canvasRect.left + closest.x - tooltipRect.width - 14;
+    if (ty + tooltipRect.height + 10 > window.innerHeight) ty = window.innerHeight - tooltipRect.height - 10;
+    if (ty < 10) ty = 10;
+    tooltip.style.left = tx + 'px';
+    tooltip.style.top = ty + 'px';
+
+    // Redraw with highlight
+    renderPnlChartWithHighlight(closest.index);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    tooltip.style.display = 'none';
+    if (pnlHistoryData) renderPnlChart();
+  });
+}
+
+function renderPnlChartWithHighlight(highlightIdx) {
+  // Same as renderPnlChart but with a vertical highlight line and bigger dot
+  if (!pnlHistoryData) return;
+  const canvas = document.getElementById('pnl-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Same data prep as renderPnlChart
+  let dailyData = pnlHistoryData.daily;
+  if (chartRange > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - chartRange);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    dailyData = dailyData.filter(d => d.date >= cutoffStr);
+    if (dailyData.length === 0) dailyData = pnlHistoryData.daily;
+  }
+  let cumSum = 0;
+  const data = dailyData.map(d => {
+    cumSum += d.pnl;
+    return { date: d.date, pnl: Math.round(cumSum * 100) / 100, dailyPnl: d.pnl, detail: d.detail || [] };
+  });
+  if (data.length < 1) return;
+
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = 180 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 180;
+  const padL = 60, padR = 16, padT = 16, padB = 30;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const values = data.map(d => d.pnl);
+  const minV = Math.min(...values, 0);
+  const maxV = Math.max(...values, 0);
+  const range = maxV - minV || 1;
+  const xScale = (i) => padL + (i / (data.length - 1)) * plotW;
+  const yScale = (v) => padT + plotH - ((v - minV) / range) * plotH;
+
+  // Redraw everything (same as renderPnlChart)
+  ctx.clearRect(0, 0, W, H);
+  // Grid
+  ctx.strokeStyle = 'rgba(42,45,58,0.5)'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const v = minV + (range * i) / 4; const y = yScale(v);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillStyle = '#5a5f75'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(v.toFixed(0), padL - 6, y + 3);
+  }
+  if (minV < 0 && maxV > 0) {
+    const zeroY = yScale(0);
+    ctx.strokeStyle = 'rgba(148,153,176,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(padL, zeroY); ctx.lineTo(W - padR, zeroY); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // Area
+  const gradient = ctx.createLinearGradient(0, padT, 0, H - padB);
+  gradient.addColorStop(0, 'rgba(79,140,255,0.2)'); gradient.addColorStop(1, 'rgba(79,140,255,0.02)');
+  ctx.beginPath(); ctx.moveTo(xScale(0), yScale(0));
+  for (let i = 0; i < data.length; i++) ctx.lineTo(xScale(i), yScale(data[i].pnl));
+  ctx.lineTo(xScale(data.length - 1), yScale(0)); ctx.closePath(); ctx.fillStyle = gradient; ctx.fill();
+  // Line
+  ctx.beginPath();
+  for (let i = 0; i < data.length; i++) { const x = xScale(i), y = yScale(data[i].pnl); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+  ctx.strokeStyle = '#4f8cff'; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.stroke();
+  // Dots
+  for (let i = 0; i < data.length; i++) {
+    const x = xScale(i), y = yScale(data[i].pnl);
+    ctx.beginPath(); ctx.arc(x, y, i === highlightIdx ? 5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = data[i].pnl >= 0 ? '#34d399' : '#f87171'; ctx.fill();
+  }
+  // Highlight vertical line
+  if (highlightIdx >= 0 && highlightIdx < data.length) {
+    const hx = xScale(highlightIdx);
+    ctx.strokeStyle = 'rgba(79,140,255,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(hx, padT); ctx.lineTo(hx, H - padB); ctx.stroke(); ctx.setLineDash([]);
+  }
+  // X labels
+  ctx.fillStyle = '#5a5f75'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  const labelStep = Math.max(1, Math.floor(data.length / 6));
+  for (let i = 0; i < data.length; i += labelStep) ctx.fillText(data[i].date.slice(5), xScale(i), H - 6);
+  if (data.length > 1) ctx.fillText(data[data.length-1].date.slice(5), xScale(data.length-1), H - 6);
+  // End value
+  const lastVal = data[data.length-1].pnl;
+  ctx.fillStyle = lastVal >= 0 ? '#34d399' : '#f87171'; ctx.font = 'bold 11px monospace';
+  ctx.textAlign = xScale(data.length-1) > W/2 ? 'right' : 'left';
+  ctx.fillText(`${lastVal>=0?'+':''}${lastVal.toFixed(2)}`, xScale(data.length-1) + (xScale(data.length-1) > W/2 ? -8 : 8), yScale(lastVal) - 8);
+}
+
+// Redraw chart on resize
+window.addEventListener('resize', () => { if (pnlHistoryData) renderPnlChart(); });
+
+// Setup chart interaction after DOM ready
+setupChartInteraction();
+</script>
+</body>
+</html>

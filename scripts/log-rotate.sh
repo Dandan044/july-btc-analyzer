@@ -36,6 +36,18 @@ ALERT_LOG="$LOGS_DIR/btc-alert.log"
 HISTORY_DIR="$LOGS_DIR/alert-history"
 RETENTION_DAYS=30
 COMPRESS_AGE_DAYS=14
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# ---- 通知配置 ----
+# QQ 目标：主人的 QQ 私聊
+QQ_TARGET="qqbot:c2c:3264012CFFDCF2666417B4D4ABACEFFF"
+
+# ---- 结果收集 ----
+# 存储各阶段统计数据，最后用于通知
+LOG_PHASE_RESULT=""
+DATA_PHASE_RESULT=""
+RULES_PHASE_RESULT=""
+SUMMARY_PARTS=""
 
 # ---- 工具函数 ----
 
@@ -60,6 +72,65 @@ days_between() {
     echo $(( (ts1 - ts2) / 86400 ))
 }
 
+# 将阶段输出转化为一行摘要
+summarize_phase_output() {
+    local output="$1"
+    local phase_name="$2"
+    local summary=""
+
+    # 提取关键指标
+    local lines=$(echo "$output" | grep -oP '提取到 \K[0-9]+' | tail -1) || true
+    local moved_data=$(echo "$output" | grep -oP '已移动: \K[0-9]+' | tail -1) || true
+    local skipped_data=$(echo "$output" | grep -oP '保留: \K[0-9]+' | tail -1) || true
+    local compressed_data=$(echo "$output" | grep -oP '已压缩: \K[0-9]+' | tail -1) || true
+    local moved_rules=$(echo "$output" | grep -oP '已移动: \K[0-9]+' | head -1) || true
+    local skipped_rules=$(echo "$output" | grep -oP '保留: \K[0-9]+' | head -1) || true
+
+    # 检查是否有压缩操作
+    local compressed_dirs=$(echo "$output" | grep -c "已完成:.*→" || true)
+
+    case "$phase_name" in
+        "log")
+            if [ -n "$lines" ] && [ "$lines" -gt 0 ]; then
+                summary="📄 日志: 提取 ${lines} 行"
+            else
+                summary="📄 日志: 无新数据"  
+            fi
+            if echo "$output" | grep -q "压缩"; then
+                summary+=", 压缩 $(echo "$output" | grep -c "已压缩") 个周目录"
+            fi
+            if echo "$output" | grep -q "删除过期"; then
+                summary+=", 删除 $(echo "$output" | grep -c "删除过期") 个过期归档"
+            fi
+            LOG_PHASE_RESULT="$summary"
+            ;;
+        "data")
+            if [ -n "$moved_data" ] && [ "$moved_data" -gt 0 ]; then
+                summary="📊 数据: 归档 ${moved_data} 个文件"
+            else
+                summary="📊 数据: 无需归档"  
+            fi
+            if [ -n "$compressed_data" ] && [ "$compressed_data" -gt 0 ]; then
+                summary+=", 压缩 ${compressed_data} 个周目录"
+            fi
+            DATA_PHASE_RESULT="$summary"
+            ;;
+        "rules")
+            if [ -n "$moved_rules" ] && [ "$moved_rules" -gt 0 ]; then
+                summary="📋 规则: 归档 ${moved_rules} 个文件"
+            else
+                summary="📋 规则: 无需归档"
+            fi
+            if [ -n "$compressed_data" ] && [ "$compressed_data" -gt 0 ]; then
+                summary+=", 压缩 ${compressed_data} 个周目录"
+            fi
+            RULES_PHASE_RESULT="$summary"
+            ;;
+        *)
+            ;;
+    esac
+}
+
 # ---- 主流程 ----
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 日志归档开始"
@@ -82,7 +153,7 @@ WEEK_DIR=$(get_iso_week "$YESTERDAY")
 echo "目标日期: $YESTERDAY"
 echo "归档周目录: $WEEK_DIR"
 
-# ---- 步骤1：提取昨天的日志 ----
+# ---- 阶段1：提取昨天的日志 ----
 
 # btc-alert.log 的日志行格式：
 # PM2 前缀: "2026-05-03T01:03:49: [🔧警报引擎] ..."
@@ -97,8 +168,12 @@ grep "^${YESTERDAY}T" "$ALERT_LOG" > "$TEMP_EXTRACT" 2>/dev/null || true
 
 EXTRACTED_LINES=$(wc -l < "$TEMP_EXTRACT" 2>/dev/null || echo 0)
 
+LOG_COMPRESSED_COUNT=0
+LOG_DELETED_COUNT=0
+
 if [ "$EXTRACTED_LINES" -eq 0 ]; then
     echo "目标日期($YESTERDAY)没有日志行，跳过提取"
+    LOG_PHASE_RESULT="📄 日志: 无新数据"
 else
     echo "提取到 ${EXTRACTED_LINES} 行 ${YESTERDAY} 的日志"
     
@@ -117,9 +192,11 @@ else
     cat "${ALERT_LOG}.tmp" > "$ALERT_LOG"
     rm -f "${ALERT_LOG}.tmp"
     echo "已从原日志中移除 ${YESTERDAY} 的日志行"
+    
+    LOG_PHASE_RESULT="📄 日志: 提取 ${EXTRACTED_LINES} 行"
 fi
 
-# ---- 步骤2：压缩超过14天的整周文件夹 ----
+# ---- 阶段2：压缩超过14天的整周文件夹 ----
 
 TODAY=$(date +"%Y-%m-%d")
 
@@ -147,6 +224,7 @@ if [ -d "$HISTORY_DIR" ]; then
         
         if [ "$age_days" -ge "$COMPRESS_AGE_DAYS" ]; then
             echo "压缩周目录: $week_name (最后一天 $week_sunday, ${age_days}天前)"
+            ((LOG_COMPRESSED_COUNT++)) || true
             
             # 在 history 目录下创建 tar.gz
             tar -czf "${HISTORY_DIR}/${week_name}.tar.gz" -C "$HISTORY_DIR" "$week_name"
@@ -156,12 +234,13 @@ if [ -d "$HISTORY_DIR" ]; then
                 echo "已压缩并删除原目录: $week_name → ${week_name}.tar.gz"
             else
                 echo "压缩失败: $week_name，保留原目录"
+                ((LOG_COMPRESSED_COUNT--)) || true
             fi
         fi
     done
 fi
 
-# ---- 步骤3：删除超过30天的归档 ----
+# ---- 阶段3：删除超过30天的归档 ----
 
 if [ -d "$HISTORY_DIR" ]; then
     for archive_file in "$HISTORY_DIR"/*.tar.gz; do
@@ -178,8 +257,120 @@ if [ -d "$HISTORY_DIR" ]; then
         if [ "$age_days" -ge "$RETENTION_DAYS" ]; then
             echo "删除过期归档: $archive_name (最后一天 $week_sunday, ${age_days}天前)"
             rm -f "$archive_file"
+            ((LOG_DELETED_COUNT++)) || true
         fi
     done
 fi
 
+# 完善日志阶段结果
+if [ "$LOG_COMPRESSED_COUNT" -gt 0 ]; then
+    LOG_PHASE_RESULT+=", 压缩 ${LOG_COMPRESSED_COUNT} 个周目录"
+fi
+if [ "$LOG_DELETED_COUNT" -gt 0 ]; then
+    LOG_PHASE_RESULT+=", 删除 ${LOG_DELETED_COUNT} 个过期归档"
+fi
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 日志归档完成"
+
+# ---- 阶段4：数据归档（同步执行） ----
+DATA_ARCHIVE_SCRIPT="$SCRIPTS_DIR/data-archive.sh"
+DATA_PHASE_OUTPUT=$(mktemp)
+export TODAY TARGET_DATE
+
+if [ -x "$DATA_ARCHIVE_SCRIPT" ]; then
+    echo ""
+    # 捕获输出用于统计（不中断执行，即使失败也要继续）
+    set +e
+    "$DATA_ARCHIVE_SCRIPT" 2>&1 | tee "$DATA_PHASE_OUTPUT"
+    DATA_EXIT_CODE=$?
+    set -e
+    
+    if [ $DATA_EXIT_CODE -ne 0 ]; then
+        echo "[WARN] 数据归档返回非零退出码: $DATA_EXIT_CODE"
+        DATA_PHASE_RESULT="⚠️ 数据归档: 异常 (exit=$DATA_EXIT_CODE)"
+    else
+        summarize_phase_output "$(cat "$DATA_PHASE_OUTPUT")" "data"
+    fi
+    rm -f "$DATA_PHASE_OUTPUT"
+else
+    echo "[WARN] 数据归档脚本不可执行: $DATA_ARCHIVE_SCRIPT"
+    DATA_PHASE_RESULT="⚠️ 数据: 脚本不可用"
+fi
+
+# ---- 阶段5：规则归档（同步执行） ----
+RULES_ARCHIVE_SCRIPT="$SCRIPTS_DIR/rules-archive.sh"
+RULES_PHASE_OUTPUT=$(mktemp)
+
+if [ -x "$RULES_ARCHIVE_SCRIPT" ]; then
+    echo ""
+    set +e
+    "$RULES_ARCHIVE_SCRIPT" 2>&1 | tee "$RULES_PHASE_OUTPUT"
+    RULES_EXIT_CODE=$?
+    set -e
+    
+    if [ $RULES_EXIT_CODE -ne 0 ]; then
+        echo "[WARN] 规则归档返回非零退出码: $RULES_EXIT_CODE"
+        RULES_PHASE_RESULT="⚠️ 规则归档: 异常 (exit=$RULES_EXIT_CODE)"
+    else
+        summarize_phase_output "$(cat "$RULES_PHASE_OUTPUT")" "rules"
+    fi
+    rm -f "$RULES_PHASE_OUTPUT"
+else
+    echo "[WARN] 规则归档脚本不可执行: $RULES_ARCHIVE_SCRIPT"
+    RULES_PHASE_RESULT="⚠️ 规则: 脚本不可用"
+fi
+
+# ============================================================
+# 通知：通过十四月向主人发送执行结果
+# ============================================================
+
+# 构建通知消息
+NOTIFY_MSG="=== 每日归档报告 ($TARGET_DATE) ===
+
+${LOG_PHASE_RESULT:-📄 日志: 未执行}
+${DATA_PHASE_RESULT:-📊 数据: 未执行}
+${RULES_PHASE_RESULT:-📋 规则: 未执行}
+
+归档时间: $(date '+%Y-%m-%d %H:%M:%S')"
+
+echo ""
+echo "===== 通知消息 ====="
+echo "$NOTIFY_MSG"
+echo "===================="
+
+# 检查 openclaw CLI 是否可用
+# openclaw CLI 路径（cron 环境 PATH 不含 npm-global，需硬编码）
+OPENCLAW_CLI="/home/administrator/.npm-global/bin/openclaw"
+if [ -x "$OPENCLAW_CLI" ]; then
+    echo ""
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 发送通知..."
+    
+    # 创建一次性 cron 任务：让十四月通过 QQ 发送报告
+    # 使用 --at +15s 延迟 15 秒，确保任务创建完成后再执行
+    set +e
+    "$OPENCLAW_CLI" cron add \
+        --agent shisiyue \
+        --no-deliver \
+        --delete-after-run \
+        --name "archive-notify-${TARGET_DATE}" \
+        --description "每日归档通知：${TARGET_DATE}" \
+        --at "15s" \
+        --timeout-seconds 120 \
+        --message "请使用 message 工具通过 QQ 向主人(目标: ${QQ_TARGET})发送以下每日归档执行结果。消息格式保持原样，不要添加额外解释：
+
+${NOTIFY_MSG}" 2>&1
+    
+    NOTIFY_EXIT_CODE=$?
+    set -e
+    
+    if [ $NOTIFY_EXIT_CODE -eq 0 ]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ 通知任务已创建"
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ 通知任务创建失败 (exit=$NOTIFY_EXIT_CODE)"
+    fi
+else
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️ openclaw CLI 不可用，跳过通知"
+fi
+
+echo ""
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] 全部归档任务完成"

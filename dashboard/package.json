@@ -1,0 +1,13 @@
+{
+  "name": "july-dashboard",
+  "version": "1.0.0",
+  "description": "七月 BTC 周期监控面板",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js --port 3100"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}

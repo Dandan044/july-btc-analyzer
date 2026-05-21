@@ -6,6 +6,7 @@
  *
  * 用法:
  *   node calc-position.js --coin YB --direction short --entry 0.13 --x 2.0 --levels 0.155,0.16,0.18
+ *   node calc-position.js --coin YB --direction short --entry 0.13 --x 2.0 --levels 0.155,0.16,0.18 --instType SPOT
  *   node calc-position.js --json '{"coin":"YB","dir":"short","entry":0.13,"x":2.0,"levels":[0.155,0.16,0.18]}'
  *
  * 输出: JSON
@@ -138,16 +139,19 @@ function calcPosition(finalStopPct, btcBaselinePct) {
 }
 
 // ── 格式化币种 instId ──────────────────────────────
-function toInstId(coin) {
+// 山寨币分析默认使用 SWAP（永续合约），可通过 --instType SPOT 切换
+function toInstId(coin, instType = 'SWAP') {
   const upper = coin.toUpperCase();
-  if (upper.includes('-')) return upper;
-  return `${upper}-USDT`;
+  // 提取基础币种名：去掉已有的 -USDT 或 -USDT-SWAP 后缀
+  const base = upper.replace(/(-USDT)?(-SWAP)?$/, '');
+  const suffix = instType === 'SWAP' ? '-USDT-SWAP' : '-USDT';
+  return base + suffix;
 }
 
 // ── 主流程 ──────────────────────────────────────────
 async function main() {
   // 解析参数
-  let coin, direction, entry, x, levels;
+  let coin, direction, entry, x, levels, instType = 'SWAP';
 
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i++) {
@@ -158,6 +162,7 @@ async function main() {
       entry = parseFloat(j.entry);
       x = parseFloat(j.x);
       levels = (j.levels || []).map(Number);
+      if (j.instType) instType = j.instType.toUpperCase();
       break;
     }
     if (args[i] === '--coin') coin = args[++i];
@@ -165,16 +170,23 @@ async function main() {
     if (args[i] === '--entry') entry = parseFloat(args[++i]);
     if (args[i] === '--x') x = parseFloat(args[++i]);
     if (args[i] === '--levels') levels = args[++i].split(',').map(Number);
+    if (args[i] === '--instType') instType = args[++i].toUpperCase();
   }
 
   // 校验
   if (!coin || !direction || !entry || !x || !levels || levels.length === 0) {
-    console.error('用法: calc-position.js --coin <COIN> --direction <long|short> --entry <PRICE> --x <1.5-2.0> --levels <L1,L2,...>');
+    console.error('用法: calc-position.js --coin <COIN> --direction <long|short> --entry <PRICE> --x <1.5-2.0> --levels <L1,L2,...> [--instType SWAP|SPOT]');
     console.error('  or: calc-position.js --json \'{"coin":"YB","dir":"short","entry":0.13,"x":2.0,"levels":[0.155,0.16]}\'');
+    console.error('  --instType 默认 SWAP（永续合约），可选 SPOT（现货）');
     process.exit(1);
   }
 
   direction = direction.toLowerCase();
+  instType = instType.toUpperCase();
+  if (!['SWAP', 'SPOT'].includes(instType)) {
+    console.error('--instType 必须是 SWAP 或 SPOT');
+    process.exit(1);
+  }
   if (!['long', 'short'].includes(direction)) {
     console.error('--direction 必须是 long 或 short');
     process.exit(1);
@@ -203,7 +215,7 @@ async function main() {
     const btcBaselinePct = btcATRPct * 1.5;
 
     // ── 2. 获取山寨币数据 ──
-    const altInstId = toInstId(coinUpper);
+    const altInstId = toInstId(coinUpper, instType);
     const [altKlines, altTicker] = await Promise.all([
       getKlines(altInstId, '4H', 15),
       fetchOKX(`/api/v5/market/ticker?instId=${altInstId}`),

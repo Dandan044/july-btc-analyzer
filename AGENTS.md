@@ -6,62 +6,24 @@
 
 ## 🧠 分析前必读
 
-每次执行分析任务前，先读取并内化 `~/.openclaw/july-btc-analyzer/LEARNINGS.md` 中的经验。该文件记录了从复盘和实战中提炼的行为模式——脉冲行情识别、风险认知转化等。这些不是流程规则，而是分析师的思维习惯。
+每次执行分析任务前，先读取并内化 `.learnings.md` 中的经验（由 workspace bootstrap 自动注入为 project context）。该文件记录了从复盘和实战中提炼的行为模式——脉冲行情识别、风险认知转化等。这些不是流程规则，而是分析师的思维习惯。
 
 ---
 
 ## ⚡ SPAWN 触发机制
 
-七月采用 fire-and-forget 机制。收到以下特殊前缀的消息时，spawn 一个子会话执行全部任务即结束，无需等待返回。
+七月采用 fire-and-forget 机制。
 
-### [SPAWN_INSTANT_ANALYSIS] - 即时分析（BTC + 山寨币通用）
+**无需 spawn 的任务（由 cron 直接创建隔离会话执行）：**
+- BTC 日报（morning/evening）
+- 山寨币扫描（altcoin-scanner）
+- 周期健康检查（cycle-health-check）
+- 交易复盘（review-*）
 
-这表示警报器触发的即时分析请求，BTC 和山寨币共用此前缀。**fire-and-forget：spawn 一个子会话执行全部任务后即结束。**
+**需要 spawn 的场景仅有：**
+- 山寨币扫描到目标后，spawn 子会话执行四阶段分析（见下方 altcoin-scanner）
 
-消息格式为 `[SPAWN_INSTANT_ANALYSIS]{...JSON...}`。**移除前缀**，保留剩余内容（JSON + 后续指令）。
-
-**BTC 警报**：消息中 JSON 后无额外任务指令，由 AGENTS.md 追加 BTC 任务路径。
-```
-使用 sessions_spawn 工具：
-- agentId: "july"
-- mode: "run"
-- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的 JSON 数据 + 换行 + "以上为警报触发数据。请按顺序完成即时分析全四阶段：
-1. 读取 tasks/instant-analysis-stage1.md 执行数据获取
-2. 读取 tasks/daily-report-stage2.md 执行技术分析
-3. 读取 tasks/daily-report-stage3.md 执行仓位管理
-4. 读取 tasks/daily-report-stage4.md 执行警报管理
-每个阶段完成后自动进入下一阶段，最终输出全流程摘要。"
-```
-
-**山寨币警报**：消息中已包含完整任务指令（指向 `tasks/alt-instant-stage1.md` 等），直接原样传入 task 即可，无需追加 BTC 路径。
-
-```
-使用 sessions_spawn 工具：
-- agentId: "july"
-- mode: "run"
-- task: 移除 `[SPAWN_INSTANT_ANALYSIS]` 前缀后的全部内容
-```
-
-spawn 后无需等待返回，直接回复「已派发即时分析任务」即结束。子会话独立完成全部工作。
-
-### [SPAWN_DAILY_REPORT] - 日报任务（BTC）
-
-这表示定时触发的 BTC 日报请求。**fire-and-forget：spawn 一个子会话执行全部任务后即结束。**
-
-```
-使用 sessions_spawn 工具：
-- agentId: "july"
-- mode: "run"
-- task: 移除 `[SPAWN_DAILY_REPORT]` 前缀后的完整内容
-```
-
-spawn 后无需等待返回，直接回复「已派发日报任务」即结束。子会话独立完成全部工作。
-
-### 山寨币分析链路
-
-山寨币（非 BTC）分析通过两条路径触发。
-
-#### 路径一：altcoin-scanner 定时扫描
+### 山寨币分析链路 - altcoin-scanner 定时扫描
 
 由 cron job `altcoin-scanner` 每小时触发，扫描 OKX 合约市场波动最大的山寨币。扫描到目标后 spawn 子会话：
 
@@ -81,21 +43,6 @@ sessions_spawn:
 3. `tasks/alt-intel-stage3.md` → 仓位管理
 4. `tasks/alt-intel-stage4.md` → 警报管理
 
-#### 路径二：警报触发即时分析
-
-警报引擎触发时创建一次性 cron job（`alert-{COIN}-*`），消息包含 `[SPAWN_INSTANT_ANALYSIS]` 前缀和山寨币专用任务指令：
-
-```
-[SPAWN_INSTANT_ANALYSIS]{...JSON...}
-以上为警报触发数据。请按顺序完成即时分析全四阶段：
-1. 读取 tasks/alt-instant-stage1.md 执行数据获取
-2. 读取 tasks/alt-intel-stage2.md 执行交叉验证分析
-3. 读取 tasks/alt-intel-stage3.md 执行仓位管理
-4. 读取 tasks/alt-intel-stage4.md 执行警报管理
-```
-
-处理方式见上方 `[SPAWN_INSTANT_ANALYSIS]` 山寨币分支。
-
 ---
 
 ## 同事
@@ -113,23 +60,79 @@ sessions_spawn:
 
 **注意**：消息来源会标记为 `inter_session`，这是正常的智能体间通信。
 
-
 ---
 
 ## 文件结构
 
 ```
 july-btc-analyzer/
-├── active/                      # 活跃交易周期（最多1个）
-│   └── cycle-YYYYMMDD-XXX/      # 当前周期文件夹
-│       ├── positions.json  # 实盘仓位文件
-│       └── reports/             # 本周期报告
-├── archived/                    # 已归档周期
-│   └── cycle-YYYYMMDD-XXX/      # 历史周期（结构同 active）
+├── active/                      # 活跃交易周期（可多个并存：1 个 BTC + N 个山寨币）
+│   ├── cycle-YYYYMMDD-XXX/      # BTC 周期
+│   │   ├── positions.json  # 实盘仓位文件
+│   │   └── reports/             # 本周期报告
+│   └── alt-{COIN}-{TS}/         # 山寨币周期（多个并行）
+│       ├── positions.json
+│       └── reports/
 │
-├── data/                        # 原始 JSON 数据（当天覆盖）
-├── logs/                        # 执行日志（追加）
-└── tasks/                       # 任务规则文件
+├── archived/                    # 已归档周期（结构同 active）
+│
+├── cycle-health/                # 周期健康检测报告（每日 03:00 生成）
+│   ├── YYYY-MM-DD-cycle-health.md
+│   └── actions.log              # 自动修复动作日志
+│
+├── learnings/                   # 交易复盘产物
+│   ├── review-{COIN}-YYYYMMDD-HHMM.md  # 各次复盘报告
+│   └── PENDING_TRADE_LESSONS.json     # 暂存区：拟写入正式 TRADE_LESSONS.md 的新教训（JSON）
+│
+├── data/                        # 原始 JSON 数据（当天覆盖，data/archive/ 历史存档）
+├── memory/                      # OpenClaw 会话记忆（自动管理，28 条）
+├── logs/                        # 执行日志（按进程追加）
+│   ├── daily-report-process.log # BTC 日报日志
+│   ├── review-process.log       # 复盘任务日志
+│   ├── alt-scanner.log          # 山寨币扫描日志
+│   ├── alt-{COIN}-process.log   # 各山寨币进程日志
+│   ├── alert-selfheal.log       # 警报自愈日志
+│   ├── alert-setup.log          # 警报设定日志
+│   ├── log-rotate.log           # 日志轮转日志
+│   ├── sync-positions.log       # 仓位同步日志
+│   ├── altcoin-archive.log      # 周期归档日志
+│   └── ...
+│
+├── scripts/                     # 辅助脚本
+│   ├── okx-proxy.sh             # OKX API 代理包装器
+│   ├── calc-hedge-y.sh          # BTC 对冲系数 y 计算
+│   ├── calc-alt-hedge-y.sh      # 山寨币趋势对冲 y 计算
+│   ├── calc-btc-correlation.js  # BTC 跟踪度 Pearson 计算
+│   ├── calc-position.js         # 仓位计算引擎（NOMINAL_BASE -> sz）
+│   ├── data-archive.sh          # 数据归档脚本
+│   ├── rules-archive.sh         # 警报规则归档脚本
+│   ├── log-rotate.sh            # 日志轮转脚本
+│   ├── agg-orderbook.sh/js      # 订单簿聚合
+│   ├── alt-scanner-oi-filter.py # 山寨币扫描 OI 过滤器
+│   ├── alt-scanner-screening.py # 山寨币扫描筛选
+│   ├── generate_kline_chart.py  # K 线图生成
+│   ├── multi_timeframe_fib.py   # 多时间框架斐波那契
+│   ├── sync_positions.js        # 仓位同步
+│   ├── test_okx_ratelimit*.js   # 限流测试
+│   └── ...
+│
+├── skills/                      # 本地技能
+│   ├── btc-alert/               # 警报器引擎（PM2 管理）
+│   └── btc-market-lite/         # 市场数据获取
+│
+├── docs/                        # 设计文档
+│   ├── altcoin-workflow-design.md   # 山寨币广撒网工作流架构
+│   └── altcoin-data-sources.md      # 数据源调研报告
+│
+├── changelog/                   # 系统变更日志（按日期记录）
+├── tasks/                       # 任务规则文件
+├── reports-archived-pre-cycle/  # 周期系统上线前（2026-03月）旧报告存档
+│
+├── TRADE_LESSONS.md             # 正式交易教训库（从复盘和实战中提炼的行为模式）
+├── TOOLS.md                     # 工具使用笔记（API、脚本、代理等）
+├── HEARTBEAT.md                 # 心跳检查配置
+├── ecosystem.config.js          # PM2 进程管理（btc-alert 引擎）
+└── deployment.md                # 部署记录
 ```
 
 ---
@@ -139,6 +142,8 @@ july-btc-analyzer/
 ### 核心概念
 
 **交易周期（Cycle）** 是七月管理交易建议的核心单位。一个周期从上一篇报告结束开始，到所有交易建议关闭为止。
+
+**注意**：当前系统支持多个活跃周期并存——1 个 BTC 周期 + 多个山寨币周期（每个币种独立运行）。
 
 ### 周期生命周期
 
@@ -150,18 +155,18 @@ july-btc-analyzer/
       │
       ▼
 周期进行中 → 报告保存到 active/cycle-xxx/reports/
-          → 可能给出交易建议 → 写入 trade-suggestions.json
+          → 可能给出交易建议 → 写入 positions.json
           → 检查价格触发止盈/止损 → 更新建议状态
       │
       ▼
 所有建议关闭 → 归档（移动 active/ → archived/）
       │
       ▼
+24h 后 → 复盘任务触发（trade-review, learnings/）
+      │
+      ▼
 [下一周期在下一篇报告时开启]
 ```
-
-```
-
 
 ### 不读取历史周期
 
@@ -175,18 +180,28 @@ july-btc-analyzer/
 
 ### BTC 任务
 
-| 任务 | 规则文件 |
-|------|---------|
-| 执行日报任务 | `tasks/daily-report-stage1.md` |
-| 设定市场警报 | `tasks/set-alert.md` |
-| BTC 即时分析 | `tasks/instant-analysis-stage1.md` |
+| 任务 | 规则文件 | 触发方式 |
+|------|---------|---------|
+| 早间日报 (09:00) | `tasks/daily-report-stage1.md` → stage2 → stage3 → stage4 | cron `july-btc-morning-v2` |
+| 晚间日报 (21:00) | `tasks/daily-report-stage1.md` → stage2 → stage3 → stage4 | cron `july-btc-evening-v2` |
+| 设定市场警报 | `tasks/set-alert.md` | 收到指令 |
+| BTC 即时分析 | `tasks/instant-analysis-stage1.md` | 收到指令或警报触发 |
 
 ### 山寨币任务
 
-| 任务 | 阶段一入口 | 后续阶段 |
-|------|-----------|---------|
-| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 |
-| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 |
+| 任务 | 入口 | 后续阶段 | 触发方式 |
+|------|------|---------|---------|
+| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | cron `altcoin-scanner`（每小时） |
+| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | 警报引擎触发 |
+
+### 系统维护任务
+
+| 任务 | 规则文件 | 触发方式 | 输出位置 |
+|------|---------|---------|---------|
+| 周期健康检测 | `tasks/cycle-health-check.md` | cron `cycle-health-check`（每日 03:00） | `cycle-health/` |
+| 交易复盘 | `tasks/trade-review.md` | 归档 24h 后自动触发（一次性 cron） | `learnings/review-*.md` |
+| 仓位同步 | `tasks/sync-positions.md` | 收到"同步仓位"指令 | 更新 positions.json |
+| 警报自愈 | `tasks/alert-self-heal.md` | 警报引擎调用 | 更新规则状态 |
 
 ### 通用
 
@@ -194,13 +209,29 @@ july-btc-analyzer/
 |------|------|
 | 正常聊天 | 参考以往报告和调用市场数据技能进行常规问答 |
 
-### 触发方式
+### 触发方式汇总
 
-- **BTC 日报任务**：定时触发（9:00/21:00 GMT+8）
-- **山寨币扫描**：定时触发（每小时整点，GMT+8）
-- **设定市场警报**：收到"设定市场警报"指令
-- **警报调试报告**：收到"警报调试报告"指令
-- **即时分析任务**：警报触发时自动调用（BTC 和山寨币共用 `[SPAWN_INSTANT_ANALYSIS]` 前缀）
+| 触发方式 | 任务 | 时间 (GMT+8) |
+|----------|------|-------------|
+| cron 定时 | BTC 日报 (早) | 09:00 |
+| cron 定时 | BTC 日报 (晚) | 21:00 |
+| cron 定时 | 山寨币扫描 | 每小时整点 |
+| cron 定时 | 周期健康检测 | 03:00 |
+| cron 一次性 | 交易复盘 | 归档后 24h |
+| 指令驱动 | 设定警报、即时分析、仓位同步 | 按需 |
+| PM2 警报引擎 | 警报触发即时分析 | 价格触及触发位 |
+
+---
+
+### 暂存区 → 正式文件晋升路径
+
+```
+复盘任务 → learnings/PENDING_TRADE_LESSONS.json（暂存区）
+     ↓ 人工审核
+TRADE_LESSONS.md（正式文件，工作区根目录）
+```
+
+复盘任务 `trade-review.md` 的「收尾」阶段将新认知写入 `learnings/PENDING_TRADE_LESSONS.json`（暂存）。后续由人工（或定期合并任务）审核后择优提升至根目录正式 `TRADE_LESSONS.md`。
 
 ---
 
