@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+#
+# scanner-runner.sh - 山寨币扫描引擎 Runner
+#
+# 用法: bash scripts/scanner-runner.sh
+#
+# 流程:
+#   1. 执行 scanner-full.py 扫描引擎
+#   2. 解析 JSON 输出
+#   3. 命中币种 → openclaw cron add (one-shot, 1分钟后触发阶段一)
+#   4. 未命中 → 正常退出
+#
+# 由 Linux crontab 每小时触发: 0 * * * * /path/to/scanner-runner.sh >> /dev/null 2>&1
+#
+
+set -euo pipefail
+
+# 环境变量（crontab 环境缺少 PATH）
+export PATH="/home/administrator/.npm-global/bin:$PATH"
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+OPENCLAW="/home/administrator/.npm-global/bin/openclaw"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE="$(dirname "$SCRIPT_DIR")"
+
+NOW=$(date '+%Y-%m-%d %H:%M:%S')
+echo "[$NOW] ========== scanner-runner 启动 =========="
+
+# ─── 步骤 1: 执行扫描脚本 ───
+echo "[$NOW] 执行 scanner-full.py..."
+OUTPUT=$(python3 "$SCRIPT_DIR/scanner-full.py" 2>&1)
+
+# 打印脚本输出到 stdout(会进入 crontab 日志)
+echo "$OUTPUT"
+
+# ─── 步骤 2: 提取 JSON 输出 ───
+JSON_LINE=$(echo "$OUTPUT" | grep '__JSON_OUTPUT__' -A1 | tail -1)
+
+if [ -z "$JSON_LINE" ]; then
+    echo "[$NOW] ⚠️  警告: 未找到 JSON 输出行"
+    exit 1
+fi
+
+RESULT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('result',''))" 2>/dev/null)
+
+if [ -z "$RESULT" ]; then
+    echo "[$NOW] ⚠️  警告: JSON 解析失败"
+    exit 1
+fi
+
+echo "[$NOW] 扫描结果: $RESULT"
+
+# ─── 步骤 3: 命中 → 创建 cron job ───
+if [ "$RESULT" != "hit" ]; then
+    echo "[$NOW] 未命中币种,正常退出"
+    echo "[$NOW] ========== scanner-runner 结束 =========="
+    exit 0
+fi
+
+# 解析命中的币种
+COIN=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('coin',''))" 2>/dev/null)
+
+if [ -z "$COIN" ]; then
+    echo "[$NOW] ⛔ ERROR: 命中但无法解析币种"
+    exit 1
+fi
+
+CHANGE_PCT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('change_pct',0))" 2>/dev/null)
+OI_PCT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('oi_change_pct',0))" 2>/dev/null)
+
+echo "[$NOW] ✅ 命中币种: $COIN (涨跌幅: ${CHANGE_PCT}%, OI: ${OI_PCT}%)"
+echo "[$NOW] 执行阶段一预处理（上线检查 → 周期创建 → 持仓同步 → 合约数据 → 历史报告）..."
+
+# ─── 步骤 4: 执行 stage1-prep.js ───
+PREP_OUTPUT=$(node "$SCRIPT_DIR/stage1-prep.js" "$COIN" 2>&1)
+
+# 打印 prep 日志（stderr 行）
+echo "$PREP_OUTPUT" | grep -v '^__PREP_OUTPUT__$' | grep -v '^{' || true
+
+# 解析 prep JSON（最后一行）
+PREP_JSON=$(echo "$PREP_OUTPUT" | grep '^{' | tail -1)
+
+if [ -z "$PREP_JSON" ]; then
+    echo "[$NOW] ⛔ ERROR: prep 脚本无 JSON 输出"
+    exit 1
+fi
+
+PREP_STATUS=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+
+case "$PREP_STATUS" in
+    blacklisted)
+        REASON=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('reason',''))" 2>/dev/null)
+        echo "[$NOW] 🔴 BLACKLIST: $COIN — $REASON"
+        echo "[$NOW] ========== scanner-runner 结束（黑名单）=========="
+        exit 0
+        ;;
+    error)
+        REASON=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('reason',''))" 2>/dev/null)
+        echo "[$NOW] ⛔ ERROR: prep 失败 — $REASON"
+        echo "[$NOW] ========== scanner-runner 结束（错误）=========="
+        exit 1
+        ;;
+    success)
+        echo "[$NOW] 预处理成功"
+        ;;
+    *)
+        echo "[$NOW] ⛔ ERROR: prep 状态异常: $PREP_STATUS"
+        exit 1
+        ;;
+esac
+
+# 提取周期目录
+CYCLE_DIR=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cycle_dir',''))" 2>/dev/null)
+POS_COUNT=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('positions_count',0))" 2>/dev/null)
+
+if [ -z "$CYCLE_DIR" ]; then
+    echo "[$NOW] ⛔ ERROR: 无法获取周期目录"
+    exit 1
+fi
+
+echo "[$NOW] 周期: active/$CYCLE_DIR | 持仓: $POS_COUNT"
+echo "[$NOW] 创建 one-shot cron job（LLM 执行 sentiment）..."
+
+# ─── 步骤 5: openclaw cron add（sentiment + manifest + stage2） ───
+JOB_NAME="alt-sentiment-${COIN}-$(date +%s)"
+
+"$OPENCLAW" cron add \
+    --name "$JOB_NAME" \
+    --at "10s" \
+    --agent july \
+    --message "币种: ${COIN}
+周期目录: active/${CYCLE_DIR}
+持仓数: ${POS_COUNT}
+合约数据: OK
+涨跌幅: ${CHANGE_PCT}%
+OI变化: ${OI_PCT}%
+
+预处理已完成（上线检查→周期创建→持仓同步→合约数据→历史报告路径）。
+请读取 tasks/alt-pipeline/alt-intel-stage1-v2.md 执行消息面和链上数据收集。
+完成后运行数据清单脚本，然后进入阶段二。" \
+    --session isolated \
+    --delete-after-run \
+    --no-deliver
+
+echo "[$NOW] cron job 已创建: $JOB_NAME"
+echo "[$NOW] ========== scanner-runner 结束 =========="

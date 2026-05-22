@@ -36,6 +36,7 @@ data/kline_charts/
 # 临时文件
 *.tmp
 *.bak
+*.bak.*
 node_modules/
 .cache/.env
 scripts/__pycache__/

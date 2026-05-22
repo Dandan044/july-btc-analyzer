@@ -843,6 +843,14 @@ header {
 .report-modal-body hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 .report-modal-body ul, .report-modal-body ol { padding-left: 20px; margin: 4px 0; }
 .report-modal-body li { margin: 2px 0; }
+
+/* ── Toast ── */
+#toast-container { position: fixed; top: 16px; right: 16px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { padding: 10px 16px; border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 500; min-width: 200px; max-width: 360px; box-shadow: var(--shadow-lg); animation: toastIn 0.25s ease, toastOut 0.3s ease 2s forwards; pointer-events: auto; }
+.toast-ok { background: #1a3a2a; color: #6ee7b7; border: 1px solid #2d6a4f; }
+.toast-err { background: #3a1a1a; color: #fca5a5; border: 1px solid #6a2d2d; }
+@keyframes toastIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+@keyframes toastOut { from { opacity:1; } to { opacity:0; transform: translateX(40px); } }
 </style>
 </head>
 <body>
@@ -981,6 +989,29 @@ header {
       </table>
     </div>
   </div>
+  <div class="info-panel" style="margin-bottom:14px">
+    <div class="info-panel-header">
+      🖥️ 系统 Crontab
+      <button class="btn btn-sm btn-accent" onclick="loadSystemCrontab()" style="margin-left:auto">🔄 刷新</button>
+    </div>
+    <div class="table-scroll" style="padding:0;">
+      <table class="rule-table" id="sys-cron-table">
+        <thead><tr>
+          <th>状态</th><th>调度</th><th>时间表达式</th><th>脚本</th><th>说明</th><th>操作</th>
+        </tr></thead>
+        <tbody id="sys-cron-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="info-panel" style="margin-bottom:14px">
+    <div class="info-panel-header">
+      ⚙️ PM2 进程
+      <button class="btn btn-sm btn-accent" onclick="loadPm2Processes()" style="margin-left:auto">🔄 刷新</button>
+    </div>
+    <div style="padding:10px 14px;" id="pm2-cron-grid">
+      <span style="color:var(--text-muted)">加载中...</span>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════════════ TAB: SYSTEM ═══════════════ -->
@@ -1006,6 +1037,7 @@ header {
 
 <!-- Tooltip at body level (not clipped by any parent overflow) -->
 <div id="pnl-tooltip" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:0.75rem;pointer-events:none;z-index:9999;box-shadow:var(--shadow-lg);max-width:280px;"></div>
+<div id="toast-container"></div>
 
 <script>
 /* ═══════════════════════════════════════════════════
@@ -1028,12 +1060,22 @@ const API = {
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
   },
-  async del(path) {
-    const r = await fetch(path, { method: 'DELETE' });
+  async del(path, body) {
+    const r = await fetch(path, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body||{}) });
     if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
     return r.json();
   }
 };
+
+// ── Toast 通知 ───────────────────────────────────
+function showToast(msg, type) {
+  type = type || 'ok';
+  const el = document.createElement('div');
+  el.className = 'toast toast-' + (type === 'err' ? 'err' : 'ok');
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, 2500);
+}
 
 // ── Navigation ──────────────────────────────────────
 let activeTab = 'overview';
@@ -2000,6 +2042,128 @@ async function loadCronJobs() {
   } catch (e) {
     document.getElementById('cron-tbody').innerHTML = `<tr><td colspan="9" style="color:var(--red);padding:10px;">${e.message}</td></tr>`;
   }
+  loadSystemCrontab();
+  loadPm2Processes();
+}
+
+async function loadPm2Processes() {
+  try {
+    const d = await API.post('/api/pm2/list',{});
+    const grid = document.getElementById('pm2-cron-grid');
+    if (!d.processes || d.processes.length === 0) {
+      grid.innerHTML = '<span style="color:var(--text-muted);">无 PM2 进程</span>';
+      return;
+    }
+    grid.innerHTML = d.processes.map(p => {
+      const isOnline = p.status === 'online';
+      const statusBadge = isOnline
+        ? '<span class="rule-status-active">● 在线</span>'
+        : '<span style="color:var(--red);">● 离线</span>';
+      const up = p.uptime ? formatDuration(Date.now() - p.uptime) : '-';
+      return `<div class="pm2-card" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="name" style="margin-bottom:2px;">${p.name}</div>
+          <div class="meters" style="font-size:0.7rem;">
+            ${statusBadge} &nbsp; PID:${p.pid||'-'} &nbsp; CPU:${p.cpu}% &nbsp; MEM:${p.memory}MB &nbsp; 重启:${p.restarts} &nbsp; 运行:${up}
+          </div>
+        </div>
+        <div style="white-space:nowrap;">
+          ${isOnline
+            ? `<button class="btn btn-sm" onclick="pm2Action('${p.name}','restart')" title="重启" style="font-size:0.65rem;">🔄</button>`
+            : `<button class="btn btn-sm" onclick="pm2Action('${p.name}','start')" title="启动" style="font-size:0.65rem;color:var(--green);">▶</button>`
+          }
+          ${isOnline
+            ? `<button class="btn btn-sm btn-danger" onclick="pm2Action('${p.name}','stop')" title="停止" style="font-size:0.65rem;">⏹</button>`
+            : ''
+          }
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('pm2-cron-grid').innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
+  }
+}
+
+async function pm2Action(name, action) {
+  const labels = { restart: '重启', stop: '停止', start: '启动' };
+  if (action === 'stop' && !confirm(`确定停止 ${name}？`)) return;
+  try {
+    await API.post('/api/pm2/'+action, {name});
+    showToast(name + ' ' + labels[action] + '完成');
+    loadPm2Processes();
+  } catch(e) { showToast(e.message, 'err'); }
+}
+
+async function loadSystemCrontab() {
+  try {
+    const data = await API.get('/api/cron/system');
+    renderSystemCrontab(data.entries);
+  } catch (e) {
+    document.getElementById('sys-cron-tbody').innerHTML = `<tr><td colspan="4" style="color:var(--red);padding:10px;">${e.message}</td></tr>`;
+  }
+}
+
+let sysCronEntries = [];
+
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderSystemCrontab(entries) {
+  sysCronEntries = entries;
+  const tbody = document.getElementById('sys-cron-tbody');
+  if (!entries || entries.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">无系统 crontab 条目</td></tr>';
+    return;
+  }
+  tbody.innerHTML = entries.map((e, i) => {
+    const isPaused = e.status === 'paused';
+    const statusBadge = isPaused
+      ? '<span style="color:var(--text-muted)">⏸ 已暂停</span>'
+      : '<span class="rule-status-active">● 活跃</span>';
+    return `
+    <tr style="${isPaused ? 'opacity:0.55' : ''}">
+      <td>${statusBadge}</td>
+      <td style="font-weight:500;white-space:nowrap;">${e.scheduleDesc}</td>
+      <td style="font-family:monospace;font-size:0.72rem;color:var(--text-muted);">${e.schedule}</td>
+      <td style="font-family:monospace;font-size:0.72rem;" title="${escHtml(e.command)}">${e.cmdBrief}</td>
+      <td style="font-size:0.72rem;color:var(--text-muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(e.comment||'')}">${e.comment || '-'}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-sm" onclick="sysCronRun(${i})" title="立即执行">▶</button>
+        <button class="btn btn-sm" onclick="sysCronToggle(${i},${isPaused})" title="${isPaused?'恢复':'暂停'}">${isPaused?'▶':'⏸'}</button>
+        <button class="btn btn-sm btn-danger" onclick="sysCronDelete(${i})" title="删除">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function sysCronRun(i) {
+  try {
+    const cmd = sysCronEntries[i]?.command;
+    if (!cmd) return;
+    await fetch('/api/cron/system/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd})});
+    showToast(sysCronEntries[i].cmdBrief + ' 已触发');
+    loadSystemCrontab();
+  } catch(e) { showToast(e.message, 'err'); }
+}
+
+async function sysCronToggle(i, isPaused) {
+  try {
+    const cmd = sysCronEntries[i]?.command;
+    if (!cmd) return;
+    await fetch('/api/cron/system/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:cmd, enable:isPaused})});
+    showToast(sysCronEntries[i].cmdBrief + (isPaused ? ' 已恢复' : ' 已暂停'));
+    loadSystemCrontab();
+  } catch(e) { showToast(e.message, 'err'); }
+}
+
+async function sysCronDelete(i) {
+  const e = sysCronEntries[i];
+  if (!e) return;
+  if (!confirm('确定删除该 crontab 条目？\n\n' + e.cmdBrief)) return;
+  try {
+    await fetch('/api/cron/system',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:e.command})});
+    showToast(e.cmdBrief + ' 已删除');
+    loadSystemCrontab();
+  } catch(ex) { showToast(ex.message, 'err'); }
 }
 
 function renderCronTable(jobs) {
@@ -2068,28 +2232,28 @@ function renderCronTable(jobs) {
       <td style="font-size:0.7rem;">${duration}</td>
       <td style="font-size:0.72rem;">${errors}</td>
       <td style="white-space:nowrap;">
-        <button class="btn btn-sm" onclick="runCronJob('${j.id}')" title="立即执行">▶</button>
-        <button class="btn btn-sm" onclick="toggleCronJob('${j.id}',${!j.enabled})" title="${j.enabled?'禁用':'启用'}">${j.enabled?'⏸':'▶'}</button>
+        <button class="btn btn-sm" onclick="runCronJob('${j.id}','${(j.name||'').replace(/'/g,"\\'")}')" title="立即执行">▶</button>
+        <button class="btn btn-sm" onclick="toggleCronJob('${j.id}',${!j.enabled},'${(j.name||'').replace(/'/g,"\\'")}')" title="${j.enabled?'禁用':'启用'}">${j.enabled?'⏸':'▶'}</button>
         <button class="btn btn-sm btn-danger" onclick="deleteCronJob('${j.id}','${(j.name||'').replace(/'/g,"\\'")}')" title="删除">✕</button>
       </td>
     </tr>`;
   }).join('');
 }
 
-async function runCronJob(id) {
-  try { await API.post('/api/cron/'+id+'/run'); loadCronJobs(); }
-  catch(e) { alert('失败: '+e.message); }
+async function runCronJob(id, name) {
+  try { await API.post('/api/cron/'+id+'/run'); showToast((name||'任务') + ' 已触发'); loadCronJobs(); }
+  catch(e) { showToast(e.message, 'err'); }
 }
 
-async function toggleCronJob(id, enable) {
-  try { await API.patch('/api/cron/'+id, {enabled:enable}); loadCronJobs(); }
-  catch(e) { alert('失败: '+e.message); }
+async function toggleCronJob(id, enable, name) {
+  try { await API.patch('/api/cron/'+id, {enabled:enable}); showToast((name||'任务') + (enable ? ' 已启用' : ' 已禁用')); loadCronJobs(); }
+  catch(e) { showToast(e.message, 'err'); }
 }
 
 async function deleteCronJob(id, name) {
   if (!confirm('删除任务 "'+name+'"？')) return;
-  try { await API.del('/api/cron/'+id); loadCronJobs(); }
-  catch(e) { alert('失败: '+e.message); }
+  try { await API.del('/api/cron/'+id); showToast((name||'任务') + ' 已删除'); loadCronJobs(); }
+  catch(e) { showToast(e.message, 'err'); }
 }
 
 // ═══════════════════════════════════════════════════

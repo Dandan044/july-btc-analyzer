@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v10 更新**：Spawn 机制简化 + 交易教训库扩展 + 脚本工具集 + Dashboard 监控面板 + 动态文件 Git 清理。
+> **v11 更新**：山寨币流程脚本化重构 + Dashboard PM2/系统Crontab 控制 + API 参数防错位检测 + 交易教训库持续扩展。
 
 ## 🚀 快速开启
 
@@ -328,6 +328,80 @@ env: {
 ---
 
 ## 更新日志
+
+### 2026-05-22
+> 🤖 v11 — 山寨币流程脚本化重构 + Dashboard PM2/系统Crontab 控制 + API 参数防错位检测 + 交易教训库扩展
+
+**变更内容：**
+
+**① 山寨币分析流程脚本化重构（最大变更）：**
+- 新架构：`scanner-runner.sh`（纯脚本）完成扫描→预处理→派发，LLM 仅参与 sentiment 收集 + 交叉验证分析
+- 两条入口（定时扫描 + 警报触发）汇入同一套 stage2/stage3/stage4
+- 定时扫描：`scanner-runner.sh` → `scanner-full.py` 扫描命中 → `stage1-prep.js` 预处理（上线→周期→持仓→合约→报告）→ cron 派发 LLM
+- 警报触发：`trigger()` → `stage1-instant.js` 采集即时数据 → cron 派发 LLM
+- LLM 会话：读 `alt-intel-stage1-v2.md`（sentiment收集）→ `gen-stage1-manifest.js`（数据清单）→ 读 `alt-intel-stage2.md`（交叉验证+报告+trade-decision.json+alert-candidates.json）
+- stage3/stage4 纯脚本执行（`stage3-executor.js` / `stage4-executor.js`），LLM 不再参与
+- 所有脚本禁止重写，通过 `tasks/alt-pipeline/` 任务文件驱动
+
+**② 新增脚本工具（10个）：**
+| 脚本 | 用途 |
+|------|------|
+| `scripts/scanner-runner.sh` | 山寨币扫描总调度（Linux cron 每小时触发） |
+| `scripts/scanner-full.py` | OKX 合约市场扫描，筛选波动最大的山寨币 |
+| `scripts/stage1-prep.js` | 扫描命中后预处理（上线检查→周期创建→持仓同步→合约数据→报告） |
+| `scripts/stage1-instant.js` | 警报触发后即时数据采集（解析警报→定位周期→同步持仓→合约数据） |
+| `scripts/gen-stage1-manifest.js` | 生成数据清单 JSON（stage1 完成后的交接文件） |
+| `scripts/stage3-executor.js` | 仓位执行引擎（读取 trade-decision.json → 执行开仓/止盈止损 → 同步持仓） |
+| `scripts/stage4-executor.js` | 警报规则引擎（读取 alert-candidates.json → 写入 alerts/set-alert.md 模板 → 校验归档） |
+| `scripts/sync-alt-positions.js` | 山寨币持仓同步（从 OKX API 同步到 positions.json） |
+| `scripts/non-alt-classifier.py` | 非山寨币分类器（识别并过滤非目标币种） |
+| `scripts/_fix_triggers.js` | 警报触发器修复工具（一次性维护脚本） |
+
+**③ 新增任务文件：**
+- `tasks/alt-pipeline/` 目录（山寨币流程标准化任务文件）
+  - `alt-intel-stage1-v2.md` — 阶段一：三维信息收集（合约数据 + sentiment + 链上数据）
+  - `alt-intel-stage2.md` — 阶段二：交叉验证分析 + trade-decision.json + alert-candidates.json
+  - `alt-intel-sentiment.md` — 消息面收集指南
+  - `README.md` — 山寨币流程文档
+
+**④ AGENTS.md 山寨币流程更新：**
+- 山寨币扫描链路从 `sessions_spawn` 方式改为 `scanner-runner.sh` 纯脚本调度
+- 新增「警报触发即时分析」链路说明：`trigger() → stage1-instant.js → cron → LLM`
+- 明确标注两条入口汇入同一套 stage2/stage3/stage4
+- LLM 职责收窄为仅 sentiment 收集 + 交叉验证分析，其余全部脚本化
+
+**⑤ Dashboard 监控面板增强：**
+- 新增 **PM2 进程控制面板**：在线状态、CPU/内存、重启/停止/启动操作
+  - `POST /api/pm2/list` — 获取 PM2 进程列表
+  - `POST /api/pm2/:action` — 控制 PM2 进程（restart/stop/start）
+- 新增 **系统 Crontab 管理面板**：查看/运行/暂停/恢复/删除 crontab 条目
+  - `GET /api/cron/system` — 读取系统 crontab
+  - `POST /api/cron/system/run` — 手动触发 crontab 命令
+  - `POST /api/cron/system/toggle` — 暂停/恢复 crontab 条目（`#PAUSED:` 前缀机制）
+  - `DELETE /api/cron/system` — 删除 crontab 条目
+- 新增 **Toast 通知系统**：操作成功/失败浮动提示，自动消失
+
+**⑥ api.js 参数防错位检测（`skills/btc-market-lite/scripts/api.js`）：**
+- 新增 `getOKXKlines()` 参数位置错位检测：
+  - `symbol` 不可传对象（防止 `{symbol, instType}` 传入）
+  - `interval` 不可传对象
+  - `limit` 必须为正整数
+  - 检测 `interval` 位置误传 `instType` 值（如 `'SWAP'`/`'SPOT'`）→ 报错提示参数互换
+- 防止调用时遗漏 COIN 或 interval/instType 参数互换导致的静默错误
+
+**⑦ 交易教训库扩展：**
+- 新增 9 篇复盘报告：ASTER, AZTEC, BTC, CHZ, ENJ, INJ, KMNO, NEAR, SPK
+- `learnings/PENDING_TRADE_LESSONS.json` 持续积累待审核的行为模式
+
+**⑧ 其他修复：**
+- `scripts/sync-positions-temp.js` 时区偏移修复（`Date.now() + 8*3600000`）
+- `tasks/set-alert.md` C2 约束模板修正（`getOKXKlines(COIN, '1m', 3, 'SWAP')` 参数顺序）
+- `TOOLS.md` 新增「山寨币流程」脚本索引章节
+
+**⑨ changelog/ 增量记录：**
+- 新增 2 篇流程变更日志：`2026-05-21-山寨币流程LLM减负.md`、`2026-05-22-山寨币流程脚本化完成.md`
+
+---
 
 ### 2026-05-21
 > 🧹 v10 — Spawn 机制简化 + 交易教训库扩展 + 脚本工具集 + Dashboard + Git 清理

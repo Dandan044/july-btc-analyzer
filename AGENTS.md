@@ -23,25 +23,40 @@
 **需要 spawn 的场景仅有：**
 - 山寨币扫描到目标后，spawn 子会话执行四阶段分析（见下方 altcoin-scanner）
 
-### 山寨币分析链路 - altcoin-scanner 定时扫描
+### 山寨币分析链路 - scanner-runner 定时扫描
 
-由 cron job `altcoin-scanner` 每小时触发，扫描 OKX 合约市场波动最大的山寨币。扫描到目标后 spawn 子会话：
+由 Linux cron 每小时触发 `scripts/scanner-runner.sh`，纯脚本完成扫描→预处理，然后 `cron add` 派发 LLM 会话执行后续阶段。
 
 ```
-sessions_spawn:
-  agentId: "july"
-  mode: "run"
-  task: |
-    币种: {COIN}
-    触发时间: {ISO时间}
-    请读取 tasks/alt-intel-stage1.md 开始阶段一三维信息收集。
+scanner-runner.sh（纯脚本）
+  ├── scanner-full.py     → 扫描命中 COIN
+  ├── stage1-prep.js      → 预处理（上线→周期→持仓→合约→报告）
+  └── cron add (1min)     → 派发 LLM 会话
+        │
+        └── LLM 会话:
+             ├── 读 tasks/alt-pipeline/alt-intel-stage1-v2.md → sentiment 收集
+             ├── node scripts/gen-stage1-manifest.js           → 数据清单
+             ├── 读 tasks/alt-pipeline/alt-intel-stage2.md     → 交叉验证 + 报告
+             │                                                   + trade-decision.json
+             │                                                   + alert-candidates.json
+             ├── node scripts/stage3-executor.js               → 仓位执行（纯脚本）
+             │     ├── 持仓=0 → 归档 + 复盘cron → 结束
+             │     └── 持仓>0 → 继续
+             └── node scripts/stage4-executor.js               → 警报规则（纯脚本）
 ```
 
-子会话按顺序执行：
-1. `tasks/alt-intel-stage1.md` → 三维信息收集（合约数据 + 消息面 + 链上数据）
-2. `tasks/alt-intel-stage2.md` → 交叉验证分析
-3. `tasks/alt-intel-stage3.md` → 仓位管理
-4. `tasks/alt-intel-stage4.md` → 警报管理
+### 山寨币分析链路 - 警报触发即时分析
+
+警报引擎检测到触发条件后，`trigger()` 调用 `stage1-instant.js` 采集即时数据并自动派发 LLM 会话：
+
+```
+trigger(data) → execSync stage1-instant.js
+  ├── 解析警报 + 定位周期 + 同步持仓 + 即时合约数据
+  └── cron add (1min) → 派发 LLM 会话
+        └── 同上（stage2 → stage3 → stage4）
+```
+
+> ⚠️ 两条入口汇入同一套 stage2/stage3/stage4 流程。LLM 只做两件事：sentiment 收集 + 交叉验证分析。其余全部脚本化。
 
 ---
 
@@ -191,8 +206,8 @@ july-btc-analyzer/
 
 | 任务 | 入口 | 后续阶段 | 触发方式 |
 |------|------|---------|---------|
-| Scanner 扫描分析 | `tasks/alt-intel-stage1.md` | stage2 → stage3 → stage4 | cron `altcoin-scanner`（每小时） |
-| 警报触发即时分析 | `tasks/alt-instant-stage1.md` | alt-intel-stage2 → stage3 → stage4 | 警报引擎触发 |
+| Scanner 扫描分析 | `scripts/scanner-runner.sh` → `tasks/alt-pipeline/alt-intel-stage1-v2.md` | stage2(脚本内含交接) | Linux cron（每小时） |
+| 警报触发即时分析 | `scripts/stage1-instant.js` → `tasks/alt-pipeline/alt-intel-stage2.md` | stage3/stage4(脚本) | 警报引擎 trigger() |
 
 ### 系统维护任务
 

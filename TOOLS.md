@@ -99,6 +99,12 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 
 ## 🔧 脚本索引
 
+### 山寨币流程
+
+`tasks/alt-pipeline/` — 脚本化山寨币分析全流程的任务文件目录。两条入口（定时扫描 + 警报触发）汇入同一套 stage2/stage3/stage4。LLM 仅参与 sentiment 收集和交叉验证分析，其余全部由脚本（`scripts/scanner-*`、`stage1-*`、`stage3-*`、`stage4-*`）执行。详见 `tasks/alt-pipeline/README.md`。
+
+### 其他脚本
+
 | 脚本 | 用途 | 用法 |
 |------|------|------|
 | `scripts/okx-proxy.sh` | OKX API 代理包装器 | `--profile live \| demo <cmd>` |

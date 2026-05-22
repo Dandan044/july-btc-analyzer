@@ -40,7 +40,7 @@ console.log('账单记录：', btcIsolatedBills.length, '条');
 
 // 构建 positions.json
 const cycleId = 'cycle-20260425-001';
-const syncTime = new Date().toISOString().replace('Z', '+08:00');
+const syncTime = new Date(Date.now() + 8 * 3600000).toISOString().replace('Z', '+08:00');
 
 const positions = btcIsolatedPositions.map(p => {
   // 构建委托订单

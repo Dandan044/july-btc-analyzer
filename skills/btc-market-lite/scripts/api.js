@@ -349,6 +349,24 @@ async function getOKXKlines(symbol = 'BTC', interval = '1H', limit = 100, instTy
   symbol = sanitizeSymbol(symbol);
   instType = sanitizeInstType(instType);
 
+  // ⭐ 参数位置错位检测：防止调用时漏传 COIN 或 interval/instType 互换
+  //   正确签名: getOKXKlines(symbol, interval, limit, instType)
+  //   常见错误: getOKXKlines('1m', 3, 'SWAP')  — 漏传 symbol
+  //   常见错误: getOKXKlines(COIN, 'SWAP', '1m', 3) — interval/instType 互换
+  if (typeof symbol === 'object' && symbol !== null) {
+    throw new Error(`getOKXKlines: symbol 不能是对象，请使用位置参数调用: getOKXKlines(symbol, interval, limit, instType)`);
+  }
+  if (typeof interval === 'object' && interval !== null) {
+    throw new Error(`getOKXKlines: interval 不能是对象，请使用位置参数调用: getOKXKlines(symbol, interval, limit, instType)`);
+  }
+  if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1) {
+    throw new Error(`getOKXKlines: limit 必须是正整数，收到 ${JSON.stringify(limit)}。检查参数顺序: (symbol, interval, limit, instType)`);
+  }
+  // 检测 interval 位置传了 instType 值（'SWAP'/'SPOT'）
+  if (typeof interval === 'string' && (interval.toUpperCase() === 'SWAP' || interval.toUpperCase() === 'SPOT')) {
+    throw new Error(`getOKXKlines: interval 收到 '${interval}'，疑似 interval/instType 参数互换。正确顺序: (symbol, interval, limit, instType)`);
+  }
+
   // 小写→大写自动映射，防止 '1h'/'4h' 等小写参数导致 OKX API 报 Parameter bar error
   const normalizeMap = {
     '1m': '1m', '3m': '3m', '5m': '5m', '15m': '15m', '30m': '30m',

@@ -11,7 +11,7 @@
 | # | 约束 | 模板中如何满足 |
 |---|------|---------------|
 | C1 | catch 块必须 `throw`，禁止 `return false` | 模板中所有 catch 块最后一行为 `throw error` |
-| C2 | 必须用 K 线区间数据，禁止瞬时价格 | `check()` 调 `getOKXKlines('1m', 3, 'SWAP')` 取 3 根 1m K 线 |
+| C2 | 必须用 K 线区间数据，禁止瞬时价格 | `check()` 调 `getOKXKlines(COIN, '1m', 3, 'SWAP')` 取 3 根 1m K 线 |
 | C3 | 必须传 `'SWAP'`，禁止默认 SPOT | 所有 API 调用显式传 `instType='SWAP'` |
 | C4 | 禁止 `execSync` / 同步 curl | `trigger()` 用 `spawn`，数据获取用 `api` 模块 |
 | C5 | 禁止 FGI 触发 | 模板不含 FGI 调用 |

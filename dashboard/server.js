@@ -884,6 +884,41 @@ app.patch('/api/cron/:id', (req, res) => {
   }
 });
 
+// ── POST /api/pm2/:action ───────────────────────────────
+// 控制 PM2 进程 restart / stop / start / list
+app.post('/api/pm2/:action', (req, res) => {
+  try {
+    const { action } = req.params;
+    const { name } = req.body;
+    if (!['restart','stop','start','list'].includes(action)) {
+      return res.status(400).json({ error: `非法操作: ${action}` });
+    }
+
+    if (action === 'list') {
+      const out = safeExec('pm2 jlist 2>/dev/null');
+      if (!out) return res.json({ processes: [] });
+      const list = JSON.parse(out);
+      const procs = list.map(p => ({
+        name: p.name,
+        status: p.pm2_env?.status || 'unknown',
+        pid: p.pid,
+        cpu: p.monit?.cpu || 0,
+        memory: Math.round((p.monit?.memory || 0) / 1048576 * 10) / 10,
+        restarts: p.pm2_env?.restart_time || 0,
+        uptime: p.pm2_env?.pm_uptime || 0,
+      }));
+      return res.json({ processes: procs });
+    }
+
+    if (!name) return res.status(400).json({ error: '缺少 name 参数' });
+    console.log(`[pm2] ${action} ${name}`);
+    safeExec(`pm2 ${action} ${name} 2>&1`, { timeout: 15000 });
+    res.json({ ok: true, action, name });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/system ───────────────────────────────────
 app.get('/api/system', (req, res) => {
   try {
@@ -1007,6 +1042,170 @@ app.get('/api/logs/:name', (req, res) => {
     }
     const raw = safeExec(`tail -${Math.min(lines, 500)} "${filePath}"`);
     res.json({ name, lines: lines, content: raw || '' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── 系统 crontab 工具函数 ────────────────────────────
+const PAUSED_PREFIX = '#PAUSED:';
+
+function readCrontabLines() {
+  const raw = safeExec('crontab -l 2>/dev/null');
+  return raw ? raw.split('\n') : [];
+}
+
+function writeCrontabLines(lines) {
+  const content = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+  const tmpFile = `/tmp/crontab-${Date.now()}.tmp`;
+  fs.writeFileSync(tmpFile, content);
+  execSync(`crontab "${tmpFile}"`, { encoding: 'utf8', timeout: 5000 });
+  try { fs.unlinkSync(tmpFile); } catch {}
+}
+
+function parseCronLine(line) {
+  return line.match(/^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(.+)$/);
+}
+
+function scheduleDesc(min, hour) {
+  if (min === '*' && hour === '*') return '每分钟';
+  if (min.startsWith('*/')) return `每${parseInt(min.slice(2))}分钟`;
+  if (hour !== '*' && min !== '*') return `每天 ${String(parseInt(hour)).padStart(2,'0')}:${String(parseInt(min)).padStart(2,'0')}`;
+  if (min === '0' && hour === '*') return '每小时整点';
+  return null;
+}
+
+function extractCmdBrief(command) {
+  const sm = command.match(/scripts\/([^\s|]+)/);
+  if (sm) return sm[1];
+  return command.length > 60 ? command.slice(0, 57) + '...' : command;
+}
+
+function buildEntry(min, hour, dom, month, dow, command, status, comment) {
+  const schedule = `${min} ${hour} ${dom} ${month} ${dow}`;
+  return { schedule, scheduleDesc: scheduleDesc(min, hour) || schedule, command, cmdBrief: extractCmdBrief(command), status: status || 'active', comment: comment || null };
+}
+
+// ── GET /api/cron/system ────────────────────────────────
+app.get('/api/cron/system', (req, res) => {
+  try {
+    const lines = readCrontabLines();
+    if (!lines.length) return res.json({ entries: [], count: 0 });
+
+    const entries = [];
+    let pendingComment = '';
+
+    for (const rawLine of lines) {
+      let line = rawLine.trim();
+      if (!line) { pendingComment = ''; continue; }
+      if (line.match(/^[A-Z_]+\s*=/)) continue;
+
+      if (line.startsWith('#') && !line.startsWith(PAUSED_PREFIX)) {
+        pendingComment = line.replace(/^#\s*/, '');
+        continue;
+      }
+
+      let status = 'active';
+      if (line.startsWith(PAUSED_PREFIX)) {
+        status = 'paused';
+        line = line.slice(PAUSED_PREFIX.length).trim();
+      }
+
+      const parts = parseCronLine(line);
+      if (!parts) continue;
+
+      const [, min, hour, dom, month, dow, command] = parts;
+      entries.push(buildEntry(min, hour, dom, month, dow, command, status, pendingComment || null));
+      pendingComment = '';
+    }
+
+    res.json({ entries, count: entries.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/cron/system/run ───────────────────────────
+app.post('/api/cron/system/run', (req, res) => {
+  try {
+    const { command } = req.body;
+    if (!command) return res.status(400).json({ error: '缺少 command 参数' });
+    const { spawn } = require('child_process');
+    const child = spawn('bash', ['-c', command], { cwd: BASE_DIR, detached: true, stdio: 'ignore' });
+    child.unref();
+    console.log(`[system-cron] 手动触发: ${command.slice(0, 80)}`);
+    res.json({ ok: true, message: '命令已在后台启动' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/cron/system/toggle ─────────────────────────
+app.post('/api/cron/system/toggle', (req, res) => {
+  try {
+    const { command, enable } = req.body;
+    if (!command) return res.status(400).json({ error: '缺少 command 参数' });
+    const lines = readCrontabLines();
+    if (!lines.length) return res.status(404).json({ error: 'crontab 为空' });
+
+    const newLines = lines.map(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#') && !trimmed.startsWith(PAUSED_PREFIX)) return line;
+      if (!parseCronLine(trimmed) && !parseCronLine(trimmed.startsWith(PAUSED_PREFIX) ? trimmed.slice(PAUSED_PREFIX.length).trim() : trimmed)) return line;
+      let target = trimmed;
+      if (target.startsWith(PAUSED_PREFIX)) target = target.slice(PAUSED_PREFIX.length).trim();
+      const parts = parseCronLine(target);
+      const targetCmd = parts ? parts[6] : target;
+      if (targetCmd !== command) return line;
+      if (enable) {
+        if (trimmed.startsWith(PAUSED_PREFIX)) return trimmed.slice(PAUSED_PREFIX.length).trim();
+        return line;
+      } else {
+        if (!trimmed.startsWith(PAUSED_PREFIX)) return `${PAUSED_PREFIX} ${trimmed}`;
+        return line;
+      }
+    });
+
+    writeCrontabLines(newLines);
+    console.log(`[system-cron] ${enable ? '恢复' : '暂停'}: ${command.slice(0, 80)}`);
+    res.json({ ok: true, action: enable ? 'resumed' : 'paused' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELETE /api/cron/system ──────────────────────────────
+app.delete('/api/cron/system', (req, res) => {
+  try {
+    const { command } = req.body;
+    if (!command) return res.status(400).json({ error: '缺少 command 参数' });
+    const lines = readCrontabLines();
+    if (!lines.length) return res.status(404).json({ error: 'crontab 为空' });
+
+    const before = lines.length;
+    const newLines = lines.filter(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#') && !trimmed.startsWith(PAUSED_PREFIX)) return true;
+      let target = trimmed;
+      if (target.startsWith(PAUSED_PREFIX)) target = target.slice(PAUSED_PREFIX.length).trim();
+      if (!parseCronLine(target)) return true;
+      const parts = parseCronLine(target);
+      const targetCmd = parts ? parts[6] : target;
+      return targetCmd !== command;
+    });
+
+    // 清理孤立注释
+    const cleaned = [];
+    for (let i = 0; i < newLines.length; i++) {
+      const cur = newLines[i].trim();
+      const next = i + 1 < newLines.length ? newLines[i + 1].trim() : '';
+      if (cur.startsWith('#') && !cur.startsWith(PAUSED_PREFIX) && (!next || next.startsWith('#') || next === '')) continue;
+      cleaned.push(newLines[i]);
+    }
+
+    writeCrontabLines(cleaned);
+    console.log(`[system-cron] 已删除: ${command.slice(0, 80)}`);
+    res.json({ ok: true, deleted: before > newLines.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
