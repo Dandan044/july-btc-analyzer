@@ -156,7 +156,7 @@ MANIFEST_FILE=$(ls -t active/${CYCLE_DIR}/data-context/data-manifest-*.json 2>/d
 
 - 上次判断的顺势方向是否延续？
 - 上次开仓（如有）的结果如何？
-- 从该币种的历史行为中能总结出什么特征？（波动节奏、对消息的敏感度、庄家操作痕迹等）
+- 从该币种的历史行为中能总结出什么特征？（波动节奏、对消息的敏感度、价格操纵痕迹等）
 
 列出参考的报告文件名。
 
@@ -195,6 +195,32 @@ MANIFEST_FILE=$(ls -t active/${CYCLE_DIR}/data-context/data-manifest-*.json 2>/d
 ### 步骤 6: 交叉验证分析并生成报告
 
 你是一个山寨币分析师。山寨币市场由消息催化、庄家资金和链上行为驱动——技术结构往往不可靠，顺势比预判更重要。
+
+**核心铁律：永不放弃交易。** 高度控盘本身是信号而非禁令——筹码集中在少数人手中意味着：① 价格容易被推动（低流动性 = 杠杆效应），② 庄家有维护价格的动机（出货前不能崩），③ 一旦方向判断正确，利润空间更大。你的任务是找出在当前市场结构下最优的交易方向，而不是以「风险太高」为由拒绝交易。任何市场条件下都存在可操作的交易机会——找到它。
+
+### 双视角思维框架
+
+分析每个币种时，你必须同时从两个视角思考：
+
+**庄家视角——他们在想什么、在做什么。**
+- 如果你是控盘方，当前价格位置最适合做什么？拉升吸引跟风？横盘震荡洗筹码？继续出货？
+- 链上大地址的行为（增持/减持/不动）揭示了什么意图？DEX 上的买卖模式是逐步获利了结还是恐慌抛售？
+- OI 和资金费率的变化——是谁在开仓？是庄家自己在加仓，还是散户在追？
+- 控盘方的成本在哪？他们需要把价格推到什么位置才能盈利退出？
+- **关键问题：庄家的下一个动作最可能是什么？**
+
+**散户视角——市场情绪和对手盘在想什么。**
+- 当前价格位置，散户看到的是什么？是「突破在即，再不进场就晚了」，还是「跌够了，该抄底了」？
+- 合约市场的散户仓位拥挤在哪一边？资金费率是否暴露了过度拥挤的多头或空头？
+- 什么价位是散户的心理关口——整数位、前高、前低——会在哪里触发他们的止损/追多？
+- 近期价格走势（急拉急回、持续阴跌、窄幅横盘）给散户造成了什么心理预期？这种预期如何被利用？
+- **关键问题：散户的钱会流向哪里，他们的止损埋在哪里？**
+
+**两视角交汇——你的交易机会。**
+- 庄家想做什么 + 散户正在做什么 = 你的交易方向
+- 例：庄家在横盘吸筹 + 散户在恐慌卖出 = 做多机会
+- 例：庄家在高位出货 + 散户在兴奋追多 = 做空机会
+- 如果庄家和散户方向一致（都看多/都看空），顺势跟进。如果方向相反，站庄家一边。
 
 你同时具备两种视野：
 
@@ -543,53 +569,9 @@ node scripts/calc-position.js \
 
 ---
 
-### 步骤 8: 强庄检测与自动拉黑
 
-**在报告保存后，审视你的分析结论：这个币是不是庄家在控盘的筹码游戏？**
 
-你不是在跑规则匹配——你已经在交叉验证中审视过三维数据。如果你在分析中发现：
-- 链上筹码极端集中、持有者极少、同源资金占比异常
-- 媒体面揭露了吸筹→拉盘→砸盘的操纵模式
-- 价格行为完全脱离基本面、K线走势像人为画出来的
-- 三维交叉验证的结论是「这是庄家的牌桌，不是趋势交易」
-
-**那么你应当毫不犹豫地将它拉黑。**
-
-**拉黑操作：**
-
-1. 将币种加入 `data/altcoin-blacklist.json`：
-   - 在 `blacklist` 数组中追加币种名
-   - 在 `reason` 中添加拉黑原因（一句话概括核心操纵特征）
-   - 更新 `updated` 时间戳
-
-2. 归档周期和警报：
-   ```bash
-   mv active/alt-{COIN}-* archived/
-   mv skills/btc-alert/rules/{COIN}-*.js skills/btc-alert/rules-archive/ 2>/dev/null
-   ```
-
-3. 记录日志并结束流程：
-   ```
-   [$NOW] [阶段二] 🔴 BLACKLIST: {COIN} → data/altcoin-blacklist.json | 原因: {一句话}
-   [$NOW] [阶段二] 黑名单归档: alt-{COIN}-* → archived/ | 警报: {N}条 → rules-archive/
-   [$NOW] [阶段二] 流程终止——该币种不符合趋势交易条件
-   ```
-
-4. **不传棒给阶段三。** 输出：
-   ```
-   阶段二交叉验证分析已完成。
-   币种: {COIN}
-   周期状态: 已归档（强庄黑名单）
-   周期路径: archived/alt-{COIN}-YYYYMMDD-HHMM
-   黑名单原因: {一句话}
-   流程结束——该币种已加入黑名单，不再进入后续阶段。
-   ```
-
-> ⚠️ 不是所有问题币都要拉黑。只有当你确信「这不是可以趋势交易的标的」时才拉黑。如果只是信号模糊、方向不明，用正常的「观望」判据即可——黑名单是手术刀，不是锤子。
-
----
-
-### 步骤 9: 输出开仓数据（JSON）
+### 步骤 8: 输出开仓数据（JSON）
 
 **⚠️ 必须执行。** 报告保存后，必须同时输出机器可读的结构化 JSON 文件，供阶段三脚本直接读取。
 
@@ -660,13 +642,13 @@ node scripts/calc-position.js \
 
 ---
 
-### 步骤 10: 输出警报决策 JSON
+### 步骤 9: 输出警报决策 JSON
 
 这是**阶段二的最后一份结构化产出**，直接驱动阶段四脚本。你在此步骤中一次性完成：列出候选 → 检查现有规则 → 决定归档/创建 → 输出最终决策。
 
 ---
 
-#### 10.1 检查现有活跃规则
+#### 9.1 检查现有活跃规则
 
 ```bash
 ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
@@ -679,7 +661,7 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 
 ---
 
-#### 10.2 做决策
+#### 9.2 做决策
 
 基于你的分析结论 + 现有规则：
 
@@ -692,7 +674,7 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 
 ---
 
-#### 10.3 输出最终 JSON
+#### 9.3 输出最终 JSON
 
 保存 `active/{CYCLE_DIR}/reports/alert-candidates-{COIN}-YYYY-MM-DD-HHMM.json`：
 
@@ -762,6 +744,139 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 | `threshold_pct` `threshold_value` `direction` | 触发阈值 |
 | `significance_template` | 触发时语义描述，占位符 `{change_pct}` `{current_ratio}` 由脚本填充 |
 
+#### ⚠️ 非价格规则能力边界（必读）
+
+**各 type 实现状态与参数说明：**
+
+| type | 实现状态 | 阈值单位 | direction | 可用的 significance_template 占位符 |
+|------|---------|---------|-----------|-----------------------------------|
+| `oi-monitor` | ✅ 完整 | `pct`（百分比）或 `absolute`（OI合约张数） | `above` / `below` / `absolute` | `{change_pct}` `{current_oi}` `{threshold}` |
+| `funding-reversal` | ✅ 完整 | 资金费率（小数，0.01=1%） | `above` / `below` / `absolute` | `{funding_rate}` `{threshold}` |
+| `taker-ratio` | ✅ 完整 | Taker买卖比值（1.5=买1.5倍于卖） | `above` / `below` | `{current_ratio}` `{threshold}` |
+| `ls-reversal` | ✅ 完整 | 多空账户比（0.8=空头多于多头） | `above` / `below` | `{current_ratio}` `{threshold}` |
+| `volume-anomaly` | ✅ 完整 | 相对均量的倍数（2.0=2倍均量） | `above` / `below` | `{volume_ratio}` `{threshold}` |
+
+> 全部五种类型均已完整实现，check() 会从 OKX API 获取实时数据进行比较。
+
+**各类型参数详解：**
+
+#### `oi-monitor`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `threshold_type` | `"pct"`（默认）或 `"absolute"` | 阈值模式 |
+| `threshold_pct` | number | 百分比阈值（pct 模式） |
+| `threshold_value` | number | 阈值数值（pct 模式等于 threshold_pct；absolute 模式为 OI 合约张数，如 3200000） |
+| `direction` | `"above"` / `"below"` / `"absolute"` | 触发方向。pct 模式：above=涨超N%, below=跌破N%(负值), absolute=双向; absolute 模式仅支持 above/below |
+
+**oi-monitor threshold_type 示例：**
+```json
+// 百分比: OI 24h 变化 ≥15% → 触发
+{ "type": "oi-monitor", "threshold_type": "pct", "threshold_pct": 15, "direction": "above" }
+// 绝对值: OI ≥ 3200000 张 → 触发
+{ "type": "oi-monitor", "threshold_type": "absolute", "threshold_value": 3200000, "direction": "above" }
+// 绝对值: OI ≤ 2500000 张 → 触发
+{ "type": "oi-monitor", "threshold_type": "absolute", "threshold_value": 2500000, "direction": "below" }
+```
+
+#### `funding-reversal`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `threshold_value` | number | 资金费率阈值（**小数**，0.01=1%，0.005=0.5%，-0.01=-1%） |
+| `direction` | `"above"` / `"below"` / `"absolute"` | above=费率≥+threshold, below=费率≤-threshold, absolute=\|费率\|≥threshold |
+
+**funding-reversal 示例：**
+```json
+// 资金费率 ≥ +0.5%（多头拥挤）→ 触发
+{ "type": "funding-reversal", "threshold_value": 0.005, "direction": "above" }
+// 资金费率 ≤ -1%（空头拥挤）→ 触发
+{ "type": "funding-reversal", "threshold_value": 0.01, "direction": "below" }
+// 费率绝对值 ≥ 1% → 触发
+{ "type": "funding-reversal", "threshold_value": 0.01, "direction": "absolute" }
+```
+
+#### `taker-ratio`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `threshold_value` | number | Taker买卖比值（1.5=主动买入是卖出的1.5倍, 0.5=卖出是买入的2倍） |
+| `direction` | `"above"` / `"below"` | above=比率≥阈值(买盘强), below=比率≤阈值(卖盘强) |
+
+**taker-ratio 示例：**
+```json
+// Taker买入/卖出 ≥ 1.5 → 触发（主动买盘异常强劲）
+{ "type": "taker-ratio", "threshold_value": 1.5, "direction": "above" }
+// Taker买入/卖出 ≤ 0.7 → 触发（主动卖盘占优）
+{ "type": "taker-ratio", "threshold_value": 0.7, "direction": "below" }
+```
+
+#### `ls-reversal`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `threshold_value` | number | 多空账户比（>1=多头多于空头, <1=空头多于多头） |
+| `direction` | `"above"` / `"below"` | above=比率≥阈值, below=比率≤阈值 |
+
+**ls-reversal 示例：**
+```json
+// 多空比 ≥ 2 → 触发（多头过度拥挤，警惕反转）
+{ "type": "ls-reversal", "threshold_value": 2, "direction": "above" }
+// 多空比 ≤ 0.5 → 触发（空头过度拥挤，警惕轧空）
+{ "type": "ls-reversal", "threshold_value": 0.5, "direction": "below" }
+```
+
+#### `volume-anomaly`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `threshold_value` | number | 相对均量的倍数（2.0=当前1H量是过去24H均量的2倍） |
+| `direction` | `"above"` / `"below"` | above=比率≥阈值(放量), below=比率≤阈值(缩量) |
+
+**volume-anomaly 示例：**
+```json
+// 当前1H量 ≥ 过去24H均量的2倍 → 触发（放量异动）
+{ "type": "volume-anomaly", "threshold_value": 2.0, "direction": "above" }
+// 当前1H量 ≤ 过去24H均量的0.3倍 → 触发（极致缩量）
+{ "type": "volume-anomaly", "threshold_value": 0.3, "direction": "below" }
+```
+
+**significance_template 可用占位符汇总：**
+
+| 占位符 | 可用类型 | 替换为 | 示例输出 |
+|--------|---------|--------|---------|
+| `{change_pct}` | oi-monitor | 24h OI 变化%（2位小数） | `23.43` |
+| `{current_oi}` | oi-monitor | 当前 OI 合约张数（整数） | `2929125` |
+| `{threshold}` | 全部类型 | 触发阈值（与 JSON 中 threshold_value 一致） | `15` 或 `0.01` |
+| `{funding_rate}` | funding-reversal | 当前资金费率%（4位小数） | `0.5000` |
+| `{current_ratio}` | taker-ratio, ls-reversal | 当前比率（2位小数） | `1.52` |
+| `{volume_ratio}` | volume-anomaly | 当前量/均量倍数（2位小数） | `2.35` |
+
+> ⚠️ **不要使用 `${variable}` 语法！** 占位符必须用 `{name}` 格式（单层花括号，无 `$` 前缀）。使用 `${...}` 会导致生成的规则代码崩溃。
+
+**significance_template 示例：**
+```json
+// oi-monitor 百分比
+"significance_template": "OI 24h 变化 {change_pct}%，超过 {threshold}% 阈值"
+// oi-monitor 绝对值
+"significance_template": "OI 当前 {current_oi} 张，突破 {threshold} 新资金入场"
+// funding-reversal
+"significance_template": "资金费率 {funding_rate}%，突破 {threshold} 阈值，多头拥挤"
+// taker-ratio
+"significance_template": "Taker买入比 {current_ratio}，买盘异常强劲（阈值 {threshold}）"
+// ls-reversal
+"significance_template": "多空比 {current_ratio}，空头过度拥挤（阈值 {threshold}）"
+// volume-anomaly
+"significance_template": "1H成交量 {volume_ratio}x 均量，放量突破（阈值 {threshold}x）"
+```
+
+**设置阈值时的自查清单：**
+
+1. **先读取当前值再设阈值。** 数据清单 `raw_data` 中包含当前 OI、费率、Taker比等实时数据。如果阈值设在当前值之下（above模式）或之上（below模式），规则一出生就会触发。
+2. **阈值应捕捉变化而非状态。** 已在高位的数据，设阈值时应超过当前值——规则的意义是「从当前位置继续变化到什么程度才需要关注」，而非「当前状态是否值得注意」。
+3. **百分比 vs 绝对值：** OI 可选择百分比或绝对值模式。币种 OI 绝对值波动大时优先用百分比；OI 接近关键整数关口（如 $3.2M）时用绝对值更直观。
+4. **资金费率为小数：** `0.01` = 1%，`0.005` = 0.5%，`-0.01` = -1%。不要写 `1` 表示 1%。
+
 **硬性约束：** `price_levels` ≤ 6 个（1 个规则文件） + 非价格 ≤ 2 个 + 总计 ≤ 3 个规则文件。
 
 ```bash
@@ -769,7 +884,7 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
 echo "[$NOW] [阶段二] 警报决策数据已保存: reports/alert-candidates-{COIN}-YYYY-MM-DD-HHMM.json" >> logs/alt-${COIN}-process.log
 ```
-### 步骤 11: 阶段二收尾
+### 步骤 10: 阶段二收尾
 
 保存报告 + 输出两份 JSON 后，记录阶段二结束日志：
 
@@ -800,28 +915,11 @@ echo "[$NOW] [阶段二] ========== 阶段二结束 ==========" >> logs/alt-${CO
 
 ---
 
-### 分支 A：周期被拉黑 → 流程终止
+### 分支 A：周期活跃 → 阶段三 → 阶段四
 
-如果步骤 8 检测到强庄操纵并已将币种拉黑，流程在此终止：
+**执行阶段三和阶段四。**
 
-```
-阶段二交叉验证分析已完成。
-币种: {COIN}
-周期状态: 已归档（强庄黑名单）
-周期路径: archived/alt-{COIN}-YYYYMMDD-HHMM
-黑名单原因: {一句话}
-流程结束——该币种已加入黑名单，不再进入后续阶段。
-```
-
-**不执行阶段三，不执行阶段四。**
-
----
-
-### 分支 B：周期活跃 → 阶段三 → 阶段四
-
-**仅当周期未被拉黑时执行。**
-
-#### B.1 执行阶段三（仓位管理）
+#### A.1 执行阶段三（仓位管理）
 
 ```bash
 node scripts/stage3-executor.js {COIN} {CYCLE_DIR}
@@ -831,9 +929,9 @@ node scripts/stage3-executor.js {COIN} {CYCLE_DIR}
 
 **阶段三输出会标记 `pipeline_end`：**
 - `pipeline_end: true` → 阶段三已归档周期（规则清零 + 复盘 cron 已创建），**流程结束，不再进入阶段四**
-- `pipeline_end: false` → 周期仍活跃，继续 B.2
+- `pipeline_end: false` → 周期仍活跃，继续 A.2
 
-#### B.2 执行阶段四（警报管理）
+#### A.2 执行阶段四（警报管理）
 
 阶段四全脚本化，一步执行：
 
@@ -871,10 +969,9 @@ node scripts/stage4-executor.js {COIN} {CYCLE_DIR}
 6. **三维交叉验证，不是逐项打分**：寻找叙事一致性，不机械加总
 7. **输出两份结构化 JSON**：`trade-decision.json`（阶段三输入）+ `alert-candidates.json`（阶段四输入）
 8. **专注撰写报告**：保存报告文件 + 两份 JSON，不修改其他文件
-9. **强庄检测**：分析中发现极端操纵特征时，拉黑+归档，流程终止
-10. **按阶段交接执行后续**：见上方「🔀 阶段交接」章节
-11. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
+9. **按阶段交接执行后续**：见上方「🔀 阶段交接」章节
+10. **异常分级记录**：`⚠️ WARN` 不中断，`⛔ ERROR` 视情况处理
 
 ---
 
-阶段二 - v1.9
+阶段二 - v2.0

@@ -641,6 +641,7 @@ function archiveRule(filename, ruleName, reason) {
   // 归档来源映射
   const archivedByMap = {
     triggered: 'trigger-fired',
+    trigger_collect_error: 'trigger-collect-error',
     error_threshold_exceeded: 'lifetime-expired',
     expired: 'lifetime-expired',
     completed: 'lifetime-expired',
@@ -815,22 +816,47 @@ async function runRule(ruleInfo) {
     if (shouldTrigger) {
       logRuleEvent(name, 'TRIGGERED');
       
-      // 收集数据
-      const data = await collect.call(rule);
-      logRuleEvent(name, 'DATA_COLLECTED', { dataKeys: Object.keys(data || {}) });
-      
-      // 触发动作
-      await trigger.call(rule, data);
-      
-      logRuleEvent(name, 'TRIGGER_COMPLETED');
-      
-      // ★ 只有完整链路成功才重置错误统计
-      handleRuleSuccess(filename, name);
-      
-      // ⭐ 触发即归档（引擎层强制执行，规则无法绕过）
-      // 规则文件被移动到 rules-archive/，定时器被清除
-      archiveRule(filename, name, 'triggered');
-      return 'stop';
+      try {
+        // 收集数据
+        const data = await collect.call(rule);
+        logRuleEvent(name, 'DATA_COLLECTED', { dataKeys: Object.keys(data || {}) });
+        
+        // 触发动作
+        await trigger.call(rule, data);
+        
+        logRuleEvent(name, 'TRIGGER_COMPLETED');
+        
+        // ★ 只有完整链路成功才重置错误统计
+        handleRuleSuccess(filename, name);
+        
+        // ⭐ 触发即归档（引擎层强制执行，规则无法绕过）
+        // 规则文件被移动到 rules-archive/，定时器被清除
+        archiveRule(filename, name, 'triggered');
+        return 'stop';
+      } catch (collectError) {
+        // ★ check() 通过但 collect()/trigger() 崩溃 → 代码逻辑 bug
+        // 重试大概率失败，ReferenceError/TypeError 直接归档终止死循环
+        const isCodeBug = collectError instanceof ReferenceError
+                       || collectError instanceof TypeError
+                       || collectError.message?.includes('is not defined');
+        
+        if (isCodeBug) {
+          logEngine('WARN', name, '触发后执行失败（代码bug，立即归档终止循环）', {
+            error: collectError.message,
+            errorType: collectError.constructor.name
+          });
+          archiveRule(filename, name, 'trigger_collect_error');
+          return 'stop';
+        }
+        
+        // 网络错误 → 走正常错误处理（调整间隔）
+        logEngine('WARN', name, '触发后执行失败（非代码bug）', {
+          error: collectError.message
+        });
+        const shouldPause = handleRuleError(filename, name, collectError.message, collectError.stack);
+        if (shouldPause) return 'pause';
+        return 'continue';
+      }
     }
     // else: check 返回 false（正常无触发），不重置错误统计
     

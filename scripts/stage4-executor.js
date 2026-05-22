@@ -278,7 +278,7 @@ module.exports = {
       const latestPrice = klines[klines.length - 1].close;
 
       try {
-        const lsData = await api.getOKXLongShortRatio(COIN, 'CONTRACTS');
+        const lsData = await api.getOKXLongShortRatio(COIN);
         this.longShortRatio = lsData?.currentRatio;
       } catch (_) {}
       try {
@@ -442,9 +442,9 @@ module.exports = {
       execSync(\`node "\${scriptPath}" '\${json.replace(/'/g, "'\\\\\\\\''")}' 2>/dev/null\`, {
         timeout: 35000, stdio: 'pipe'
       });
-      console.log(\`[🔔警报触发] ${this.name} | 即时数据采集完成 → 阶段二已派发\`);
+      console.log(\`[🔔警报触发] \${this.name} | 即时数据采集完成 → 阶段二已派发\`);
     } catch (err) {
-      console.error(\`[❌警报触发失败] err.message\`);
+      console.error(\`[❌警报触发失败] \${err.message}\`);
     }
 
     this.lastTriggered = Date.now();
@@ -470,10 +470,20 @@ function writeNonPriceRule(filePath, rule, decision) {
   const reportPath = decision.report_path || '';
   const ruleType = rule.type || 'oi-monitor';
   const threshold = rule.threshold_value || rule.threshold_pct || 5;
+  const thresholdType = rule.threshold_type || 'pct';  // 'pct'=百分比 | 'absolute'=绝对值（仅 oi-monitor）
   const label = rule.label || `${COIN} ${ruleType} 监控`;
-  const significanceTemplate = rule.significance_template || `${ruleType} 触发`;
+  const rawTemplate = rule.significance_template || `${ruleType} 触发`;
   const direction = rule.direction || 'above';
   const reason = rule.reason || '阶段二分析识别的监控条件';
+
+  // 转义 significance_template 中的危险字符，防止 LLM 输出注入到生成的 JS 代码中
+  // ${...} → \${...}（防止在生成文件的模板字面量中被当作变量引用）
+  // ` → \`（防止提前终止模板字面量）
+  // ' → \'（防止提前终止单引号字符串）
+  const significanceTemplate = rawTemplate
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$/g, '\\$');
 
   // 确定规则类型对应的方法名
   let ruleTypeLabel;
@@ -504,63 +514,175 @@ function writeNonPriceRule(filePath, rule, decision) {
       apiMethodName = 'getOKXOpenInterest';
   }
 
-  // OI 型规则生成 check 逻辑
-  let checkLogic, collectLogic, significanceLogic;
+  // ═══ 按类型生成 check/collect 逻辑 ═══
+  let checkLogic, collectLogic;
+
   if (ruleType === 'oi-monitor') {
-    checkLogic = `      const oiData = await api.getOKXOpenInterest(COIN);
+    if (thresholdType === 'absolute') {
+      // ── OI 绝对值阈值 ──
+      const cmpOp = direction === 'below' ? '<=' : '>=';
+      const cmpLabel = direction === 'below' ? '≤' : '≥';
+      checkLogic = `      const oiData = await api.getOKXOpenInterest(COIN);
+      if (!oiData || oiData.currentOI === undefined) {
+        console.log(\`[🔍警报检查] [API] \${COIN} OI数据获取失败 | [进度] \${this.name} | 跳过\`);
+        return false;
+      }
+      const currentOI = oiData.currentOI;
+      const triggered = currentOI ${cmpOp} ${threshold};
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} OI数据 | [进度] \${this.name} | 当前OI: \${currentOI.toFixed(0)} | 阈值: ${cmpLabel}${threshold} | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
+    } else {
+      // ── OI 百分比阈值（默认）──
+      checkLogic = `      const oiData = await api.getOKXOpenInterest(COIN);
       if (!oiData || oiData.change24h === undefined) {
         console.log(\`[🔍警报检查] [API] \${COIN} OI数据获取失败 | [进度] \${this.name} | 跳过\`);
         return false;
       }
-
       const changePct = ${direction === 'absolute' ? 'Math.abs(oiData.change24h)' : 'oiData.change24h'};
       const triggered = ${direction === 'below' ? 'changePct <= -' + threshold : 'changePct >= ' + threshold};
-
       console.log(\`[🔍警报检查] [API] OKX获取\${COIN} OI数据 | [进度] \${this.name} | 24H变化: \${oiData.change24h.toFixed(2)}% | 阈值: ${direction === 'below' ? '≤-' : '≥'}${threshold}% | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
+    }
 
     collectLogic = `      const oiData = await api.getOKXOpenInterest(COIN);
       const ticker = await api.getOKXTicker(COIN, 'SWAP');
       const klines4h = await api.getOKXKlines(COIN, '4h', 3, 'SWAP');
-
       const changePct = oiData?.change24h || 0;
-      const sigStr = '${(significanceTemplate || '').replace(/\{change_pct\}/g, '${changePct.toFixed(2)}')}';
-
+      const currentOI = oiData?.currentOI || 0;
       return {
-        coin: COIN,
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        alertType: '${ruleType}',
-        oiData: {
-          currentOI: oiData?.currentOI,
-          change24h: oiData?.change24h,
-          timestamp: new Date().toISOString()
-        },
+        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        alertType: 'oi-monitor',
+        oiData: { currentOI: oiData?.currentOI, change24h: oiData?.change24h, timestamp: new Date().toISOString() },
         openInterest: oiData?.currentOI,
-        klines4h: klines4h ? klines4h.slice(0, 3).map(k => ({
-          time: k.datetime || k.time, open: k.open, high: k.high,
-          low: k.low, close: k.close, volume: k.volume
-        })) : null,
-        significance: \`${significanceTemplate}\`.replace(/\\{change_pct\\}/g, changePct.toFixed(2))
+        klines4h: klines4h ? klines4h.slice(0,3).map(k => ({ time: k.datetime||k.time, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })) : null,
+        significance: \`${significanceTemplate}\`
+          .replace(/\\{change_pct\\}/g, changePct.toFixed(2))
+          .replace(/\\{current_oi\\}/g, currentOI.toFixed(0))
+          .replace(/\\{threshold\\}/g, '${threshold}')
       };`;
 
-    significanceLogic = '';
-  } else {
-    // 通用 check/collect 逻辑（其他非价格类型）
-    checkLogic = `      // TODO: 实现 ${ruleType} 的 check 逻辑
-      // 数据源: api.${apiMethodName}(COIN)
-      console.log(\`[🔍警报检查] [API] \${COIN} ${ruleType} | [进度] \${this.name} | 待实现\`);
-      return false;`;
+  } else if (ruleType === 'funding-reversal') {
+    // ── 资金费率监控 ──
+    checkLogic = `      const frData = await api.getOKXFundingRate(COIN);
+      if (!frData || frData.fundingRate === undefined) {
+        console.log(\`[🔍警报检查] [API] \${COIN} 资金费率获取失败 | [进度] \${this.name} | 跳过\`);
+        return false;
+      }
+      const rate = frData.fundingRate;
+      const triggered = ${direction === 'absolute' ? 'Math.abs(rate) >= ' + threshold : direction === 'below' ? 'rate <= -' + threshold : 'rate >= ' + threshold};
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} 资金费率 | [进度] \${this.name} | 费率: \${(rate*100).toFixed(4)}% | 阈值: ${direction === 'below' ? '≤-' : direction === 'absolute' ? '|≥|' : '≥'}${Number(threshold)*100}% | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
 
-    collectLogic = `      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+    collectLogic = `      const frData = await api.getOKXFundingRate(COIN);
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const klines4h = await api.getOKXKlines(COIN, '4h', 3, 'SWAP');
+      const rate = frData?.fundingRate || 0;
+      const fundingRatePct = (rate * 100).toFixed(4);  // 百分比显示值，供占位符 {funding_rate} 使用
       return {
-        coin: COIN,
-        alertTime: new Date().toISOString(),
-        currentPrice: ticker.price,
-        alertType: '${ruleType}',
-        significance: '${significanceTemplate}'
+        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        alertType: 'funding-reversal',
+        fundingRate: rate,
+        fundingRatePct: fundingRatePct + '%',
+        nextFundingRate: frData?.nextFundingRate,
+        isLongPay: frData?.isLongPay,
+        klines4h: klines4h ? klines4h.slice(0,3).map(k => ({ time: k.datetime||k.time, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })) : null,
+        significance: \`${significanceTemplate}\`
+          .replace(/\\{funding_rate\\}/g, fundingRatePct)
+          .replace(/\\{threshold\\}/g, '${threshold}')
       };`;
 
-    significanceLogic = '';
+  } else if (ruleType === 'taker-ratio') {
+    // ── Taker 买卖比监控 ──
+    checkLogic = `      const takerData = await api.getOKXTakerRatio(COIN, '1H');
+      if (!takerData || takerData.currentRatio === undefined) {
+        console.log(\`[🔍警报检查] [API] \${COIN} Taker比获取失败 | [进度] \${this.name} | 跳过\`);
+        return false;
+      }
+      const ratio = takerData.currentRatio;
+      const triggered = ${direction === 'below' ? 'ratio <= ' + threshold : 'ratio >= ' + threshold};
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} Taker买卖比 | [进度] \${this.name} | 当前比率: \${ratio.toFixed(2)} | 阈值: ${direction === 'below' ? '≤' : '≥'}${threshold} | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
+
+    collectLogic = `      const takerData = await api.getOKXTakerRatio(COIN, '1H');
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const klines4h = await api.getOKXKlines(COIN, '4h', 3, 'SWAP');
+      const ratio = takerData?.currentRatio || 1;
+      const buyVol = takerData?.buyVolume || 0;
+      const sellVol = takerData?.sellVolume || 0;
+      return {
+        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        alertType: 'taker-ratio',
+        takerRatio: ratio,
+        prevRatio: takerData?.prevRatio,
+        buyVolume: buyVol,
+        sellVolume: sellVol,
+        change: takerData?.change,
+        klines4h: klines4h ? klines4h.slice(0,3).map(k => ({ time: k.datetime||k.time, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })) : null,
+        significance: \`${significanceTemplate}\`
+          .replace(/\\{current_ratio\\}/g, ratio.toFixed(2))
+          .replace(/\\{threshold\\}/g, '${threshold}')
+      };`;
+
+  } else if (ruleType === 'ls-reversal') {
+    // ── 多空比监控 ──
+    checkLogic = `      const lsData = await api.getOKXLongShortRatio(COIN);
+      if (!lsData || lsData.currentRatio === undefined) {
+        console.log(\`[🔍警报检查] [API] \${COIN} 多空比获取失败 | [进度] \${this.name} | 跳过\`);
+        return false;
+      }
+      const ratio = lsData.currentRatio;
+      const triggered = ${direction === 'below' ? 'ratio <= ' + threshold : 'ratio >= ' + threshold};
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} 多空比 | [进度] \${this.name} | 比率: \${ratio.toFixed(2)} | 阈值: ${direction === 'below' ? '≤' : '≥'}${threshold} | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
+
+    collectLogic = `      const lsData = await api.getOKXLongShortRatio(COIN);
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const klines4h = await api.getOKXKlines(COIN, '4h', 3, 'SWAP');
+      const ratio = lsData?.currentRatio || 1;
+      return {
+        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        alertType: 'ls-reversal',
+        longShortRatio: ratio,
+        prevRatio: lsData?.prevRatio,
+        klines4h: klines4h ? klines4h.slice(0,3).map(k => ({ time: k.datetime||k.time, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })) : null,
+        significance: \`${significanceTemplate}\`
+          .replace(/\\{current_ratio\\}/g, ratio.toFixed(2))
+          .replace(/\\{threshold\\}/g, '${threshold}')
+      };`;
+
+  } else if (ruleType === 'volume-anomaly') {
+    // ── 成交量异动监控 ──
+    checkLogic = `      const klines = await api.getOKXKlines(COIN, '1H', 24, 'SWAP');
+      if (!klines || klines.length < 2) {
+        console.log(\`[🔍警报检查] [API] \${COIN} K线获取失败 | [进度] \${this.name} | 跳过\`);
+        return false;
+      }
+      // 最新1根 vs 前23根均值（共24根）
+      const latestVol = klines[0].volume;
+      const avgVol = klines.slice(1).reduce((s,k) => s + k.volume, 0) / (klines.length - 1);
+      const ratio = latestVol / avgVol;
+      const triggered = ${direction === 'below' ? 'ratio <= ' + threshold : 'ratio >= ' + threshold};
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} 1H K线 | [进度] \${this.name} | 当前量: \${latestVol.toFixed(0)} | 均量: \${avgVol.toFixed(0)} | 比率: \${ratio.toFixed(2)}x | 阈值: ${direction === 'below' ? '≤' : '≥'}${threshold}x | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
+
+    collectLogic = `      const klines = await api.getOKXKlines(COIN, '1H', 24, 'SWAP');
+      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      const latestVol = klines?.[0]?.volume || 0;
+      const avgVol = (klines?.length > 1) ? klines.slice(1).reduce((s,k) => s + k.volume, 0) / (klines.length - 1) : 0;
+      const volRatio = avgVol > 0 ? latestVol / avgVol : 1;
+      return {
+        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        alertType: 'volume-anomaly',
+        latestVolume: latestVol,
+        avgVolume: avgVol,
+        volumeRatio: volRatio,
+        klines1h: klines ? klines.slice(0,5).map(k => ({ time: k.datetime||k.time, open: k.open, high: k.high, low: k.low, close: k.close, volume: k.volume })) : null,
+        significance: \`${significanceTemplate}\`
+          .replace(/\\{volume_ratio\\}/g, volRatio.toFixed(2))
+          .replace(/\\{threshold\\}/g, '${threshold}')
+      };`;
+
+  } else {
+    // 未知类型 → 存根（安全回退）
+    checkLogic = `      // 未知规则类型: ${ruleType}
+      console.log(\`[🔍警报检查] [API] \${COIN} ${ruleType} | [进度] \${this.name} | 未知类型，跳过\`);
+      return false;`;
+    collectLogic = `      const ticker = await api.getOKXTicker(COIN, 'SWAP');
+      return { coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price, alertType: '${ruleType}', significance: '${significanceTemplate}' };`;
   }
 
   const content = `/**
@@ -573,7 +695,8 @@ function writeNonPriceRule(filePath, rule, decision) {
  */
 
 const api = require('../../btc-market-lite/scripts/api');
-const { spawn } = require('child_process');
+const { execSync } = require('child_process');
+const path = require('path');
 
 const COIN = '${COIN}';
 const COOLDOWN_MS = ${ruleType === 'oi-monitor' ? '2' : '1'} * 60 * 60 * 1000;
@@ -628,9 +751,9 @@ ${collectLogic}
       execSync(\`node "\${scriptPath}" '\${json.replace(/'/g, "'\\\\\\\\''")}' 2>/dev/null\`, {
         timeout: 35000, stdio: 'pipe'
       });
-      console.log(\`[🔔警报触发] ${this.name} | 即时数据采集完成 → 阶段二已派发\`);
+      console.log(\`[🔔警报触发] \${this.name} | 即时数据采集完成 → 阶段二已派发\`);
     } catch (err) {
-      console.error(\`[❌警报触发失败] err.message\`);
+      console.error(\`[❌警报触发失败] \${err.message}\`);
     }
 
     this.lastTriggered = Date.now();

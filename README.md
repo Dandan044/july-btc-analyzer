@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v11 更新**：山寨币流程脚本化重构 + Dashboard PM2/系统Crontab 控制 + API 参数防错位检测 + 交易教训库持续扩展。
+> **v12 更新**：警报引擎死循环修复 + 非价格规则全类型实现 + 阶段二双视角框架 + 模型统一。
 
 ## 🚀 快速开启
 
@@ -330,9 +330,65 @@ env: {
 ## 更新日志
 
 ### 2026-05-22
-> 🤖 v11 — 山寨币流程脚本化重构 + Dashboard PM2/系统Crontab 控制 + API 参数防错位检测 + 交易教训库扩展
+> 🔧 v12 — 警报引擎死循环修复 + 非价格规则全类型实现 + 阶段二双视角框架 + 模型统一
 
-**变更内容：**
+**变更内容（基于 v11 增量）：**
+
+**① 🔥 警报引擎死循环修复（`skills/btc-alert/engine.js`）：**
+- 根因：KAITO OI 警报 check() 通过 → log TRIGGERED → collect() 崩溃（`${current_oi}` 未定义变量引发 ReferenceError）→ 归档和冷却均不可达 → 规则死循环触发
+- 修复：collect()/trigger() 包裹 try-catch，区分代码bug与网络错误
+  - ReferenceError / TypeError → 立即 `archiveRule()` 标记 `trigger_collect_error` 终止循环
+  - 网络错误 → 走正常错误处理（调整间隔，不归档）
+- 新增 `trigger-collect-error` 归档来源枚举
+
+**② 📜 非价格规则全类型完整实现（`scripts/stage4-executor.js`）：**
+
+| 规则类型 | 之前 | 之后 |
+|---------|------|------|
+| `funding-reversal` | ❌ 存根（return false） | ✅ 完整：OKX 资金费率 API + 阈值比较（above/below/absolute）|
+| `taker-ratio` | ❌ 存根 | ✅ 完整：OKX Taker 买卖比 API + 1H 数据 + 方向比较 |
+| `ls-reversal` | ❌ 存根 | ✅ 完整：OKX 多空账户比 API + 阈值比较 |
+| `volume-anomaly` | ❌ 存根 | ✅ 完整：24H 1H K线成交量 vs 前23根均量比值 |
+| `oi-monitor` | ✅ 已有（百分比）| ✅ 新增 `threshold_type: 'absolute'` 模式（直接 OI 合约张数）|
+| `oi-monitor` (pct 模式) | ✅ | ✅ check/collect 逻辑简化，新增 `{current_oi}` 占位符 |
+
+每类型包含完整的 check()（实时数据获取+阈值比较+日志）和 collect()（触发数据采集+格式化输出）。
+
+**③ 🔒 阶段四模板注入安全修复（`scripts/stage4-executor.js`）：**
+- 根因：`significance_template` 中 `${current_oi}` 未被转义 → 注入生成的 JS 模板字面量 → ReferenceError
+- 修复：写入文件前对 rawTemplate 执行 `replace(/\$/g, '\\$')`、反引号转义等
+- 同时修复了两处模板字符串错误：`${this.name}` 和 `${err.message}` 原为字面量字符串，现改为表达式
+
+**④ 🧠 阶段二提示词重构（`tasks/alt-pipeline/alt-intel-stage2.md`）：**
+- **新增核心铁律「永不放弃交易」**：高度控盘是信号而非禁令，任何市场条件下都必须找到可操作交易方向
+- **新增双视角思维框架**：
+  - 庄家视角：控盘方的成本/动机/计划
+  - 散户视角：市场情绪/仓位拥挤/心理关口
+  - 两视角交汇 → 交易机会
+- **删除「强庄检测与自动拉黑」步骤**（步骤8整段移除）
+- 拉黑机制从阶段二自动执行改为仅保留 `data/altcoin-blacklist.json` 供参考
+- 步骤重编号：8→8, 9→8, 10→9
+- 新增「⚠️ 非价格规则能力边界（必读）」详细参数说明表
+- 术语调整：「庄家操作痕迹」→「价格操纵痕迹」
+
+**⑤ 🔄 模型统一（`tasks/global-config.json` + 上一commit）：**
+- BTC 日报/即时分析模型：`deepseek/deepseek-v4-pro` → `deepseek/deepseek-v4-flash`
+- 自愈诊断模型：`deepseek/deepseek-v4-pro` → `deepseek/deepseek-v4-flash`
+- 全部模型统一为 flash，移除 pro 的差异化配置
+
+**⑥ 📋 复盘经验新增（`learnings/PENDING_TRADE_LESSONS.json`）：**
+- 新增：「持仓分析中短期信号与中期信号冲突时应优先服从中期信号」
+  - 1h Taker 比回升 + 4h Taker 比 < 1 = 短期技术性反弹，不是趋势反转
+  - 持仓管理优先参考 4h 及以上信号，1h 仅影响执行节奏
+- 来源：BTC cycle-20260520-001 复盘
+
+**⑦ 📝 Dashboard 路由重排（`dashboard/server.js`）：**
+- GET/POST/DELETE `/api/cron/system` 端点从文件末尾移至靠近顶部的 PM2 端点之后
+- 功能无变化，代码组织优化
+
+---
+
+> 🤖 **v11 更新**（同日，较早提交）— 山寨币流程脚本化重构 + Dashboard PM2/系统Crontab 控制 + API 参数防错位检测 + 交易教训库扩展
 
 **① 山寨币分析流程脚本化重构（最大变更）：**
 - 新架构：`scanner-runner.sh`（纯脚本）完成扫描→预处理→派发，LLM 仅参与 sentiment 收集 + 交叉验证分析
