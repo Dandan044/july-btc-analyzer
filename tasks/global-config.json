@@ -12,8 +12,8 @@
   ],
   "trigger": {
     "btc": {
-      "model": "deepseek/deepseek-v4-pro",
-      "_note": "BTC 即时分析/日报使用 pro 模型，分析深度更高",
+      "model": "deepseek/deepseek-v4-flash",
+      "_note": "BTC 即时分析/日报跟随默认模型",
       "_refs": [
         "📝 AGENTS.md L14 → 模型选择说明",
         "📝 AGENTS.md L30 → [SPAWN_INSTANT_ANALYSIS] BTC 分支 sessions_spawn.model",
@@ -42,8 +42,8 @@
     }
   },
   "selfHeal": {
-    "model": "deepseek/deepseek-v4-pro",
-    "_note": "警报器自愈诊断使用 pro 模型，需准确判断错误类型并修复代码",
+    "model": "deepseek/deepseek-v4-flash",
+    "_note": "警报器自愈诊断跟随默认模型",
     "_refs": [
       "🔧 skills/btc-alert/engine.js L115 → spawnSelfHeal() require → selfHeal.model"
     ]
