@@ -87,20 +87,38 @@ if active_count >= MAX_ALT_COINS:
 
 
 # ════════════════════════════════════════════
-# 步骤 3: 获取 OKX SWAP 全量行情
+# 步骤 3: 获取 OKX SWAP 全量行情（带重试）
 # ════════════════════════════════════════════
 log("获取 OKX SWAP tickers...")
-try:
-    result = subprocess.run(
-        ["curl", "-s", "--max-time", "15", "--proxy", PROXY_URL,
-         "https://www.okx.com/api/v5/market/tickers?instType=SWAP"],
-        capture_output=True, text=True, timeout=20
-    )
-    data = json.loads(result.stdout)
-except Exception as e:
-    log(f"OKX API 获取失败 - {e}", "ERROR")
+
+MAX_RETRIES = 3
+RETRY_DELAYS = [2, 4, 8]  # 指数退避
+
+data = None
+fetch_error = None
+
+for attempt in range(MAX_RETRIES):
+    try:
+        result = subprocess.run(
+            ["curl", "-s", "--max-time", "15", "--proxy", PROXY_URL,
+             "https://www.okx.com/api/v5/market/tickers?instType=SWAP"],
+            capture_output=True, text=True, timeout=20
+        )
+        data = json.loads(result.stdout)
+        fetch_error = None
+        break  # 成功，退出重试
+    except Exception as e:
+        fetch_error = str(e)
+        if attempt < MAX_RETRIES - 1:
+            delay = RETRY_DELAYS[attempt]
+            log(f"OKX API 获取失败 (第{attempt+1}次): {e}，{delay}s 后重试...", "WARN")
+            import time
+            time.sleep(delay)
+
+if fetch_error or data is None:
+    log(f"OKX API 获取失败（已重试{MAX_RETRIES}次） - {fetch_error}", "ERROR")
     log("=" * 50 + " 扫描结束")
-    print(json.dumps({"result": "api_error", "error": str(e)}))
+    print(json.dumps({"result": "api_error", "error": fetch_error}))
     sys.exit(1)
 
 if data.get("code") != "0":

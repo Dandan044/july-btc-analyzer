@@ -531,15 +531,22 @@ function writeNonPriceRule(filePath, rule, decision) {
       const triggered = currentOI ${cmpOp} ${threshold};
       console.log(\`[🔍警报检查] [API] OKX获取\${COIN} OI数据 | [进度] \${this.name} | 当前OI: \${currentOI.toFixed(0)} | 阈值: ${cmpLabel}${threshold} | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
     } else {
-      // ── OI 百分比阈值（默认）──
+      // ── OI 百分比阈值（从创建时基准 OI 起算增量，避免用 24h 累计变化导致立即触发）──
       checkLogic = `      const oiData = await api.getOKXOpenInterest(COIN);
-      if (!oiData || oiData.change24h === undefined) {
+      if (!oiData || oiData.currentOI === undefined) {
         console.log(\`[🔍警报检查] [API] \${COIN} OI数据获取失败 | [进度] \${this.name} | 跳过\`);
         return false;
       }
-      const changePct = ${direction === 'absolute' ? 'Math.abs(oiData.change24h)' : 'oiData.change24h'};
-      const triggered = ${direction === 'below' ? 'changePct <= -' + threshold : 'changePct >= ' + threshold};
-      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} OI数据 | [进度] \${this.name} | 24H变化: \${oiData.change24h.toFixed(2)}% | 阈值: ${direction === 'below' ? '≤-' : '≥'}${threshold}% | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
+      // 首次检查时记录当前 OI 为基准值，后续按基准起算增量
+      if (!this.baseOI) {
+        this.baseOI = oiData.currentOI;
+        console.log(\`[🔍警报检查] [基准] \${COIN} OI基准值已设定: \${this.baseOI.toFixed(0)} | [进度] \${this.name} | 阈值: 从基准起 ${direction === 'absolute' ? '|变化|' : direction === 'below' ? '下跌' : '上涨'} ≥${threshold}%\`);
+        return false;
+      }
+      const currentOI = oiData.currentOI;
+      const changeFromBase = ((currentOI - this.baseOI) / this.baseOI) * 100;
+      const triggered = ${direction === 'absolute' ? 'Math.abs(changeFromBase) >= ' + threshold : direction === 'below' ? 'changeFromBase <= -' + threshold : 'changeFromBase >= ' + threshold};
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} OI数据 | [进度] \${this.name} | 当前OI: \${currentOI.toFixed(0)} | 基准OI: \${this.baseOI.toFixed(0)} | 变化: \${changeFromBase.toFixed(2)}% | 阈值: ${direction === 'below' ? '≤-' : direction === 'absolute' ? '|≥|' : '≥'}${threshold}% | 触发: \${triggered} | [来源] ${reportPath.split('/').pop()}: "${reason}"\`);`;
     }
 
     collectLogic = `      const oiData = await api.getOKXOpenInterest(COIN);
@@ -548,7 +555,7 @@ function writeNonPriceRule(filePath, rule, decision) {
       const changePct = oiData?.change24h || 0;
       const currentOI = oiData?.currentOI || 0;
       return {
-        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        coin: COIN, alertName: \`\${this.name}\`, alertTime: new Date().toISOString(), currentPrice: ticker.price,
         alertType: 'oi-monitor',
         oiData: { currentOI: oiData?.currentOI, change24h: oiData?.change24h, timestamp: new Date().toISOString() },
         openInterest: oiData?.currentOI,
@@ -576,7 +583,7 @@ function writeNonPriceRule(filePath, rule, decision) {
       const rate = frData?.fundingRate || 0;
       const fundingRatePct = (rate * 100).toFixed(4);  // 百分比显示值，供占位符 {funding_rate} 使用
       return {
-        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        coin: COIN, alertName: \`\${this.name}\`, alertTime: new Date().toISOString(), currentPrice: ticker.price,
         alertType: 'funding-reversal',
         fundingRate: rate,
         fundingRatePct: fundingRatePct + '%',
@@ -606,7 +613,7 @@ function writeNonPriceRule(filePath, rule, decision) {
       const buyVol = takerData?.buyVolume || 0;
       const sellVol = takerData?.sellVolume || 0;
       return {
-        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        coin: COIN, alertName: \`\${this.name}\`, alertTime: new Date().toISOString(), currentPrice: ticker.price,
         alertType: 'taker-ratio',
         takerRatio: ratio,
         prevRatio: takerData?.prevRatio,
@@ -635,7 +642,7 @@ function writeNonPriceRule(filePath, rule, decision) {
       const klines4h = await api.getOKXKlines(COIN, '4h', 3, 'SWAP');
       const ratio = lsData?.currentRatio || 1;
       return {
-        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        coin: COIN, alertName: \`\${this.name}\`, alertTime: new Date().toISOString(), currentPrice: ticker.price,
         alertType: 'ls-reversal',
         longShortRatio: ratio,
         prevRatio: lsData?.prevRatio,
@@ -665,7 +672,7 @@ function writeNonPriceRule(filePath, rule, decision) {
       const avgVol = (klines?.length > 1) ? klines.slice(1).reduce((s,k) => s + k.volume, 0) / (klines.length - 1) : 0;
       const volRatio = avgVol > 0 ? latestVol / avgVol : 1;
       return {
-        coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price,
+        coin: COIN, alertName: \`\${this.name}\`, alertTime: new Date().toISOString(), currentPrice: ticker.price,
         alertType: 'volume-anomaly',
         latestVolume: latestVol,
         avgVolume: avgVol,
@@ -682,7 +689,7 @@ function writeNonPriceRule(filePath, rule, decision) {
       console.log(\`[🔍警报检查] [API] \${COIN} ${ruleType} | [进度] \${this.name} | 未知类型，跳过\`);
       return false;`;
     collectLogic = `      const ticker = await api.getOKXTicker(COIN, 'SWAP');
-      return { coin: COIN, alertTime: new Date().toISOString(), currentPrice: ticker.price, alertType: '${ruleType}', significance: '${significanceTemplate}' };`;
+      return { coin: COIN, alertName: \`\${this.name}\`, alertTime: new Date().toISOString(), currentPrice: ticker.price, alertType: '${ruleType}', significance: '${significanceTemplate}' };`;
   }
 
   const content = `/**

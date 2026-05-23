@@ -213,7 +213,7 @@ node scripts/gen-stage1-manifest.js {COIN} {CYCLE_DIR} \
 
 ### 步骤 B：进入阶段二
 
-数据清单生成后，立即读取 `tasks/alt-pipeline/alt-intel-stage2.md` 并开始执行阶段二交叉验证分析。
+数据清单生成后，立即读取 `tasks/alt-pipeline/alt-intel-stage2.live.md` 并开始执行阶段二交叉验证分析。
 
 ---
 
@@ -223,7 +223,7 @@ node scripts/gen-stage1-manifest.js {COIN} {CYCLE_DIR} \
 1. 读取本文件 → 执行媒体搜索 + 链上数据收集
 2. 产出 sentiment-media.md + sentiment-onchain.md
 3. 运行 gen-stage1-manifest.js → 生成数据清单 JSON
-4. 读取 alt-pipeline/alt-intel-stage2.md → 进入阶段二
+4. 读取 alt-pipeline/alt-intel-stage2.live.md → 进入阶段二
 ```
 
 **你只做第 1~2 步（sentiment 收集），第 3 步是脚本调用，第 4 步是流程过渡。**

@@ -24,6 +24,14 @@ const LOGS_DIR = path.join(BASE_DIR, 'logs');
 const DATA_DIR = path.join(BASE_DIR, 'data');
 const ALERTS_CACHE_FILE = path.join(DATA_DIR, 'recent-alerts-cache.json');
 
+// ── OKX 持仓数缓存（由 /api/live-pnl 写入，/api/dashboard 读取） ──
+const OKX_CACHE_FILE = path.join(DATA_DIR, 'okx-positions-cache.json');
+let okxPositionCountCache = { count: 0, ts: 0 }; // 内存缓存
+try {
+  const cached = readJSON(OKX_CACHE_FILE);
+  if (cached && Date.now() - cached.ts < 300000) okxPositionCountCache = cached;
+} catch {}
+
 const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1] || '3100');
 
 // 读取 Gateway Token(用于创建 cron 任务)
@@ -37,7 +45,7 @@ try {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: false, lastModified: false }));
 
 // ── 工具函数 ──────────────────────────────────────────
 
@@ -235,6 +243,33 @@ function cycleStatus(cycle, rulesCount) {
 //  API 路由
 // ══════════════════════════════════════════════════════
 
+// ── GET/POST /api/stage2-mode ─────────────────────────
+const STAGE2_LINK = path.join(BASE_DIR, 'tasks', 'alt-pipeline', 'alt-intel-stage2.live.md');
+const SWITCH_SCRIPT = path.join(BASE_DIR, 'scripts', 'switch-stage2-mode.sh');
+
+app.get('/api/stage2-mode', (req, res) => {
+  try {
+    const out = execSync(`bash "${SWITCH_SCRIPT}" status`, { encoding: 'utf8', timeout: 5000 });
+    const mode = out.includes('激进') ? 'aggressive' : 'normal';
+    res.json({ ok: true, mode });
+  } catch (e) {
+    res.json({ ok: true, mode: 'normal' });
+  }
+});
+
+app.post('/api/stage2-mode', (req, res) => {
+  try {
+    const { mode } = req.body;
+    if (!['normal', 'aggressive'].includes(mode)) {
+      return res.status(400).json({ ok: false, error: 'invalid mode' });
+    }
+    execSync(`bash "${SWITCH_SCRIPT}" ${mode}`, { encoding: 'utf8', timeout: 5000 });
+    res.json({ ok: true, mode });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ── GET /api/dashboard ────────────────────────────────
 app.get('/api/dashboard', (req, res) => {
   try {
@@ -314,17 +349,8 @@ app.get('/api/dashboard', (req, res) => {
     const btcCycles = cycles.filter(c => c.type === 'btc');
     const altCycles = cycles.filter(c => c.type === 'altcoin');
 
-    // 实盘持仓数（从 OKX API 获取，与快照可能不同步）
-    let livePositionCount = 0;
-    try {
-      const allPositions = okxCli('account positions');
-      if (allPositions) {
-        livePositionCount = allPositions.filter(p => {
-          const pos = parseFloat(p.pos);
-          return pos !== 0 && p.posSide !== 'net' || (p.posSide === 'net' && pos !== 0);
-        }).length;
-      }
-    } catch {}
+    // 实盘持仓数（从 OKX 缓存读取，由 /api/live-pnl 每 5min 更新）
+    const livePositionCount = okxPositionCountCache.count || 0;
 
     // 按状态分组
     const statusGroups = { alive: 0, dead: 0 };
@@ -529,6 +555,13 @@ app.get('/api/live-pnl', (req, res) => {
     const totalUpl = held.reduce((sum, p) => sum + (parseFloat(p.upl) || 0), 0);
     const totalUplRatio = held.reduce((sum, p) => sum + (parseFloat(p.uplRatio) || 0), 0) / (held.length || 1);
     const totalRealizedPnl = held.reduce((sum, p) => sum + (parseFloat(p.realizedPnl) || 0), 0);
+
+    // 更新 OKX 持仓数缓存（供 /api/dashboard 使用，避免重复调 OKX）
+    okxPositionCountCache = { count: held.length, ts: Date.now() };
+    try {
+      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      fs.writeFileSync(OKX_CACHE_FILE, JSON.stringify(okxPositionCountCache));
+    } catch {}
 
     res.json({
       timestamp: new Date().toISOString(),
@@ -1224,6 +1257,84 @@ app.get('/api/logs', (req, res) => {
       })
       .sort((a, b) => (b.mtime || '') > (a.mtime || '') ? 1 : -1);
     res.json({ files });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/alert-price-visualization ────────────────
+// 价格柱可视化：读取活跃价格警报规则的检查日志 + 价位配置
+app.get('/api/alert-price-visualization', (req, res) => {
+  try {
+    const allRules = getRules({ all: true });
+    const activePriceRules = allRules.filter(r => r.ruleType === 'price-levels' && r.status === 'active');
+
+    const LOG_FILE = path.join(LOGS_DIR, 'btc-alert.log');
+    function parseCheckLogs(coin, maxLines = 80) {
+      if (!fs.existsSync(LOG_FILE)) return [];
+      const raw = safeExec(`grep -aE '(OKX获取${coin} |进度] ${coin}-多价位监控)' "${LOG_FILE}" | grep '当前:' | tail -${maxLines}`);
+      if (!raw) return [];
+      return raw.trim().split('\n').filter(Boolean).map(line => {
+        const ts = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/)?.[1];
+        const range = line.match(/区间:\s*\$?([\d.]+)-\$?([\d.]+)/);
+        const current = line.match(/当前:\s*\$?([\d.]+)/);
+        const triggered = line.includes('触发: true');
+        return {
+          time: ts,
+          low: range ? parseFloat(range[1]) : null,
+          high: range ? parseFloat(range[2]) : null,
+          current: current ? parseFloat(current[1]) : null,
+          triggered
+        };
+      }).filter(d => d.current !== null);
+    }
+
+    function parsePriceLevels(content) {
+      const m = content.match(/const\s+PRICE_LEVELS\s*=\s*(\[[\s\S]*?\]);/);
+      if (!m) return [];
+      try {
+        const levels = new Function(`return ${m[1]}`)();
+        return levels.map(l => ({
+          price: l.price,
+          type: l.type,
+          label: l.label,
+          action: l.action,
+          confirmPolicy: l.confirmPolicy,
+          confirmMs: l.confirmMs
+        }));
+      } catch { return []; }
+    }
+
+    const results = [];
+    for (const rule of activePriceRules) {
+      const filePath = path.join(RULES_DIR, rule.file + '.js');
+      if (!fs.existsSync(filePath)) continue;
+      const content = fs.readFileSync(filePath, 'utf8');
+      const levels = parsePriceLevels(content);
+      const checks = parseCheckLogs(rule.coin, 80);
+      if (levels.length === 0) continue;
+
+      const prices = checks.map(c => c.current).filter(p => p !== null);
+      const lows = checks.map(c => c.low).filter(p => p !== null);
+      const highs = checks.map(c => c.high).filter(p => p !== null);
+
+      results.push({
+        coin: rule.coin,
+        name: rule.name,
+        cycleId: rule.cycleId,
+        priceLevels: levels,
+        checks: checks.reverse(), // chronological
+        stats: {
+          earliestPrice: prices.length > 0 ? prices[0] : null,
+          latestPrice: prices.length > 0 ? prices[prices.length - 1] : null,
+          overallLow: lows.length > 0 ? Math.min(...lows) : null,
+          overallHigh: highs.length > 0 ? Math.max(...highs) : null,
+          checkCount: checks.length
+        }
+      });
+    }
+
+    res.json(results);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

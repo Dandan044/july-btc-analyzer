@@ -71,15 +71,15 @@ echo "[$NOW] [阶段一] 开始执行" >> logs/daily-report-process.log
 
 ### 2. 检查周期状态并创建文件夹
 
-**只负责检测和创建，不读取交易建议内容。**
+**只负责检测和创建，不读取交易建议内容。注意仅判断 BTC 周期（`cycle-*`），不同山寨币（`alt-*`）周期并行存在是正常的。**
 
 
 ```bash
-# 检查是否有活跃周期
+# 检查是否有 BTC 活跃周期（不含山寨币周期）
 ls -d active/cycle-* 2>/dev/null
 ```
 
-**情况A：`active/` 为空**
+**情况A：没有 BTC 活跃周期**
 - 创建新周期文件夹：`cycle-YYYYMMDD-001`
 - 创建子文件夹结构：
   - `reports/`（存放日报和即时分析）
@@ -87,16 +87,15 @@ ls -d active/cycle-* 2>/dev/null
 
 ```bash
 DATE=$(date +%Y%m%d)
-EXISTING=$(ls -d active/cycle-${DATE}-* 2>/dev/null | wc -l)
-CYCLE_NUM=$(printf "%03d" $((EXISTING + 1)))
-
-mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/reports
-mkdir -p active/cycle-${DATE}-${CYCLE_NUM}/data-context
+mkdir -p active/cycle-${DATE}-001/reports
+mkdir -p active/cycle-${DATE}-001/data-context
 ```
 
-**情况B：`active/` 有周期文件夹**
-- 记录周期 ID
+**情况B：已有 BTC 活跃周期**
+- **沿用最早的那个活跃周期**（直接用 `ls -d active/cycle-*` 的第一个结果）
+- 记录该周期 ID
 - 确认 `data-context/` 子文件夹存在（不存在则创建）
+- **不要创建新周期**
 
 **日志记录：**
 ```

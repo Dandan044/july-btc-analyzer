@@ -190,24 +190,70 @@ const state = rule.lifetime(); // 必须是 'active'
 
 ### 步骤 4：归档时同步实盘持仓状态
 
-在归档（分支 B）前，如果 `positions.json` 记录了活跃持仓，必须查 OKX 实盘确认：
+⚠️ **安全原则：宁可漏判，不可误判。API 异常时默认信任快照，不做覆写。**
+
+在归档（分支 B）前，如果 `positions.json` 记录了活跃持仓，必须查 OKX 实盘确认。
+
+#### 4.1 查询实盘持仓（带重试）
 
 ```bash
-# 查询实盘该币种当前持仓
-scripts/okx-proxy.sh --profile live account positions | python3 -c "
+# 带重试的持仓查询（最多 3 次，每次间隔 2 秒）
+COIN="{COIN}"
+MAX_RETRIES=3
+RETRY_DELAY=2
+
+get_positions() {
+  for i in $(seq 1 $MAX_RETRIES); do
+    result=$(scripts/okx-proxy.sh --profile live account positions 2>/dev/null | python3 -c "
 import sys,json
-positions = json.load(sys.stdin)
-# 筛选该币种的持仓
-for p in positions.get('data',[]):
-    if '{COIN}' in p.get('instId',''):
-        print(json.dumps(p, indent=2))
-"
+try:
+    data = json.load(sys.stdin)
+    items = data.get('data', data) if isinstance(data, dict) else data
+    if not isinstance(items, list):
+        sys.exit(1)
+    for p in items:
+        if '${COIN}' in p.get('instId', '') and float(p.get('pos', 0)) > 0:
+            print(json.dumps({'found': True, 'posId': p.get('posId'), 'pos': p.get('pos'), 'avgPx': p.get('avgPx'), 'posSide': p.get('posSide'), 'upl': p.get('upl')}))
+            sys.exit(0)
+    print(json.dumps({'found': False}))
+except:
+    sys.exit(1)
+" 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ -n "$result" ]; then
+      echo "$result"
+      return 0
+    fi
+    
+    if [ $i -lt $MAX_RETRIES ]; then
+      echo "[重试 $i/$MAX_RETRIES] OKX 持仓查询失败，${RETRY_DELAY}s 后重试..." >&2
+      sleep $RETRY_DELAY
+    fi
+  done
+  
+  # 全部重试失败 → 返回 UNKNOWN
+  echo '{"found": null, "error": "api_failure_after_retries"}'
+  return 1
+}
+
+result=$(get_positions)
 ```
 
-**同步规则**：
-- positions.json 中有持仓，实盘已全部平仓 → 更新 positions.json，标注「已平仓于 YYYY-MM-DD」，然后归档
-- positions.json 中有持仓，实盘仍有持仓 → **不应走分支 B**，应重新评估（转为分支 C/D 处理）
-- 如果实盘比 positions.json 多了新仓位 → 同样转为分支 C/D
+#### 4.2 按查询结果同步
+
+| 查询结果 | 含义 | 操作 |
+|----------|------|------|
+| `found: true` | 实盘有该币种活跃持仓 | → **不应走分支 B**，转为分支 C/D 处理 |
+| `found: false` | 实盘确认无该币种持仓 | → **可以归档**：更新 positions.json 标注已平仓，然后归档 |
+| `found: null` (API 异常) | 无法确认实盘状态 | → **❌ 禁止覆写！** 跳过本次同步，保留 positions.json 不变，不归档。记录 WARN 日志。 |
+
+#### 4.3 禁止操作清单
+
+- ❌ API 异常/空响应时，**禁止**判定为「已平仓」
+- ❌ API 异常时，**禁止**覆写 positions.json
+- ❌ 不能仅凭「API 返回空数组」就认为无持仓——空数组可能是 429 限流、代理故障、网络超时等
+- ✅ 只有 `found: false`（查询成功 + 确实无持仓）才可归档
+- ✅ API 异常 → 保留快照 + 记录 WARN + 下轮继续检查
 
 ### 步骤 5：实时查 OKX TP/SL 委单
 
@@ -314,8 +360,10 @@ sessions_send:
 |------|------|
 | 🚫 不做平仓 | 任何情况下不自动平仓或修改持仓 |
 | 🚫 不做修改 | 不修改活跃周期内的任何文件（归档时的持仓同步除外） |
+| 🚫 不覆写持仓快照 | positions.json 仅在归档（分支 B）且实盘确认无持仓时更新。API 异常 → 不覆写。静默 < 24h 的周期 → 不碰 positions.json。 |
 | ✅ 只做清理 | 删除空壳、归档已完成周期 |
 | ✅ 报警优先 | 有任何不确定 → 报警而非自动处理 |
+| 📌 参考案例 | 2026-05-23 INJ：健康检查误将 API 瞬时异常判为「已平仓」，错误覆写 positions.json。教训：API 不可靠，快照是真理，宁可漏判不可误判。 |
 
 ---
 

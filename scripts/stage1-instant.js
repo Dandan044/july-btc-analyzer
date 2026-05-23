@@ -174,20 +174,16 @@ log(`已有数据复用: 媒体=${mediaExists ? '存在' : '缺失'}, 链上=${o
 // ════════════════════════════════════════════
 const reportPaths = [];
 try {
-  const allCycles = fs.readdirSync(activeDir)
-    .filter(d => d.startsWith(`alt-${COIN}-`) && d !== cycleDir)
-    .sort()
-    .reverse()
-    .slice(0, 5);
-
-  for (const cycle of allCycles) {
-    const cycleReportsDir = path.join(activeDir, cycle, 'reports');
-    if (fs.existsSync(cycleReportsDir)) {
-      const reports = fs.readdirSync(cycleReportsDir)
-        .filter(f => f.startsWith(`alt-report-${COIN}-`) && f.endsWith('.md'));
-      for (const r of reports) {
-        reportPaths.push(`active/${cycle}/reports/${r}`);
-      }
+  // 直接搜当前周期 reports/ 下的历史报告（此时本篇报告尚未生成，目录内均为历史）
+  const reportsDir = path.join(activeDir, cycleDir, 'reports');
+  if (fs.existsSync(reportsDir)) {
+    const reports = fs.readdirSync(reportsDir)
+      .filter(f => f.startsWith(`alt-report-${COIN}-`) && f.endsWith('.md'))
+      .sort()
+      .reverse()
+      .slice(0, 5);
+    for (const r of reports) {
+      reportPaths.push(`active/${cycleDir}/reports/${r}`);
     }
   }
 
@@ -256,7 +252,7 @@ const manifest = {
   },
 
   next_stage: {
-    task_file: 'tasks/alt-pipeline/alt-intel-stage2.md',
+    task_file: 'tasks/alt-pipeline/alt-intel-stage2.live.md',
     spawn_instruction: '阶段一即时数据获取已完成，请读取 data-manifest 开始阶段二交叉验证分析。',
   },
 };
@@ -305,7 +301,7 @@ const stage2Message = `[警报触发即时分析]
 警报上下文:
 ${JSON.stringify(alertData, null, 2)}
 
-请读取 tasks/alt-pipeline/alt-intel-stage2.md 执行交叉验证分析。`;
+请读取 tasks/alt-pipeline/alt-intel-stage2.live.md 执行交叉验证分析。`;
 
 const jobName = `alt-instant-${COIN}-${Date.now()}`;
 

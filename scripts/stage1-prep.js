@@ -211,27 +211,19 @@ const reportsDir = path.join(activeDir, cycleDir, 'reports');
 const reportPaths = [];
 
 try {
-  // 收集所有该币种 active 周期下的报告（排除当前周期）
-  const allCycles = fs.readdirSync(activeDir)
-    .filter(d => d.startsWith(`alt-${COIN}-`) && d !== cycleDir)
-    .sort()
-    .reverse()
-    .slice(0, 5);
-
-  for (const cycle of allCycles) {
-    const cycleReportsDir = path.join(activeDir, cycle, 'reports');
-    if (fs.existsSync(cycleReportsDir)) {
-      const reports = fs.readdirSync(cycleReportsDir)
-        .filter(f => f.startsWith(`alt-report-${COIN}-`) && f.endsWith('.md'));
-      for (const r of reports) {
-        reportPaths.push(`active/${cycle}/reports/${r}`);
-      }
+  // 直接搜当前周期 reports/ 下的历史报告（此时本篇报告尚未生成，目录内均为历史）
+  if (fs.existsSync(reportsDir)) {
+    const reports = fs.readdirSync(reportsDir)
+      .filter(f => f.startsWith(`alt-report-${COIN}-`) && f.endsWith('.md'))
+      .sort()
+      .reverse()
+      .slice(0, 5);
+    for (const r of reports) {
+      reportPaths.push(`active/${cycleDir}/reports/${r}`);
     }
   }
 
-  // 最多 5 篇
-  const trimmed = reportPaths.slice(0, 5);
-  log(`历史报告收集: ${COIN} 找到 ${trimmed.length} 篇`);
+  log(`历史报告收集: ${COIN} 找到 ${reportPaths.length} 篇`);
 } catch (e) {
   log(`历史报告收集失败: ${e.message}`, 'WARN');
 }

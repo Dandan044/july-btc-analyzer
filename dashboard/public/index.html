@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>📈 七月 BTC 监控面板</title>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <style>
 /* ═══════════════════════════════════════════════════
    CSS Variables & Reset
@@ -99,22 +102,22 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 24px;
+  padding: 8px 24px;
   max-width: 1200px;
   margin: 0 auto;
 }
 
 .logo {
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: -0.3px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   color: var(--text-primary);
 }
 .logo .dot {
-  width: 9px; height: 9px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--green);
   animation: glow 2s ease-in-out infinite;
 }
@@ -131,10 +134,163 @@ header {
 }
 
 .refresh-info {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   font-family: var(--font-mono);
 }
+.refresh-info .clock-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  margin-bottom: 0;
+  flex-shrink: 0;
+}
+.refresh-info .clock {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: #34d399;
+  text-shadow:
+    0 0 5px rgba(52,211,153,0.9),
+    0 0 12px rgba(52,211,153,0.5),
+    0 0 24px rgba(52,211,153,0.25);
+  letter-spacing: 4px;
+  line-height: 1.1;
+}
+.refresh-info .clock-label {
+  font-size: 0.55rem;
+  color: #5a7a6a;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.refresh-info .clock-label.lit {
+  color: rgba(52,211,153,0.6);
+  text-shadow: 0 0 8px rgba(52,211,153,0.3);
+}
+.refresh-info .updates {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* ── 手机端折叠按钮 ─────────────────────────── */
+.updates-toggle {
+  display: none; /* 桌面隐藏 */
+}
+
+@media (max-width: 600px) {
+  .refresh-info {
+    flex-direction: row;
+    align-items: center;
+    gap: 3px;
+    position: relative;
+  }
+  .updates-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-muted);
+    font-size: 0.6rem;
+    cursor: pointer;
+    padding: 1px 5px;
+    line-height: 1.3;
+    transition: var(--transition);
+    font-family: var(--font-mono);
+  }
+  .updates-toggle:hover {
+    color: var(--text-primary);
+    border-color: var(--border-light);
+  }
+  .updates-toggle.open {
+    color: var(--accent);
+    border-color: var(--accent-dim);
+    background: var(--accent-glow);
+  }
+  /* 手机端：updates 默认隐藏，点击后以下拉菜单形式显示 */
+  #header-updates {
+    display: none;
+  }
+  #header-updates.open {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+    min-width: 150px;
+    gap: 2px;
+  }
+  #header-updates.open .update-row {
+    font-size: 0.72rem;
+  }
+}
+.refresh-info .update-row {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.refresh-info .update-row .dot-indicator {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.refresh-info .update-row .dot-indicator.ok { background: var(--green); }
+.refresh-info .update-row .dot-indicator.warn { background: var(--yellow); }
+.refresh-info .update-row .dot-indicator.err { background: var(--red); }
+.refresh-info .update-row .label { color: var(--text-muted); min-width: 48px; }
+.refresh-info .update-row .time { color: var(--text-secondary); }
+
+/* ── Stage2 模式切换按钮 ── */
+.stage2-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-family: inherit;
+  transition: all 0.15s;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+.stage2-toggle:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.stage2-toggle .badge {
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.65rem;
+}
+.stage2-toggle .badge.normal {
+  background: #2a4a2a;
+  color: #6fcf6f;
+}
+.stage2-toggle .badge.aggressive {
+  background: #4a2a2a;
+  color: #cf6f6f;
+}
+.stage2-toggle:active { transform: scale(0.96); }
 
 /* ── Navigation Tabs ──────────────────────────────── */
 .nav-tabs {
@@ -148,8 +304,8 @@ header {
 }
 
 .nav-tab {
-  padding: 11px 22px;
-  font-size: 0.84rem;
+  padding: 7px 18px;
+  font-size: 0.82rem;
   color: var(--text-muted);
   border: none;
   background: none;
@@ -166,7 +322,7 @@ header {
   display: inline-block;
   background: var(--accent-dim);
   color: #fff;
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   padding: 1px 6px;
   border-radius: 10px;
   margin-left: 5px;
@@ -263,6 +419,186 @@ header {
 .info-panel-body { padding: 0; }
 
 /* Status chips */
+/* ── 价格柱卡片 ──────────────────────────────────── */
+.price-vis-body {
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+}
+.price-vis-body:empty::before {
+  content: '暂无活跃价格警报';
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 20px;
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+
+.price-vis-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+  width: 72px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.price-vis-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+}
+.price-vis-card.expanded {
+  width: 100%;
+  border-color: var(--accent-dim);
+  box-shadow: 0 0 16px var(--accent-glow);
+  cursor: default;
+}
+
+.price-vis-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  gap: 3px;
+}
+.price-vis-card-coin {
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+.price-vis-card-arrow {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.price-vis-card.expanded .price-vis-card-arrow {
+  transform: rotate(90deg);
+}
+
+.price-vis-card canvas.price-vis-bar {
+  display: block;
+  width: 100%;
+  height: 88px;
+}
+
+/* 展开布局：左纵柱 + 右参数 */
+.price-vis-card-body {
+  display: flex;
+  flex-direction: column;
+}
+.price-vis-card.expanded .price-vis-card-body {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  height: 420px;
+}
+
+.price-vis-bar-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: stretch;
+}
+.price-vis-card.expanded .price-vis-bar-wrap {
+  width: 88px;
+  border-right: 1px solid var(--border);
+}
+
+.price-vis-card.expanded canvas.price-vis-bar {
+  height: 100%;
+  width: 100%;
+}
+
+/* 展开区：右侧参数面板 */
+.price-vis-expand-detail {
+  display: none;
+}
+.price-vis-card.expanded .price-vis-expand-detail {
+  display: block;
+  flex: 1;
+  padding: 14px 18px;
+  overflow-y: auto;
+  animation: fadeIn 0.25s ease;
+}
+
+.price-vis-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 0.75rem;
+}
+.price-vis-detail-row .label {
+  color: var(--text-muted);
+  min-width: 60px;
+  font-size: 0.65rem;
+}
+.price-vis-detail-row .value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.price-vis-detail-row .value.green { color: var(--green); }
+.price-vis-detail-row .value.red { color: var(--red); }
+.price-vis-detail-row .value.yellow { color: var(--yellow); }
+
+.price-vis-levels-title {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin: 6px 0 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.price-vis-level-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+.price-vis-level-item .lv-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+  border: 1.5px dashed;
+}
+.price-vis-level-item .lv-dot.resistance { border-color: var(--yellow); background: rgba(251,191,36,0.15); }
+.price-vis-level-item .lv-dot.support { border-color: var(--green); background: rgba(52,211,153,0.15); }
+.price-vis-level-item .lv-price { color: var(--text-primary); min-width: 70px; }
+.price-vis-level-item .lv-trigger {
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  min-width: 70px;
+  white-space: nowrap;
+}
+.price-vis-level-item .lv-label { color: var(--text-muted); font-size: 0.68rem; }
+
+/* 右侧面板标题 */
+.price-vis-detail-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.price-vis-detail-coin {
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
 .status-chips {
   display: flex;
   gap: 10px;
@@ -862,7 +1198,18 @@ header {
       <span class="dot" id="engine-dot"></span>
       <span class="title-text">📈 七月 BTC 监控</span>
     </div>
-    <div class="refresh-info" id="refresh-info">--</div>
+    <div class="refresh-info" id="refresh-info">
+      <button class="stage2-toggle" id="stage2-toggle" title="切换山寨币阶段二分析版本">
+        <span>阶段二</span>
+        <span class="badge" id="stage2-badge">正常</span>
+      </button>
+      <div class="clock-wrapper">
+        <div class="clock" id="header-clock">--:--:--</div>
+        <div class="clock-label" id="clock-date">----年--月--日 周-</div>
+      </div>
+      <button class="updates-toggle" id="updates-toggle" title="数据刷新状态">⏱</button>
+      <div class="updates" id="header-updates"></div>
+    </div>
   </div>
   <div class="nav-tabs" id="nav-tabs">
     <button class="nav-tab active" data-tab="overview">总览</button>
@@ -927,6 +1274,16 @@ header {
   <div class="info-panel" style="margin-bottom:18px;">
     <div class="info-panel-header">🔔 近 6h 警报 <span style="font-weight:400;color:var(--text-muted)" id="alert-count"></span></div>
     <div class="info-panel-body alert-scroll" id="recent-alerts" style="max-height:120px;"></div>
+  </div>
+
+  <!-- Price Alert Visualization -->
+  <div class="info-panel" style="margin-bottom:18px;" id="price-vis-panel">
+    <div class="info-panel-header">
+      📊 价格柱监控
+      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="price-vis-status"></span>
+      <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="price-vis-info"></span>
+    </div>
+    <div class="price-vis-body" id="price-vis-body"></div>
   </div>
 
   <!-- Divider -->
@@ -1080,6 +1437,13 @@ function showToast(msg, type) {
 // ── Navigation ──────────────────────────────────────
 let activeTab = 'overview';
 let lastRefresh = null;
+// 各类数据的上次更新时间
+const refreshTimes = {
+  overview: null,   // 总览（周期/规则/警报）
+  livePnl: null,    // 实盘盈亏（OKX）
+  cron: null,       // Cron 任务
+  system: null,     // 系统状态
+};
 let cycleData = [];
 let expandedCycles = {};
 let sortField = 'default';
@@ -1102,10 +1466,120 @@ document.getElementById('nav-tabs').addEventListener('click', e => {
   if (tab) switchTab(tab.dataset.tab);
 });
 
-function setRefreshTime() {
-  lastRefresh = new Date();
-  document.getElementById('refresh-info').textContent = `更新: ${lastRefresh.toLocaleTimeString('zh-CN')}`;
+// ── 手机端更新状态折叠按钮 ────────────────────────
+document.getElementById('updates-toggle')?.addEventListener('click', e => {
+  e.stopPropagation();
+  const panel = document.getElementById('header-updates');
+  const btn = document.getElementById('updates-toggle');
+  if (!panel || !btn) return;
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  btn.textContent = isOpen ? '✕' : '⏱';
+});
+document.addEventListener('click', e => {
+  const panel = document.getElementById('header-updates');
+  const btn = document.getElementById('updates-toggle');
+  if (panel?.classList.contains('open') &&
+      !btn?.contains(e.target) && !panel?.contains(e.target)) {
+    panel.classList.remove('open');
+    btn?.classList.remove('open');
+    if (btn) btn.textContent = '⏱';
+  }
+});
+
+// ── Stage2 模式切换按钮 ────────────────────────────
+document.getElementById('stage2-toggle')?.addEventListener('click', async () => {
+  const btn = document.getElementById('stage2-toggle');
+  const badge = document.getElementById('stage2-badge');
+  if (!btn || !badge) return;
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  try {
+    // 先获取当前状态
+    const statusRes = await fetch('/api/stage2-mode');
+    const status = await statusRes.json();
+    const newMode = status.mode === 'normal' ? 'aggressive' : 'normal';
+    const res = await fetch('/api/stage2-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: newMode })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      badge.textContent = data.mode === 'aggressive' ? '激进' : '正常';
+      badge.className = 'badge ' + data.mode;
+      showToast(`阶段二已切换为 ${data.mode === 'aggressive' ? '激进版' : '正常版'}`);
+    } else {
+      showToast('切换失败: ' + (data.error || '未知错误'), 'error');
+    }
+  } catch(e) {
+    showToast('请求失败: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+});
+
+// 页面加载时读取当前 Stage2 模式
+fetch('/api/stage2-mode').then(r => r.json()).then(data => {
+  const badge = document.getElementById('stage2-badge');
+  if (badge) {
+    badge.textContent = data.mode === 'aggressive' ? '激进' : '正常';
+    badge.className = 'badge ' + data.mode;
+  }
+}).catch(() => {});
+
+function setRefreshTime(key) {
+  const now = new Date();
+  if (key) refreshTimes[key] = now;
+  lastRefresh = now;
+  renderRefreshInfo();
 }
+
+function renderRefreshInfo() {
+  const el = document.getElementById('header-updates');
+  if (!el) return;
+  const now = Date.now();
+  const rows = [
+    { key: 'overview', label: '总览', dot: 'ok' },
+    { key: 'livePnl', label: '实盘', dot: 'ok' },
+    { key: 'cron', label: 'Cron', dot: 'ok' },
+    { key: 'system', label: '系统', dot: 'ok' },
+  ];
+  el.innerHTML = rows.map(r => {
+    const t = refreshTimes[r.key];
+    const timeStr = t ? t.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--';
+    const age = t ? Math.round((now - t.getTime()) / 1000) : 9999;
+    // 超过 2min 变黄，超 5min 变红
+    let dotClass = 'ok';
+    if (!t) dotClass = 'err';
+    else if (r.key === 'livePnl' && age > 300) dotClass = 'err';
+    else if (r.key === 'livePnl' && age > 120) dotClass = 'warn';
+    else if (r.key !== 'livePnl' && age > 120) dotClass = 'err';
+    else if (r.key !== 'livePnl' && age > 60) dotClass = 'warn';
+    return `<div class="update-row"><span class="dot-indicator ${dotClass}"></span><span class="label">${r.label}</span><span class="time">${timeStr}</span></div>`;
+  }).join('');
+}
+
+// 实时时钟 + 日期
+function updateClock() {
+  const now = new Date();
+  const clock = document.getElementById('header-clock');
+  const dateEl = document.getElementById('clock-date');
+  if (clock) {
+    clock.textContent = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  if (dateEl) {
+    const weekdays = ['日','一','二','三','四','五','六'];
+    const y = now.getFullYear();
+    const m = String(now.getMonth()+1).padStart(2,'0');
+    const d = String(now.getDate()).padStart(2,'0');
+    const w = weekdays[now.getDay()];
+    dateEl.textContent = `${y}年${m}月${d}日 周${w}`;
+  }
+}
+updateClock();
+setInterval(updateClock, 1000);
 
 // ═══════════════════════════════════════════════════
 //  OVERVIEW TAB (merged dashboard + cycles)
@@ -1154,10 +1628,22 @@ async function refreshOverview() {
     cycleData = cyc.cycles;
     renderCycleGrid(sortCycles(cyc.cycles));
 
-    setRefreshTime();
+    // ── Price Visualization ──
+    loadPriceVisualization();
+
+    setRefreshTime('overview');
   } catch (e) {
     document.getElementById('stat-cycles-val').textContent = 'err';
   }
+}
+
+// ── 价格柱可视化 ────────────────────────────────────
+function formatPrice(v) {
+  if (v == null) return '--';
+  if (v >= 100) return v.toFixed(2);
+  if (v >= 1) return v.toFixed(4);
+  if (v >= 0.1) return v.toFixed(5);
+  return v.toFixed(6);
 }
 
 // ── Sort ──────────────────────────────────────────
@@ -1208,11 +1694,67 @@ document.getElementById('sort-pills').addEventListener('click', e => {
 // ── Cycle Grid ──────────────────────────────────
 function renderCycleGrid(cycles) {
   const container = document.getElementById('cycle-grid');
+  if (!container) return;
   if (cycles.length === 0) {
     container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">📭</div>没有找到周期</div>';
     return;
   }
 
+  // ── Diff check: same cycle IDs → silent inline update ──
+  const existingCards = container.querySelectorAll('.cycle-card');
+  let sameSet = existingCards.length === cycles.length;
+  if (sameSet) {
+    for (let i = 0; i < cycles.length; i++) {
+      if (existingCards[i].dataset.cycle !== cycles[i].cycleId) { sameSet = false; break; }
+    }
+  }
+
+  if (sameSet) {
+    // 静默更新：只改变化的字段，不替换 DOM
+    for (let i = 0; i < cycles.length; i++) {
+      const c = cycles[i];
+      const card = existingCards[i];
+      // 状态点
+      const dot = card.querySelector('.status-dot');
+      if (dot && dot.className !== `status-dot ${c.status}`) {
+        dot.className = `status-dot ${c.status}`;
+      }
+      // 持仓
+      const posEl = card.querySelector('.stat-val');
+      const posText = c.hasPositions ? '×' + c.positionCount : '—';
+      if (posEl && posEl.textContent !== posText) posEl.textContent = posText;
+      // 规则
+      const ruleEl = card.querySelectorAll('.stat-val')[1];
+      if (ruleEl && ruleEl.textContent !== String(c.activeRuleCount)) ruleEl.textContent = c.activeRuleCount;
+      // 报告
+      const repEl = card.querySelectorAll('.stat-val')[2];
+      if (repEl && repEl.textContent !== String(c.reportCount)) repEl.textContent = c.reportCount;
+      // 静默
+      const sh = parseFloat(c.silenceHours);
+      const silence = !Number.isFinite(sh) || sh >= 999 ? '从未' : (sh >= 24 ? `${Math.floor(sh/24)}d${Math.floor(sh%24)}h` : `${sh.toFixed(1)}h`);
+      const silEl = card.querySelectorAll('.stat-val')[3];
+      if (silEl && silEl.textContent !== silence) silEl.textContent = silence;
+      // 展开详情也顺便更新
+      const detailEl = document.getElementById(`detail-${c.cycleId}`);
+      if (detailEl) {
+        const name = expandedCycles[c.cycleId];
+        if (name === 'rules') {
+          const rulesPanel = document.getElementById(`panel-${c.cycleId}-rules`);
+          if (rulesPanel) {
+            const badge = document.querySelector(`.cycle-subtab-btn[onclick*="rules"]`);
+            // 规则数变了 → 重新加载
+            if (rulesPanel.querySelector('.loading') === null) {
+              // 已加载内容，刷新
+              loadCycleRules(c.cycleId);
+            }
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // ── 结构变了 → 完整重建 ──
   container.innerHTML = cycles.map(c => {
     const statusIcon = { alive: '🟢', dead: '🔴' }[c.status] || '⚪';
     const sh = parseFloat(c.silenceHours);
@@ -1658,7 +2200,7 @@ async function loadArchivedCycles() {
     const data = await API.get('/api/cycles?archived=true');
     archivedData = data.cycles;
     renderArchivedGrid(applyArchivedFilters(archivedData));
-    setRefreshTime();
+    setRefreshTime('overview');
   } catch (e) {
     document.getElementById('archived-grid').innerHTML = `<div class="error-msg" style="grid-column:1/-1">加载失败: ${e.message}</div>`;
   }
@@ -2038,7 +2580,7 @@ async function loadCronJobs() {
   try {
     const data = await API.get('/api/cron/jobs');
     renderCronTable(data.jobs);
-    setRefreshTime();
+    setRefreshTime('cron');
   } catch (e) {
     document.getElementById('cron-tbody').innerHTML = `<tr><td colspan="9" style="color:var(--red);padding:10px;">${e.message}</td></tr>`;
   }
@@ -2294,7 +2836,7 @@ async function loadSystem() {
     }
 
     document.getElementById('actions-log').textContent = d.actionsLog.join('\n') || '暂无操作日志';
-    setRefreshTime();
+    setRefreshTime('system');
   } catch (e) {
     document.getElementById('pm2-grid').innerHTML = `<div class="error-msg">${e.message}</div>`;
   }
@@ -2370,6 +2912,7 @@ async function loadLivePnl() {
     valueEl.textContent = `${pnlSign}${safeFixed(pnl, 2)}`;
     const ts = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     subEl.textContent = `${data.positionCount} 个持仓 · 实盘 ${ts}`;
+    setRefreshTime('livePnl');
   } catch (e) {
     if (!hadValue) {
       valueEl.className = 'value';
@@ -2385,7 +2928,7 @@ async function loadLivePnl() {
 function startLivePnlTimer() {
   if (livePnlTimer) clearInterval(livePnlTimer);
   loadLivePnl();
-  livePnlTimer = setInterval(loadLivePnl, 300000); // 5 min
+  livePnlTimer = setInterval(loadLivePnl, 120000); // 2 min
 }
 
 // ── Realized PnL ──────────────────────────────────
@@ -2622,9 +3165,33 @@ function renderPnlChart(animProgress = 1) {
 }
 
 // ── Auto-refresh ───────────────────────────────────
+// 本地数据（周期、规则、警报等）30s 刷新；OKX 数据（实盘盈亏）2min 刷新
 setInterval(() => {
-  if (activeTab === 'overview') refreshOverview();
-}, 300000); // 5 min
+  // 1. 刷新当前活跃 tab 的界面（用户可见）
+  if (activeTab === 'overview') {
+    refreshOverview();
+  } else if (activeTab === 'cron') {
+    loadCronJobs();
+  } else if (activeTab === 'system') {
+    loadSystem();
+  }
+}, 30000);
+
+// 2. 后台静默刷新所有非活跃 tab 的数据（90s 间隔，让更新指示器保持绿色）
+//    即使不切换到其他 tab，各数据源的 refreshTimes 也会持续更新
+setInterval(() => {
+  if (activeTab !== 'overview') {
+    fetch('/api/dashboard').then(() => setRefreshTime('overview')).catch(() => {});
+  }
+  if (activeTab !== 'cron') {
+    fetch('/api/cron/jobs').then(() => setRefreshTime('cron')).catch(() => {});
+  }
+  if (activeTab !== 'system') {
+    fetch('/api/system').then(() => setRefreshTime('system')).catch(() => {});
+  }
+}, 90000);
+
+// livePnlTimer 由 startLivePnlTimer() 管理，维持 2min 间隔（含 OKX API）
 
 // ── Init ────────────────────────────────────────────
 refreshOverview();
@@ -2812,8 +3379,437 @@ function renderPnlChartWithHighlight(highlightIdx) {
   ctx.fillText(`${lastVal>=0?'+':''}${lastVal.toFixed(2)}`, xScale(data.length-1) + (xScale(data.length-1) > W/2 ? -8 : 8), yScale(lastVal) - 8);
 }
 
-// Redraw chart on resize
-window.addEventListener('resize', () => { if (pnlHistoryData) renderPnlChart(); });
+// ── 价格柱卡片渲染 ────────────────────────────────────
+let cachedPriceVisData = null;
+let expandedPriceVisCoin = null;
+
+/** 判断两个币种列表的结构是否一致（币种、cycleId 不变） */
+function priceVisDataSame(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].coin !== b[i].coin || a[i].cycleId !== b[i].cycleId) return false;
+  }
+  return true;
+}
+
+/** 静默刷新：只更新 canvas 像素，不操作 DOM */
+function priceVisSilentUpdate(body, data) {
+  const cards = body.querySelectorAll('.price-vis-card');
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const coin = card.dataset.coin;
+    const d = data.find(x => x.coin === coin);
+    if (!d) continue;
+    const canvas = card.querySelector('canvas.price-vis-bar');
+    if (!canvas) continue;
+    if (card.classList.contains('expanded')) {
+      drawFullBar(canvas, d);
+    } else {
+      drawMiniBar(canvas, d);
+    }
+  }
+  // 更新状态栏文字
+  const status = document.getElementById('price-vis-status');
+  if (status) status.textContent = data.map(d => d.coin).join(' · ');
+  const info = document.getElementById('price-vis-info');
+  if (info) info.textContent = `${data.reduce((s, dd) => s + dd.stats.checkCount, 0)} 次检查`;
+}
+
+async function loadPriceVisualization() {
+  const body = document.getElementById('price-vis-body');
+  const status = document.getElementById('price-vis-status');
+  const info = document.getElementById('price-vis-info');
+  if (!body) return;
+  try {
+    const resp = await fetch('/api/alert-price-visualization');
+    const data = await resp.json();
+    const prev = cachedPriceVisData;
+    cachedPriceVisData = data;
+
+    if (!data || data.length === 0) {
+      body.innerHTML = '';
+      expandedPriceVisCoin = null;
+      if (status) status.textContent = '—— 无活跃价格警报';
+      if (info) info.textContent = '';
+      return;
+    }
+
+    if (status) status.textContent = data.map(d => d.coin).join(' · ');
+    if (info) info.textContent = `${data.reduce((s, d) => s + d.stats.checkCount, 0)} 次检查`;
+
+    // 结构没变 → 静默更新 canvas 像素，不重建 DOM
+    if (priceVisDataSame(prev, data)) {
+      priceVisSilentUpdate(body, data);
+    } else {
+      // 结构变了（币种增删）→ 完整重建，之后恢复展开
+      const restoredCoin = expandedPriceVisCoin;
+      expandedPriceVisCoin = null;
+      renderPriceVisCards(body, data);
+      if (restoredCoin) {
+        setTimeout(() => {
+          const card = body.querySelector(`.price-vis-card[data-coin="${restoredCoin}"]`);
+          if (card) togglePriceVisCard(card, restoredCoin);
+        }, 60);
+      }
+    }
+  } catch {
+    if (cachedPriceVisData) {
+      const body2 = document.getElementById('price-vis-body');
+      if (body2 && body2.querySelector('.price-vis-card')) {
+        priceVisSilentUpdate(body2, cachedPriceVisData);
+      } else {
+        renderPriceVisCards(body2, cachedPriceVisData);
+      }
+    }
+    if (status && !cachedPriceVisData) status.textContent = '—— 加载失败';
+  }
+}
+
+/** 绘制迷你柱子（折叠态：影线+实体+价位虚线，无文字标注） */
+function drawMiniBar(canvas, d) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const low = d.stats.overallLow;
+  const high = d.stats.overallHigh;
+  const earliest = d.stats.earliestPrice ?? low;
+  const latest = d.stats.latestPrice ?? high;
+  if (low == null || high == null) return;
+
+  const allP = [low, high, ...d.priceLevels.map(l => l.price)];
+  const bMin = Math.min(...allP);
+  const bMax = Math.max(...allP);
+  const pad = (bMax - bMin) * 0.1 || Math.abs(bMin) * 0.02 || 0.001;
+  const y0 = bMin - pad;
+  const y1 = bMax + pad;
+  const drawH = h - 6;
+  const barW = 14;
+  const cx = w / 2;
+  const toY = p => 3 + drawH * (1 - (p - y0) / (y1 - y0));
+
+  // ── 价位虚线（跨画布宽度） ──
+  for (const lv of d.priceLevels) {
+    const y = toY(lv.price);
+    ctx.strokeStyle = lv.type === 'resistance'
+      ? 'rgba(251,191,36,0.4)' : 'rgba(52,211,153,0.4)';
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([2, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // ── 影线 ──
+  ctx.strokeStyle = 'rgba(148,153,176,0.35)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(cx, toY(low));
+  ctx.lineTo(cx, toY(high));
+  ctx.stroke();
+
+  // ── 实体 ──
+  const yE = toY(earliest);
+  const yL = toY(latest);
+  const isUp = latest >= earliest;
+  ctx.fillStyle = isUp ? 'rgba(52,211,153,0.6)' : 'rgba(248,113,113,0.6)';
+  const bt = Math.min(yE, yL);
+  const bh = Math.max(Math.abs(yL - yE), 1);
+  ctx.fillRect(cx - barW / 2, bt, barW, bh);
+
+  // ── 实体边框 ──
+  ctx.strokeStyle = isUp ? 'rgba(52,211,153,0.8)' : 'rgba(248,113,113,0.8)';
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(cx - barW / 2, bt, barW, bh);
+}
+
+/** 绘制展开柱（竖向：窄高canvas，K线居中，价位线横向，纯图示无文字） */
+function drawFullBar(canvas, d) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.width / dpr;
+  const h = canvas.height / dpr;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const low = d.stats.overallLow;
+  const high = d.stats.overallHigh;
+  const earliest = d.stats.earliestPrice ?? low;
+  const latest = d.stats.latestPrice ?? high;
+  if (low == null || high == null) return;
+
+  // ── 布局 ──
+  const PT = 8, PB = 8, PL = 4, PR = 4;
+  const drawH = h - PT - PB;
+  const drawW = w - PL - PR;
+
+  const allP = [low, high, earliest, latest, ...d.priceLevels.map(l => l.price)]
+    .filter(p => p != null && isFinite(p));
+  const bMin = Math.min(...allP);
+  const bMax = Math.max(...allP);
+  const pad = (bMax - bMin) * 0.08 || Math.abs(bMin) * 0.02 || 0.001;
+  const y0 = bMin - pad;
+  const y1 = bMax + pad;
+  const toY = p => PT + drawH * (1 - (p - y0) / (y1 - y0));
+
+  // K 线参数
+  const barW = Math.max(14, drawW * 0.28);
+  const cx = PL + drawW / 2;
+  const bl = cx - barW / 2;
+
+  // ── 背景 ──
+  ctx.fillStyle = 'rgba(23,27,38,0.5)';
+  ctx.beginPath();
+  ctx.roundRect
+    ? ctx.roundRect(PL, PT, drawW, drawH, 3)
+    : ctx.rect(PL, PT, drawW, drawH);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(148,153,176,0.15)';
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+
+  // ── 网格线 ──
+  const grids = 4;
+  ctx.strokeStyle = 'rgba(148,153,176,0.08)';
+  ctx.lineWidth = 0.4;
+  ctx.setLineDash([2, 4]);
+  for (let i = 1; i < grids; i++) {
+    const v = y0 + (y1 - y0) * (i / grids);
+    const gy = toY(v);
+    ctx.beginPath();
+    ctx.moveTo(PL, gy);
+    ctx.lineTo(PL + drawW, gy);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // ── 纵轴价格刻度（左侧小字） ──
+  ctx.font = '7.5px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(148,153,176,0.5)';
+  ctx.fillText(formatPrice(y1), PL + drawW + 2, toY(y1) + 3);
+  ctx.fillText(formatPrice(y0), PL + drawW + 2, toY(y0) + 3);
+
+  // ── 价位线 ──
+  for (const lv of d.priceLevels) {
+    const y = toY(lv.price);
+    const isResist = lv.type === 'resistance';
+    ctx.strokeStyle = isResist
+      ? 'rgba(251,191,36,0.5)' : 'rgba(52,211,153,0.5)';
+    ctx.lineWidth = 0.9;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(PL, y);
+    ctx.lineTo(PL + drawW - 26, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 价位标签（线右端）
+    const priceStr = '$' + formatPrice(lv.price);
+    let trig = '';
+    const ms = lv.confirmMs || 0;
+    if (lv.confirmPolicy === 'instant') trig = '即时';
+    else if (lv.confirmPolicy === 'touch') trig = '触' + (ms / 60000).toFixed(0) + 'm';
+    else if (lv.confirmPolicy === 'hold') trig = '持' + (ms / 60000).toFixed(0) + 'm';
+    else if (lv.confirmPolicy === 'deep_hold') trig = '深' + (ms / 60000).toFixed(0) + 'm';
+    // 底衬
+    ctx.font = 'bold 7.5px monospace';
+    const tw = ctx.measureText(priceStr + ' ' + trig).width + 4;
+    ctx.fillStyle = 'rgba(23,27,38,0.8)';
+    ctx.fillRect(PL + drawW - tw - 2, y - 7, tw + 4, 14);
+    // 价格
+    ctx.fillStyle = isResist ? '#fbbf24' : '#34d399';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(priceStr + ' ' + trig, PL + drawW - 2, y);
+  }
+
+  // ── K 线 ──
+  // 影线
+  ctx.strokeStyle = 'rgba(148,153,176,0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx, toY(low));
+  ctx.lineTo(cx, toY(high));
+  ctx.stroke();
+
+  // 实体
+  const yE = toY(earliest);
+  const yL = toY(latest);
+  const isUp = latest >= earliest;
+  const bT = Math.min(yE, yL);
+  const bH = Math.max(Math.abs(yL - yE), 1.5);
+  ctx.fillStyle = isUp ? 'rgba(52,211,153,0.65)' : 'rgba(248,113,113,0.65)';
+  ctx.fillRect(bl, bT, barW, bH);
+  ctx.strokeStyle = isUp ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(bl, bT, barW, bH);
+
+  // 当前价标记
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(cx, yL, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = isUp ? 'rgba(52,211,153,0.6)' : 'rgba(248,113,113,0.6)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+}
+
+/** 渲染价格柱卡片列表 */
+function renderPriceVisCards(container, data) {
+  const valid = data.filter(d => d.stats.overallLow != null && d.stats.overallHigh != null);
+  container.innerHTML = valid.map((d, i) => `
+    <div class="price-vis-card" data-coin="${d.coin}" onclick="togglePriceVisCard(this, '${d.coin}')">
+      <div class="price-vis-card-top">
+        <span class="price-vis-card-coin">${d.coin}</span>
+        <span class="price-vis-card-arrow">▶</span>
+      </div>
+      <div class="price-vis-card-body">
+        <div class="price-vis-bar-wrap">
+          <canvas class="price-vis-bar" data-coin="${d.coin}" width="72" height="88" style="width:72px;height:88px"></canvas>
+        </div>
+        <div class="price-vis-expand-detail" id="price-detail-${d.coin}"></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Draw all mini bars
+  valid.forEach(d => {
+    const canv = container.querySelector(`canvas.price-vis-bar[data-coin="${d.coin}"]`);
+    if (canv) drawMiniBar(canv, d);
+  });
+}
+
+/** 切换卡片展开/折叠 */
+function togglePriceVisCard(el, coin) {
+  const isExpanded = el.classList.contains('expanded');
+
+  // Collapse any other expanded card first
+  document.querySelectorAll('.price-vis-card.expanded').forEach(c => {
+    if (c !== el) {
+      c.classList.remove('expanded');
+      const cv = c.querySelector('canvas.price-vis-bar');
+      const cd = (cachedPriceVisData || []).find(d => d.coin === c.dataset.coin);
+      if (cv && cd) {
+        cv.style.width = '72px';
+        cv.style.height = '88px';
+        const dpr2 = window.devicePixelRatio || 1;
+        cv.width = 72 * dpr2;
+        cv.height = 88 * dpr2;
+        drawMiniBar(cv, cd);
+      }
+    }
+  });
+
+  el.classList.toggle('expanded');
+  const canvas = el.querySelector('canvas.price-vis-bar');
+  const detail = document.getElementById('price-detail-' + coin);
+  const coinData = (cachedPriceVisData || []).find(d => d.coin === coin);
+
+  if (!el.classList.contains('expanded')) {
+    // Collapse: force mini size explicitly
+    expandedPriceVisCoin = null;
+    if (canvas && coinData) {
+      canvas.style.width = '72px';
+      canvas.style.height = '88px';
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = 72 * dpr;
+      canvas.height = 88 * dpr;
+      drawMiniBar(canvas, coinData);
+    }
+    return;
+  }
+
+  expandedPriceVisCoin = coin;
+  if (!canvas || !coinData) return;
+
+  // Set canvas size for expanded vertical bar (narrow, tall)
+  const barWrap = el.querySelector('.price-vis-bar-wrap');
+  const cw = barWrap ? barWrap.clientWidth : 88;
+  const bodyEl2 = el.querySelector('.price-vis-card-body');
+  const ch = bodyEl2 ? bodyEl2.clientHeight - 4 : 400;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = cw * dpr;
+  canvas.height = ch * dpr;
+  canvas.style.width = cw + 'px';
+  canvas.style.height = ch + 'px';
+  canvas.getBoundingClientRect();
+  drawFullBar(canvas, coinData);
+
+  // ── 右侧参数面板 ──
+  const s = coinData.stats;
+  const isUp = s.latestPrice >= s.earliestPrice;
+  const pct = (Math.abs(s.latestPrice - s.earliestPrice) / s.earliestPrice * 100).toFixed(2);
+  detail.innerHTML = `
+    <div class="price-vis-detail-header">
+      <span class="price-vis-detail-coin">${coinData.coin}</span>
+      <span style="color:var(--text-muted);font-size:0.65rem;">${coinData.cycleId}</span>
+    </div>
+    <div class="price-vis-detail-row">
+      <span class="label">当前价</span>
+      <span class="value ${isUp ? 'green' : 'red'}">$${formatPrice(s.latestPrice)}</span>
+      <span class="value ${isUp ? 'green' : 'red'}" style="font-size:0.7rem;margin-left:4px;">${isUp ? '↗' : '↘'} ${pct}%</span>
+    </div>
+    <div class="price-vis-detail-row">
+      <span class="label">区间</span>
+      <span class="value red">$${formatPrice(s.overallLow)}</span>
+      <span style="color:var(--text-muted);margin:0 4px;">—</span>
+      <span class="value green">$${formatPrice(s.overallHigh)}</span>
+      <span class="label" style="margin-left:12px;">检查</span>
+      <span class="value">${s.checkCount} 次</span>
+    </div>
+    <div class="price-vis-detail-row">
+      <span class="label">开盘</span>
+      <span class="value">$${formatPrice(s.earliestPrice)}</span>
+    </div>
+    <div class="price-vis-levels-title">监控价位 (${coinData.priceLevels.length})</div>
+    ${coinData.priceLevels.map(lv => {
+      let triggerLabel = '';
+      const ms = lv.confirmMs || 0;
+      if (lv.confirmPolicy === 'instant') triggerLabel = '即时';
+      else if (lv.confirmPolicy === 'touch') triggerLabel = '触达 ' + (ms / 60000).toFixed(0) + 'min';
+      else if (lv.confirmPolicy === 'hold') triggerLabel = '保持 ' + (ms / 60000).toFixed(0) + 'min';
+      else if (lv.confirmPolicy === 'deep_hold') triggerLabel = '深保持 ' + (ms / 60000).toFixed(0) + 'min';
+      const isResist = lv.type === 'resistance';
+      return `
+        <div class="price-vis-level-item">
+          <span class="lv-dot ${lv.type}"></span>
+          <span class="lv-price" style="color:${isResist ? 'var(--yellow)' : 'var(--green)'}">$${formatPrice(lv.price)}</span>
+          <span class="lv-trigger">${triggerLabel}</span>
+          <span class="lv-label">${escHtml(lv.label)}</span>
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+// Redraw on resize (use silent canvas updates, no DOM rebuild)
+window.addEventListener('resize', () => {
+  if (pnlHistoryData) renderPnlChart();
+  if (cachedPriceVisData) {
+    const body = document.getElementById('price-vis-body');
+    if (!body) return;
+    const expandedCoin = expandedPriceVisCoin;
+    // 静默重绘所有 canvas（不破坏 DOM）
+    priceVisSilentUpdate(body, cachedPriceVisData);
+    // 如果展开卡还在，确保 detail 面板也更新
+    if (expandedCoin) {
+      const card = body.querySelector(`.price-vis-card[data-coin="${expandedCoin}"]`);
+      if (!card) {
+        expandedPriceVisCoin = null;
+      }
+    }
+  }
+});
 
 // Setup chart interaction after DOM ready
 setupChartInteraction();

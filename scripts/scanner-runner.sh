@@ -138,7 +138,7 @@ OI变化: ${OI_PCT}%
 
 预处理已完成（上线检查→周期创建→持仓同步→合约数据→历史报告路径）。
 请读取 tasks/alt-pipeline/alt-intel-stage1-v2.md 执行消息面和链上数据收集。
-完成后运行数据清单脚本，然后进入阶段二。" \
+完成后运行数据清单脚本，然后读取 alt-intel-stage2.live.md 进入阶段二。" \
     --session isolated \
     --delete-after-run \
     --no-deliver
