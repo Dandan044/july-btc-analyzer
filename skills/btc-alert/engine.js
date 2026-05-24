@@ -51,6 +51,30 @@ const selfHealState = new Map();
 // 自愈等待期：10分钟（毫秒）
 const SELF_HEAL_GRACE_PERIOD = 10 * 60 * 1000;
 
+// ═══ 并发控制：最多同时 3 条规则在执行 API 调用 ═══
+const MAX_CONCURRENT_CHECKS = 3;
+let activeChecks = 0;
+const waitingQueue = [];
+
+function acquireSlot() {
+  if (activeChecks < MAX_CONCURRENT_CHECKS) {
+    activeChecks++;
+    return Promise.resolve();
+  }
+  return new Promise(resolve => {
+    waitingQueue.push(resolve);
+  });
+}
+
+function releaseSlot() {
+  activeChecks--;
+  if (waitingQueue.length > 0 && activeChecks < MAX_CONCURRENT_CHECKS) {
+    const next = waitingQueue.shift();
+    activeChecks++;
+    next();
+  }
+}
+
 // ========== 日志系统 ==========
 
 // 日志级别控制（环境变量 LOG_LEVEL 可覆盖，默认 INFO）
@@ -278,6 +302,7 @@ function isNetworkError(errorMessage) {
     /ETIMEDOUT/i,
     /ECONNREFUSED/i,
     /socket hang up/i,
+    /Too Many Requests/i,
     /请求超时/,
   ];
   return NETWORK_PATTERNS.some(p => p.test(errorMessage));
@@ -807,56 +832,62 @@ async function runRule(ruleInfo) {
     // 记录检测开始
     logRuleEvent(name, 'CHECK_START');
     
-    // 执行检测（使用 .call(rule) 保持 this 绑定）
-    const shouldTrigger = await check.call(rule);
+    // ★ 获取并发槽位（最多3条规则同时执行API调用，超出的排队等待）
+    await acquireSlot();
+    try {
+      // 执行检测（使用 .call(rule) 保持 this 绑定）
+      const shouldTrigger = await check.call(rule);
 
-    // ⭐ 更新规则文件的最近检测时间（兼容旧规则：无字段则自动创建）
-    updateLastChecked(filename);
-    
-    if (shouldTrigger) {
-      logRuleEvent(name, 'TRIGGERED');
+      // ⭐ 更新规则文件的最近检测时间（兼容旧规则：无字段则自动创建）
+      updateLastChecked(filename);
       
-      try {
-        // 收集数据
-        const data = await collect.call(rule);
-        logRuleEvent(name, 'DATA_COLLECTED', { dataKeys: Object.keys(data || {}) });
+      if (shouldTrigger) {
+        logRuleEvent(name, 'TRIGGERED');
         
-        // 触发动作
-        await trigger.call(rule, data);
-        
-        logRuleEvent(name, 'TRIGGER_COMPLETED');
-        
-        // ★ 只有完整链路成功才重置错误统计
-        handleRuleSuccess(filename, name);
-        
-        // ⭐ 触发即归档（引擎层强制执行，规则无法绕过）
-        // 规则文件被移动到 rules-archive/，定时器被清除
-        archiveRule(filename, name, 'triggered');
-        return 'stop';
-      } catch (collectError) {
-        // ★ check() 通过但 collect()/trigger() 崩溃 → 代码逻辑 bug
-        // 重试大概率失败，ReferenceError/TypeError 直接归档终止死循环
-        const isCodeBug = collectError instanceof ReferenceError
-                       || collectError instanceof TypeError
-                       || collectError.message?.includes('is not defined');
-        
-        if (isCodeBug) {
-          logEngine('WARN', name, '触发后执行失败（代码bug，立即归档终止循环）', {
-            error: collectError.message,
-            errorType: collectError.constructor.name
-          });
-          archiveRule(filename, name, 'trigger_collect_error');
+        try {
+          // 收集数据
+          const data = await collect.call(rule);
+          logRuleEvent(name, 'DATA_COLLECTED', { dataKeys: Object.keys(data || {}) });
+          
+          // 触发动作
+          await trigger.call(rule, data);
+          
+          logRuleEvent(name, 'TRIGGER_COMPLETED');
+          
+          // ★ 只有完整链路成功才重置错误统计
+          handleRuleSuccess(filename, name);
+          
+          // ⭐ 触发即归档（引擎层强制执行，规则无法绕过）
+          // 规则文件被移动到 rules-archive/，定时器被清除
+          archiveRule(filename, name, 'triggered');
           return 'stop';
+        } catch (collectError) {
+          // ★ check() 通过但 collect()/trigger() 崩溃 → 代码逻辑 bug
+          // 重试大概率失败，ReferenceError/TypeError 直接归档终止死循环
+          const isCodeBug = collectError instanceof ReferenceError
+                         || collectError instanceof TypeError
+                         || collectError.message?.includes('is not defined');
+          
+          if (isCodeBug) {
+            logEngine('WARN', name, '触发后执行失败（代码bug，立即归档终止循环）', {
+              error: collectError.message,
+              errorType: collectError.constructor.name
+            });
+            archiveRule(filename, name, 'trigger_collect_error');
+            return 'stop';
+          }
+          
+          // 网络错误 → 走正常错误处理（调整间隔）
+          logEngine('WARN', name, '触发后执行失败（非代码bug）', {
+            error: collectError.message
+          });
+          const shouldPause = handleRuleError(filename, name, collectError.message, collectError.stack);
+          if (shouldPause) return 'pause';
+          return 'continue';
         }
-        
-        // 网络错误 → 走正常错误处理（调整间隔）
-        logEngine('WARN', name, '触发后执行失败（非代码bug）', {
-          error: collectError.message
-        });
-        const shouldPause = handleRuleError(filename, name, collectError.message, collectError.stack);
-        if (shouldPause) return 'pause';
-        return 'continue';
       }
+    } finally {
+      releaseSlot();
     }
     // else: check 返回 false（正常无触发），不重置错误统计
     

@@ -32,6 +32,22 @@ module.exports = {
       all_proxy: 'socks5://127.0.0.1:7890'
     }
   }, {
+    name: 'cron-name-cache',
+    script: './scripts/cron-name-cache.js',
+    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+    autorestart: true,
+    watch: false,
+    max_restarts: 5,
+    restart_delay: 3000,
+    error_file: './logs/cron-name-cache.log',
+    out_file: './logs/cron-name-cache.log',
+    merge_logs: true,
+    time: true,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai'
+    }
+  }, {
     name: 'july-dashboard',
     script: './dashboard/server.js',
     args: '--port 3100',

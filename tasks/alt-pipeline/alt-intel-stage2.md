@@ -627,11 +627,19 @@ node scripts/calc-position.js \
 
 **字段选择规则：**
 - `action = open/add` → `direction`、`calc_position_input`、`stop_loss`、`take_profit1` 必填
-- `action = reduce` → `reduce_ratio` 必填
+- `action = reduce` → `reduce_ratio` 必填，**同时传入 `stop_loss`、`take_profit1`**（给剩余仓位用）
 - `action = adjust` → `stop_loss`、`take_profit1` 填新价位
 - `action = close` → 只需 `action: "close"`
 - `action = hold` → `observation_conditions` 必填
 - `reject_reason` 非 null 时，阶段三会跳过执行
+
+**加仓/减仓 TP/SL 语义（阶段三脚本行为）：**
+
+| 操作 | TP/SL 作用对象 | 阶段二传参要求 |
+|------|---------------|--------------|
+| `add` | **总仓位**（现有+新增） | `stop_loss`/`take_profit1`/`take_profit2` 应为面向总仓位的目标价位。阶段三会取消旧 OCO → 加仓 → 按加权均价计算偏移 → 以总张数为 sz 设新 OCO |
+| `reduce` | **剩余仓位**（减仓后） | `stop_loss`/`take_profit1`/`take_profit2` 应为面向剩余仓位的目标价位。阶段三会取消旧 OCO → 减仓 → 用原始入场均价计算偏移 → 以剩余张数为 sz 设新 OCO |
+| **兜底** | — | 若阶段二 `stop_loss`/`take_profit1` 为 null（出错），阶段三从旧 OCO 中提取 SL/TP 价格直接复用，不再二次偏移 |
 
 **日志记录：**
 ```

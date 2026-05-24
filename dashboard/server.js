@@ -45,7 +45,7 @@ try {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: false, lastModified: false }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: 0, etag: false, lastModified: false, setHeaders: (res) => { res.set('Cache-Control', 'no-store, no-cache, must-revalidate'); } }));
 
 // ── 工具函数 ──────────────────────────────────────────
 
@@ -243,6 +243,48 @@ function cycleStatus(cycle, rulesCount) {
 //  API 路由
 // ══════════════════════════════════════════════════════
 
+// ── GET/POST /api/settings ───────────────────────────
+const SETTINGS_FILE = path.join(BASE_DIR, 'data', 'dashboard-settings.json');
+
+function readSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+  } catch {}
+  return { scannerLimit: 45 };
+}
+
+function writeSettings(settings) {
+  try {
+    const dir = path.dirname(SETTINGS_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf8');
+    return true;
+  } catch { return false; }
+}
+
+app.get('/api/settings', (req, res) => {
+  res.json(readSettings());
+});
+
+app.post('/api/settings', (req, res) => {
+  try {
+    const settings = readSettings();
+    const { scannerLimit } = req.body;
+    if (scannerLimit !== undefined) {
+      const v = parseInt(scannerLimit);
+      if (isNaN(v) || v < 1) return res.status(400).json({ ok: false, error: 'invalid scannerLimit' });
+      settings.scannerLimit = v;
+    }
+    if (writeSettings(settings)) {
+      res.json({ ok: true, ...settings });
+    } else {
+      res.status(500).json({ ok: false, error: 'write failed' });
+    }
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ── GET/POST /api/stage2-mode ─────────────────────────
 const STAGE2_LINK = path.join(BASE_DIR, 'tasks', 'alt-pipeline', 'alt-intel-stage2.live.md');
 const SWITCH_SCRIPT = path.join(BASE_DIR, 'scripts', 'switch-stage2-mode.sh');
@@ -270,6 +312,47 @@ app.post('/api/stage2-mode', (req, res) => {
   }
 });
 
+// ── 背景图片上传 ──────────────────────────────────
+const multer = require('multer');
+const bgStorage = multer.diskStorage({
+  destination: path.join(__dirname, 'public', 'images'),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.png';
+    cb(null, 'bg-' + Date.now() + ext);
+  }
+});
+const bgUpload = multer({
+  storage: bgStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) cb(null, true);
+    else cb(new Error('仅支持图片和视频文件'));
+  }
+});
+
+app.post('/api/settings/background', bgUpload.single('image'), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ ok: false, error: '未选择文件' });
+    const settings = readSettings();
+    settings.backgroundImage = '/images/' + req.file.filename;
+    writeSettings(settings);
+    res.json({ ok: true, path: settings.backgroundImage });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.delete('/api/settings/background', (req, res) => {
+  try {
+    const settings = readSettings();
+    delete settings.backgroundImage;
+    writeSettings(settings);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // ── GET /api/dashboard ────────────────────────────────
 app.get('/api/dashboard', (req, res) => {
   try {
@@ -286,8 +369,8 @@ app.get('/api/dashboard', (req, res) => {
       engineStatus = btcAlert?.pm2_env?.status === 'online' ? 'online' : 'offline';
     } catch {}
 
-    // 最近 6 小时触发的警报
-    // ── 近 6h 警报（带持久缓存，日志归档不丢数据） ──
+    // 最近 24 小时触发的警报
+    // ── 近 24h 警报（带持久缓存，日志归档不丢数据） ──
     let recentAlerts = [];
     try {
       // 1. 从缓存加载已有记录
@@ -298,18 +381,18 @@ app.get('/api/dashboard', (req, res) => {
 
       // 2. 从日志 grep 新触发记录
       const logFile = path.join(LOGS_DIR, 'btc-alert.log');
-      const sixHoursAgo = Date.now() - 6 * 3600000;
+      const twentyFourHoursAgo = Date.now() - 24 * 3600000;
       const logAlerts = [];
       if (fs.existsSync(logFile)) {
         // 引擎格式: "2026-05-21T00:00:34: [🔧警报引擎] [INFO] [RULE-NAME] TRIGGERED"
-        const raw = safeExec(`grep 'TRIGGERED' "${logFile}" | tail -200`);
+        const raw = safeExec(`grep 'TRIGGERED' "${logFile}" | tail -1000`);
         if (raw) {
           const lines = raw.trim().split('\n').filter(Boolean);
           for (const line of lines) {
             const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
             const time = tsMatch ? tsMatch[1] : '';
             const ts = time ? new Date(time).getTime() : 0;
-            if (ts <= sixHoursAgo) continue; // 跳过6小时外的
+            if (ts <= twentyFourHoursAgo) continue; // 跳过24小时外的
             const ruleMatch = line.match(/\[([^\]]+)\]\s*TRIGGERED/);
             const rule = ruleMatch ? ruleMatch[1].trim() : line.slice(60).trim().slice(0, 100);
             logAlerts.push({ id: `${time}::${rule}`, time, rule, ts, cachedAt: Date.now() });
@@ -321,14 +404,14 @@ app.get('/api/dashboard', (req, res) => {
       const seen = new Set(logAlerts.map(a => a.id));
       const merged = [...logAlerts];
       for (const a of cached) {
-        if (!seen.has(a.id) && a.ts > sixHoursAgo) {
+        if (!seen.has(a.id) && a.ts > twentyFourHoursAgo) {
           merged.push(a);
           seen.add(a.id);
         }
       }
 
-      // 4. 清理6小时外的，按时间倒序
-      recentAlerts = merged.filter(a => a.ts > sixHoursAgo).sort((a, b) => b.ts - a.ts);
+      // 4. 清理24小时外的，按时间倒序
+      recentAlerts = merged.filter(a => a.ts > twentyFourHoursAgo).sort((a, b) => b.ts - a.ts);
 
       // 5. 写回缓存
       try {
@@ -864,6 +947,76 @@ app.get('/api/rules/:file/logs', (req, res) => {
   }
 });
 
+// ── POST /api/rules/archive ─────────────────────────
+app.post('/api/rules/archive', (req, res) => {
+  console.log('[dashboard] POST /api/rules/archive body:', JSON.stringify(req.body));
+  try {
+    const { file } = req.body;
+    if (!file) return res.status(400).json({ error: '缺少 file 参数' });
+    // query-rules.js 返回的 file 不带 .js 后缀，补上
+    const fileName = file.endsWith('.js') ? file : file + '.js';
+    const srcFile = path.join(RULES_DIR, fileName);
+    if (!fs.existsSync(srcFile)) return res.status(404).json({ error: `规则 ${fileName} 不存在` });
+    const destFile = path.join(RULES_ARCHIVE_DIR, fileName);
+    // 如果归档目录已有同名文件，加时间戳后缀
+    let finalDest = destFile;
+    if (fs.existsSync(destFile)) {
+      const ts = Date.now();
+      finalDest = destFile.replace(/\.js$/, `-${ts}.js`);
+    }
+    // 将文件读入内存，更新 C19 元数据（status→archived, 归档时间/来源）
+    let content = fs.readFileSync(srcFile, 'utf8');
+    const now = new Date().toISOString();
+    content = content
+      .replace(/(status:\s*)['"]?(?:[^,'"]+|null)['"]?/g, `$1'archived'`)
+      .replace(/(archivedAt:\s*)['"]?(?:[^,'"\n]+|null)['"]?/g, `$1'${now}'`)
+      .replace(/(archivedBy:\s*)['"]?(?:[^,'"\n]+|null)['"]?/g, `$1'manual'`);
+    fs.writeFileSync(finalDest, content, 'utf8');
+    // 写完后删掉源文件（rename 等效于 cp + rm）
+    fs.unlinkSync(srcFile);
+    console.log(`[dashboard] 规则归档: ${file} → ${path.basename(finalDest)}`);
+    res.json({ success: true, file, dest: path.basename(finalDest) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELETE /api/reports/:cycleId/:filename ────────────
+app.delete('/api/reports/:cycleId/:filename', (req, res) => {
+  try {
+    const { cycleId, filename } = req.params;
+    let cycleDir = path.join(ACTIVE_DIR, cycleId);
+    if (!fs.existsSync(cycleDir)) cycleDir = path.join(ARCHIVED_DIR, cycleId);
+    if (!fs.existsSync(cycleDir)) return res.status(404).json({ error: `周期 ${cycleId} 不存在` });
+    const reportFile = path.join(cycleDir, 'reports', filename);
+    if (!fs.existsSync(reportFile)) return res.status(404).json({ error: `报告 ${filename} 不存在` });
+    fs.unlinkSync(reportFile);
+    console.log(`[dashboard] 报告删除: ${path.join(cycleDir, 'reports', filename)}`);
+    res.json({ success: true, cycleId, filename });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELETE /api/cycles/:id/logs ──────────────────────
+app.delete('/api/cycles/:id/logs', (req, res) => {
+  try {
+    const cycleId = req.params.id;
+    let cycleDir = path.join(ACTIVE_DIR, cycleId);
+    if (!fs.existsSync(cycleDir)) cycleDir = path.join(ARCHIVED_DIR, cycleId);
+    if (!fs.existsSync(cycleDir)) return res.status(404).json({ error: `周期 ${cycleId} 不存在` });
+    const coin = cycleId.startsWith('cycle-') ? 'BTC' : (cycleId.match(/^alt-([A-Z0-9]+)-/) || [])[1] || 'UNKNOWN';
+    const logFile = path.join(LOGS_DIR, `${coin === 'BTC' ? 'daily-report-process' : `alt-${coin}-process`}.log`);
+    if (fs.existsSync(logFile)) {
+      fs.writeFileSync(logFile, '');
+      console.log(`[dashboard] 日志清空: ${logFile}`);
+    }
+    res.json({ success: true, cycleId, logFile });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/cron/jobs ───────────────────────────────
 app.get('/api/cron/jobs', (req, res) => {
   try {
@@ -1042,6 +1195,190 @@ app.patch('/api/cron/:id', (req, res) => {
   }
 });
 
+// ── GET /api/cron/boxplot ────────────────────────────
+// 分析任务耗时箱线图数据（按小时 / 天 聚合）
+app.get('/api/cron/boxplot', (req, res) => {
+  try {
+    const range = req.query.range || '24h';
+    const model = req.query.model || '';
+    const isHourly = range === '24h';
+    const bucketMs = isHourly ? 3600000 : 86400000;
+    const bucketCount = isHourly ? 24 : 7;
+    const runsDir = path.join(require('os').homedir(), '.openclaw', 'cron', 'runs');
+    if (!fs.existsSync(runsDir)) return res.json({ buckets: [] });
+
+    // ── 桶对齐到整点 / 整天边界 ──
+    const now = new Date();
+    let alignedEnd;
+    if (isHourly) {
+      alignedEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0).getTime();
+    } else {
+      alignedEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0).getTime();
+    }
+    const cutoffMs = alignedEnd - bucketCount * bucketMs;
+
+    const buckets = [];
+    for (let i = 0; i < bucketCount; i++) {
+      const end = alignedEnd - i * bucketMs;
+      const start = end - bucketMs;
+      const d = new Date(start);
+      buckets.push({
+        start, end,
+        label: isHourly ? String(d.getHours()).padStart(2,'0')+':00'
+          : `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+        analysis: [], other: []
+      });
+    }
+    buckets.reverse();
+
+    // ── 名字缓存 + 分类 ──
+    const nameMap = updateCronNameCache();
+
+    // cron 名优先 → 分析类任务（alt-instant-*, alt-scanner-*, alert-*, july-btc-*）
+    function classify(jobId, summary) {
+      const nm = nameMap[jobId];
+      if (nm) {
+        if (/^(alt-instant-|alt-scanner-|alert-|july-btc-)/.test(nm)) return 'analysis';
+        return 'other';
+      }
+      return /阶段二|全流程|全四阶段|扫描完成|山寨.*扫描|即时分析.*(完成|摘要|全流程)/.test(summary||'') ? 'analysis' : 'other';
+    }
+
+    // ── 读取文件 ──
+    const files = listFiles(runsDir).filter(f => {
+      try { return fs.statSync(path.join(runsDir, f)).mtimeMs > cutoffMs; }
+      catch { return false; }
+    });
+
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(path.join(runsDir, f), 'utf8');
+        for (const line of raw.trim().split('\n')) {
+          try {
+            const e = JSON.parse(line);
+            if (e.action !== 'finished' || !e.durationMs || !e.runAtMs) continue;
+            if (model && e.model !== model) continue;
+            if (e.runAtMs < cutoffMs) continue;
+            const cat = classify(e.jobId, e.summary);
+            for (const b of buckets) {
+              if (e.runAtMs >= b.start && e.runAtMs < b.end) {
+                b[cat].push(e.durationMs);
+                break;
+              }
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    function boxStats(arr) {
+      if (!arr || arr.length === 0) return null;
+      const s = arr.slice().sort((a,b) => a-b);
+      const n = s.length;
+      if (n < 3) {
+        // 1-2 个点：用单值模拟箱线图
+        return { count: n, min: s[0], q1: s[0], median: s[0], q3: s[n-1], max: s[n-1], outliers: [], iqr: 0, rawMin: s[0], rawMax: s[n-1] };
+      }
+      const median = n%2 ? s[Math.floor(n/2)] : (s[n/2-1]+s[n/2])/2;
+      const q1 = s[Math.floor(n/4)];
+      const q3 = s[Math.floor(3*n/4)];
+      const iqr = q3 - q1;
+      const lower = q1 - 1.5 * iqr;
+      const upper = q3 + 1.5 * iqr;
+      const outliers = s.filter(v => v < lower || v > upper);
+      const whiskerMin = s.find(v => v >= lower) || s[0];
+      const whiskerMax = [...s].reverse().find(v => v <= upper) || s[n-1];
+      return { count: n, min: whiskerMin, q1, median, q3, max: whiskerMax, outliers, iqr, rawMin: s[0], rawMax: s[n-1] };
+    }
+
+    const result = buckets.map(b => ({
+      label: b.label,
+      analysis: boxStats(b.analysis),
+      other: boxStats(b.other),
+    }));
+
+    const modelSet = new Set();
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(path.join(runsDir, f), 'utf8');
+        for (const line of raw.trim().split('\n')) {
+          try { const e = JSON.parse(line); if (e.action==='finished'&&e.model) modelSet.add(e.model); } catch {}
+        }
+      } catch {}
+    }
+
+    res.json({ buckets: result, range, model, availableModels: [...modelSet].sort() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/cron/history ────────────────────────────
+// 聚合所有已执行完毕的 cron 记录
+app.get('/api/cron/history', (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 200);
+    const runsDir = path.join(require('os').homedir(), '.openclaw', 'cron', 'runs');
+    if (!fs.existsSync(runsDir)) return res.json({ entries: [] });
+
+    // 只读最近 7 天修改过的文件
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const files = listFiles(runsDir).filter(f => {
+      try { return fs.statSync(path.join(runsDir, f)).mtimeMs > cutoff; }
+      catch { return false; }
+    });
+
+    // 获取任务名映射（关联 jobId → name，含持久化缓存 + 后台定时更新）
+    const nameMap = updateCronNameCache();
+
+    // 收集所有条目
+    const allEntries = [];
+    for (const f of files) {
+      try {
+        const raw = fs.readFileSync(path.join(runsDir, f), 'utf8');
+        const lines = raw.trim().split('\n');
+        // 每个文件取最后 3 条（避免一次性加载过多）
+        const recent = lines.slice(-3);
+        for (const line of recent) {
+          try {
+            const e = JSON.parse(line);
+            if (e.action === 'finished') {
+              allEntries.push({
+                jobId: e.jobId,
+                name: nameMap[e.jobId] || '',
+                runAtMs: e.runAtMs,
+                durationMs: e.durationMs,
+                status: e.status,
+                summary: e.summary || '',
+                model: e.model || '',
+              });
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    // 按时间倒序
+    allEntries.sort((a, b) => (b.runAtMs || 0) - (a.runAtMs || 0));
+    res.json({ entries: allEntries.slice(0, limit) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/cron/:id/runs ───────────────────────────
+app.get('/api/cron/:id/runs', (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+    const raw = safeExec(`openclaw cron runs --id "${req.params.id}" --limit ${limit} --expect-final 2>&1`);
+    if (!raw) return res.json({ entries: [], total: 0 });
+    const data = JSON.parse(raw);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── POST /api/pm2/:action ───────────────────────────────
 // 控制 PM2 进程 restart / stop / start / list
 app.post('/api/pm2/:action', (req, res) => {
@@ -1130,9 +1467,132 @@ app.get('/api/system', (req, res) => {
       if (parts) disk = { size: parts[1], used: parts[2], avail: parts[3], usePct: parts[4] };
     } catch {}
 
-    // 活跃规则文件数
-    const activeRuleFiles = listFiles(RULES_DIR).filter(f => f.endsWith('.js')).length;
-    const archivedRuleFiles = listFiles(RULES_ARCHIVE_DIR).filter(f => f.endsWith('.js')).length;
+    // 活跃规则计数: 用 getRules() 解析元数据中的 status，不数文件（文件数 ≠ 活跃规则数）
+    let activeRuleCount = 0;
+    let archivedRuleCount = 0;
+    try {
+      const allRules = getRules({ all: true });
+      if (Array.isArray(allRules)) {
+        activeRuleCount = allRules.filter(r => r.status === 'active').length;
+        archivedRuleCount = allRules.filter(r => r.status === 'archived').length;
+      }
+    } catch {
+      // fallback: 数文件（不精确）
+      activeRuleCount = listFiles(RULES_DIR).filter(f => f.endsWith('.js')).length;
+    }
+
+    // ── 周期统计 ──
+    const activeBtcCycles = listDirs(ACTIVE_DIR).filter(d => d.startsWith('cycle-')).length;
+    const activeAltCycles = listDirs(ACTIVE_DIR).filter(d => d.startsWith('alt-')).length;
+    const archivedBtcCycles = listDirs(ARCHIVED_DIR).filter(d => d.startsWith('cycle-')).length;
+    const archivedAltCycles = listDirs(ARCHIVED_DIR).filter(d => d.startsWith('alt-')).length;
+
+    // ── 文件统计 ──
+    const logFiles = listFiles(LOGS_DIR).filter(f => f.endsWith('.log')).length;
+    const dataFiles = listFiles(DATA_DIR).filter(f => f.endsWith('.json') || f.endsWith('.csv')).length;
+    const learningFiles = listFiles(path.join(BASE_DIR, 'learnings')).filter(f => f.endsWith('.md')).length;
+
+    // ── 周期创建时间线（用于图表） ──
+    function buildCycleTimeline(dir, prefix) {
+      const entries = listDirs(dir).filter(d => d.startsWith(prefix));
+      const byDate = {};
+      for (const entry of entries) {
+        // 格式: cycle-YYYYMMDD-NNN 或 alt-COIN-YYYYMMDD-HHMM
+        const match = entry.match(/-(\d{8})/);
+        if (match) {
+          const dateKey = match[1]; // YYYYMMDD
+          byDate[dateKey] = (byDate[dateKey] || 0) + 1;
+        }
+      }
+      return byDate;
+    }
+
+    // ── 日内按小时时间线（用于「日内」视图） ──
+    function buildCycleHourly() {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,'0')}${String(today.getDate()).padStart(2,'0')}`;
+      const byHour = {};
+      for (let h = 0; h < 24; h++) {
+        byHour[String(h).padStart(2, '0')] = { active: 0, archived: 0, total: 0 };
+      }
+      for (const dir of [ACTIVE_DIR, ARCHIVED_DIR]) {
+        const entries = listDirs(dir);
+        for (const entry of entries) {
+          // alt-COIN-YYYYMMDD-HHMM
+          const altMatch = entry.match(/^alt-.+-(\d{8})-(\d{2})\d{2}$/);
+          if (altMatch && altMatch[1] === todayStr) {
+            const hour = altMatch[2];
+            const type = dir === ACTIVE_DIR ? 'active' : 'archived';
+            byHour[hour][type]++;
+            byHour[hour].total++;
+            continue;
+          }
+          // cycle-YYYYMMDD-NNN
+          const btcMatch = entry.match(/^cycle-(\d{8})-/);
+          if (btcMatch && btcMatch[1] === todayStr) {
+            try {
+              const stat = fs.statSync(path.join(dir, entry));
+              const hour = String(new Date(stat.mtime).getHours()).padStart(2, '0');
+              const type = dir === ACTIVE_DIR ? 'active' : 'archived';
+              byHour[hour][type]++;
+              byHour[hour].total++;
+            } catch {}
+          }
+        }
+      }
+      return Object.entries(byHour)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([hour, data]) => ({ hour, ...data }));
+    }
+
+    // 合并活跃+归档的时间线
+    const activeTimeline = buildCycleTimeline(ACTIVE_DIR, '');
+    const archivedTimeline = buildCycleTimeline(ARCHIVED_DIR, '');
+    const allDates = new Set([...Object.keys(activeTimeline), ...Object.keys(archivedTimeline)]);
+    const cycleTimeline = [];
+    for (const date of [...allDates].sort()) {
+      cycleTimeline.push({
+        date: `${date.slice(0,4)}-${date.slice(4,6)}-${date.slice(6,8)}`,
+        active: activeTimeline[date] || 0,
+        archived: archivedTimeline[date] || 0,
+        total: (activeTimeline[date] || 0) + (archivedTimeline[date] || 0),
+      });
+    }
+
+    const cycleHourly = buildCycleHourly();
+
+    // ── 24h / 7d 增量 ──
+    function sumTimelineDays(timeline, n, key) {
+      return timeline.slice(-n).reduce((s, d) => s + (d[key] || 0), 0);
+    }
+    const delta24hActive = sumTimelineDays(cycleTimeline, 1, 'active');
+    const delta7dActive = sumTimelineDays(cycleTimeline, 7, 'active');
+    const delta24hArchived = sumTimelineDays(cycleTimeline, 1, 'archived');
+    const delta7dArchived = sumTimelineDays(cycleTimeline, 7, 'archived');
+    const delta24h = sumTimelineDays(cycleTimeline, 1, 'total');
+    const delta7d = sumTimelineDays(cycleTimeline, 7, 'total');
+
+    // 规则/日志/健康报告 近24h/7d（按文件 mtime）
+    const nowMs = Date.now();
+    const ms24h = 24 * 60 * 60 * 1000;
+    const ms7d = 7 * 24 * 60 * 60 * 1000;
+    function countByMtime(dir, ext) {
+      try {
+        const files = listFiles(dir).filter(f => f.endsWith(ext));
+        const recent24h = files.filter(f => {
+          const s = fs.statSync(path.join(dir, f));
+          return nowMs - s.mtimeMs < ms24h;
+        }).length;
+        const recent7d = files.filter(f => {
+          const s = fs.statSync(path.join(dir, f));
+          return nowMs - s.mtimeMs < ms7d;
+        }).length;
+        return { recent24h, recent7d };
+      } catch { return { recent24h: 0, recent7d: 0 }; }
+    }
+    const rulesDelta = countByMtime(RULES_DIR, '.js');
+    const logsDelta = countByMtime(LOGS_DIR, '.log');
+    const healthDelta = countByMtime(HEALTH_DIR, '.md');
 
     res.json({
       pm2: pm2Status,
@@ -1141,8 +1601,29 @@ app.get('/api/system', (req, res) => {
       actionsLog,
       disk,
       rules: {
-        active: activeRuleFiles,
-        archived: archivedRuleFiles,
+        active: activeRuleCount,
+        archived: archivedRuleCount,
+        totalFiles: listFiles(RULES_DIR).filter(f => f.endsWith('.js')).length,
+        delta24h: rulesDelta.recent24h,
+        delta7d: rulesDelta.recent7d,
+      },
+      cycles: {
+        active: { btc: activeBtcCycles, alt: activeAltCycles, total: activeBtcCycles + activeAltCycles },
+        archived: { btc: archivedBtcCycles, alt: archivedAltCycles, total: archivedBtcCycles + archivedAltCycles },
+        timeline: cycleTimeline,
+        hourly: cycleHourly,
+        delta24h, delta7d,
+        delta24hActive, delta7dActive,
+        delta24hArchived, delta7dArchived,
+      },
+      files: {
+        logs: logFiles,
+        data: dataFiles,
+        learnings: learningFiles,
+        delta24h: logsDelta.recent24h,
+        delta7d: logsDelta.recent7d,
+        healthDelta24h: healthDelta.recent24h,
+        healthDelta7d: healthDelta.recent7d,
       },
       timestamp: new Date().toISOString(),
     });
@@ -1262,6 +1743,56 @@ app.get('/api/logs', (req, res) => {
   }
 });
 
+// ── GET /api/trade-decisions ────────────────────────
+// 开仓决策可视化：读取所有活跃周期的 trade-decision JSON
+app.get('/api/trade-decisions', (req, res) => {
+  try {
+    const results = [];
+    for (const location of ['active', 'archived']) {
+      const locPath = path.join(BASE_DIR, location);
+      if (!fs.existsSync(locPath)) continue;
+      const cycleDirs = fs.readdirSync(locPath).filter(d => {
+        try { return fs.statSync(path.join(locPath, d)).isDirectory(); } catch { return false; }
+      });
+
+      for (const cycleDir of cycleDirs) {
+        const reportsDir = path.join(locPath, cycleDir, 'reports');
+        if (!fs.existsSync(reportsDir)) continue;
+
+        const isBTC = cycleDir.startsWith('cycle-');
+        const coin = isBTC ? 'BTC' : (cycleDir.match(/^alt-([A-Z0-9]+)-/) || [])[1] || 'UNKNOWN';
+
+        const decisionFiles = fs.readdirSync(reportsDir)
+          .filter(f => f.startsWith(`trade-decision-${coin}-`) && f.endsWith('.json'))
+          .sort();
+
+        for (const df of decisionFiles) {
+          try {
+            const content = JSON.parse(fs.readFileSync(path.join(reportsDir, df), 'utf8'));
+            // 从文件名提取时间: trade-decision-COIN-YYYY-MM-DD-HHMM.json
+            const timeMatch = df.match(/trade-decision-\w+-(\d{4}-\d{2}-\d{2}-\d{4})\.json/);
+            const fileTime = timeMatch ? timeMatch[1].replace(/-(\d{2})(\d{2})$/, ' $1:$2') : null;
+            results.push({
+              ...content,
+              _cycleId: cycleDir,
+              _location: location,
+              _file: df,
+              _fileTime: fileTime,
+            });
+          } catch (e) {
+            // skip malformed
+          }
+        }
+      }
+    }
+    // 按文件时间倒序
+    results.sort((a, b) => (b._fileTime || '').localeCompare(a._fileTime || ''));
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/alert-price-visualization ────────────────
 // 价格柱可视化：读取活跃价格警报规则的检查日志 + 价位配置
 app.get('/api/alert-price-visualization', (req, res) => {
@@ -1340,6 +1871,548 @@ app.get('/api/alert-price-visualization', (req, res) => {
   }
 });
 
+// ── GET /api/self-heal ────────────────────────────────
+// 自愈系统可视化: 解析 alert-selfheal.log, 按 AB/C 分类
+app.get('/api/self-heal', (req, res) => {
+  try {
+    const logFile = path.join(LOGS_DIR, 'alert-selfheal.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ exists: false, summary: {}, fixes: [], intervals: [], archive: [], timeline: [], coinDiags: [] });
+    }
+
+    const raw = fs.readFileSync(logFile, 'utf8');
+    const lines = raw.trim().split('\n').filter(Boolean);
+
+    // 解析所有条目
+    const allEntries = [];
+    let pendingMulti = null; // 多行 COIN_DIAG/SYSTEM_LESSON
+
+    for (const line of lines) {
+      // 匹配时间戳: [2026-05-23 14:54:00] 或 [2026-05-16 13:43 CST] 或 [2026-05-08 22:38 CST]
+      // 统一标准化: 无秒补 :00
+      let ts = '', tsMs = 0;
+      const tsMatch1 = line.match(/^\[(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2})/);
+      const tsMatch2 = line.match(/^\[(\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2})\s/);
+      if (tsMatch1) {
+        ts = tsMatch1[1].replace('T', ' ');
+      } else if (tsMatch2) {
+        ts = tsMatch2[1].replace('T', ' ') + ':00';
+      }
+      tsMs = ts ? new Date(ts.replace(' CST', '')).getTime() : 0;
+
+      if (line.includes('INTERVAL_ADJUSTED')) {
+        // C 类: interval 翻倍
+        // 格式: INTERVAL_ADJUSTED | 规则: XXX | 文件: XXX | 原因: XXX | 新间隔: Nmin (原 Nmin)
+        const ruleMatch = line.match(/规则:\s*([^|]+)/);
+        const fileMatch = line.match(/文件:\s*([^|]+)/);
+        const reasonMatch = line.match(/原因:\s*([^|]+)/);
+        const intervalMatch = line.match(/新间隔:\s*([^|]+)\(/);
+        const origIntervalMatch = line.match(/原\s*([^)]+min)\)/);
+        allEntries.push({
+          type: 'interval_adjust',
+          ts, tsMs,
+          rule: ruleMatch ? ruleMatch[1].trim() : '',
+          file: fileMatch ? fileMatch[1].trim() : '',
+          reason: reasonMatch ? reasonMatch[1].trim() : '',
+          newInterval: intervalMatch ? intervalMatch[1].trim() : '',
+          origInterval: origIntervalMatch ? origIntervalMatch[1].trim() : '',
+        });
+      } else if (line.includes('FIXED |')) {
+        // A/B 类: 自愈修复 (包含类别行? 检查)
+        const ruleMatch = line.match(/规则:\s*([^|]+)/);
+        const fileMatch = line.match(/文件:\s*([^|]+)/);
+        const problemMatch = line.match(/问题:\s*(.+?)(?:\s*\|\s*修复:|\s*\|\s*类别:|$)/);
+        allEntries.push({
+          type: 'fixed',
+          ts, tsMs,
+          rule: ruleMatch ? ruleMatch[1].trim() : '',
+          file: fileMatch ? fileMatch[1].trim() : '',
+          problem: problemMatch ? problemMatch[1].trim() : '',
+        });
+      } else if (line.includes('ARCHIVED |')) {
+        const ruleMatch = line.match(/规则:\s*([^|]+)/);
+        const fileMatch = line.match(/文件:\s*([^|]+)/);
+        const catMatch = line.match(/类别:\s*([^|]+)/);
+        const reasonMatch = line.match(/原因:\s*([^|]+)/);
+        allEntries.push({
+          type: 'archived',
+          ts, tsMs,
+          rule: ruleMatch ? ruleMatch[1].trim() : '',
+          file: fileMatch ? fileMatch[1].trim() : '',
+          category: catMatch ? catMatch[1].trim() : '',
+          reason: reasonMatch ? reasonMatch[1].trim() : '',
+        });
+      } else if (line.includes('COIN_DIAG |')) {
+        const coinMatch = line.match(/币种:\s*([^|]+)/);
+        const fixedMatch = line.match(/修复:\s*(\d+)/);
+        const problemMatch = line.match(/问题:\s*(.+)$/);
+        allEntries.push({
+          type: 'coin_diag',
+          ts, tsMs,
+          coin: coinMatch ? coinMatch[1].trim() : '',
+          fixedCount: fixedMatch ? parseInt(fixedMatch[1]) : 0,
+          problem: problemMatch ? problemMatch[1].trim() : '',
+        });
+      } else if (line.includes('SELFHEAL |')) {
+        const ruleMatch = line.match(/规则:\s*([^|]+)/);
+        const resultMatch = line.match(/结果:\s*([^|]+)/);
+        const catMatch = line.match(/类别:\s*([^|]+)/);
+        const intervalMatch = line.match(/新间隔:\s*([^|]+)/);
+        allEntries.push({
+          type: 'selfheal',
+          ts, tsMs,
+          rule: ruleMatch ? ruleMatch[1].trim() : '',
+          result: resultMatch ? resultMatch[1].trim() : '',
+          category: catMatch ? catMatch[1].trim() : '',
+          newInterval: intervalMatch ? intervalMatch[1].trim() : '',
+        });
+      } else if (line.includes('ROOT_CAUSE_DIAG')) {
+        const causeMatch = line.match(/根因:\s*(.+)$/);
+        allEntries.push({
+          type: 'root_cause',
+          ts, tsMs,
+          detail: causeMatch ? causeMatch[1].trim() : '',
+        });
+      } else if (line.includes('BULK_FIX |')) {
+        const fixMatch = line.match(/修复:\s*(.+)$/);
+        allEntries.push({
+          type: 'bulk_fix',
+          ts, tsMs,
+          detail: fixMatch ? fixMatch[1].trim() : '',
+        });
+      } else if (line.includes('SYSTEM_LESSON')) {
+        const lessonMatch = line.match(/^[^\]]+\]\s*SYSTEM_LESSON\s*\|?\s*(.+)$/);
+        allEntries.push({
+          type: 'system_lesson',
+          ts, tsMs,
+          detail: lessonMatch ? lessonMatch[1].trim() : '',
+        });
+      }
+    }
+
+    // 统计
+    let fixCount = 0, intervalCount = 0, archiveCount = 0, coinDiagCount = 0;
+    // 按日期聚合
+    const byDate = {};
+    for (const e of allEntries) {
+      const day = e.ts.slice(0, 10);
+      if (!byDate[day]) byDate[day] = { fixes: 0, intervals: 0, archives: 0, coinDiags: 0 };
+      if (e.type === 'fixed') { fixCount++; byDate[day].fixes++; }
+      else if (e.type === 'interval_adjust' || e.type === 'selfheal') { intervalCount++; byDate[day].intervals++; }
+      else if (e.type === 'archived') { archiveCount++; byDate[day].archives++; }
+      else if (e.type === 'coin_diag') { coinDiagCount++; byDate[day].coinDiags++; }
+    }
+
+    // 去重 + 按时间倒序
+    const compare = (a, b) => b.ts.localeCompare(a.ts);
+
+    // A/B 类修复: FIXED 条目 (去重: 同一规则+同一问题只保留最新一条)
+    const fixMap = new Map();
+    for (const e of allEntries.filter(e => e.type === 'fixed')) {
+      const key = e.rule + '::' + (e.file || '');
+      if (!fixMap.has(key) || e.ts > fixMap.get(key).ts) fixMap.set(key, e);
+    }
+    const fixes = Array.from(fixMap.values()).sort(compare);
+
+    // C 类间隔调整: INTERVAL_ADJUSTED + SELFHEAL(interval_adjust)
+    const intervalMap = new Map();
+    for (const e of allEntries.filter(e => e.type === 'interval_adjust')) {
+      const key = e.rule + '::' + e.ts.slice(0, 16);
+      intervalMap.set(key, e);
+    }
+    for (const e of allEntries.filter(e => e.type === 'selfheal' && e.category?.startsWith('C'))) {
+      const key = e.rule + '::' + e.ts.slice(0, 16);
+      if (!intervalMap.has(key)) intervalMap.set(key, e);
+    }
+    const intervals = Array.from(intervalMap.values()).sort(compare);
+
+    // 归档日志
+    const archiveEntries = allEntries.filter(e => e.type === 'archived').sort(compare);
+
+    // 逐日统计 (用于 timeline 展示)
+    const dailyStats = Object.entries(byDate).sort((a, b) => a[0].localeCompare(b[0])).map(([day, stats]) => ({
+      date: day,
+      ...stats
+    }));
+
+    // Coin diagnostics
+    const coinDiags = allEntries.filter(e => e.type === 'coin_diag').sort(compare);
+
+    // 逐小时统计 (近24小时,用于 24h 视图 X 轴以小时为单位)
+    const nowMs = Date.now();
+    const twentyFourHrAgo = nowMs - 24 * 3600000;
+    const byHour = {};
+    for (const e of allEntries) {
+      if (e.tsMs < twentyFourHrAgo) continue;
+      // 截取到小时: "2026-05-23 14"
+      // 截取到小时: 从 "2026-05-23 14:54:00" 取前13字符 "2026-05-23 14"
+      const hrKey = e.ts.slice(0, 13);
+      if (!byHour[hrKey]) byHour[hrKey] = { fixes: 0, intervals: 0, archives: 0, coinDiags: 0 };
+      if (e.type === 'fixed') byHour[hrKey].fixes++;
+      else if (e.type === 'interval_adjust' || e.type === 'selfheal') byHour[hrKey].intervals++;
+      else if (e.type === 'archived') byHour[hrKey].archives++;
+      else if (e.type === 'coin_diag') byHour[hrKey].coinDiags++;
+    }
+    const hourlyStats = Object.entries(byHour)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([hour, stats]) => ({ hour: hour + ':00', ...stats }));
+
+    // 补全所有24小时（填充值为0的空小时）
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const hourMap = {};
+    for (const hs of hourlyStats) hourMap[hs.hour] = hs;
+    const filledHourly = [];
+    for (let h = 0; h < 24; h++) {
+      const key = todayStr + ' ' + String(h).padStart(2, '0') + ':00';
+      filledHourly.push(hourMap[key] || { hour: key, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 });
+    }
+    // 覆盖
+    hourlyStats.length = 0;
+    hourlyStats.push(...filledHourly);
+
+    // 15分钟粒度统计在后段 restoredRules 解析完成后处理
+
+    // 规则恢复统计: 从 btc-alert.log 中解析 NETWORK_RESTORED 事件
+    const alertLog = path.join(LOGS_DIR, 'btc-alert.log');
+    let restoredCount = 0;
+    let restoredRules = [];
+    if (fs.existsSync(alertLog)) {
+      const raw2 = safeExec(`grep -a 'NETWORK_RESTORED' "${alertLog}" | tail -100`);
+      if (raw2) {
+        const restoreLines = raw2.trim().split('\n').filter(Boolean);
+        const seenRestore = new Set();
+        for (const line of restoreLines) {
+          // 格式: 2026-05-23T13:21:55: [...] [SAHARA-OI异常增长] NETWORK_RESTORED | {...}
+          const tsR = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+          const ruleR = line.match(/\[([^\]]+)\]\s*NETWORK_RESTORED/);
+          if (tsR && ruleR) {
+            const key = ruleR[1].trim() + '::' + tsR[1].slice(0, 16);
+            if (!seenRestore.has(key)) {
+              seenRestore.add(key);
+              restoredRules.push({
+                ts: tsR[1],
+                rule: ruleR[1].trim(),
+              });
+              restoredCount++;
+            }
+          }
+        }
+      }
+    }
+    restoredRules.sort((a, b) => b.ts.localeCompare(a.ts));
+
+    // 将恢复事件也按天聚合加入 dailyStats
+    const restoreByDay = {};
+    const restoreByHour = {};
+    for (const rr of restoredRules) {
+      // ts 格式: 2026-05-23T15:42:53 → 取前10字符做天, 前13做小时
+      // dailyStats 日期格式: "2026-05-23"，直接取前10位
+      const day = rr.ts.slice(0, 10);
+      // hourlyStats 的 hour 字段用 T 分隔，取前13位
+      const hrKey = rr.ts.slice(0, 13);
+      if (!restoreByDay[day]) restoreByDay[day] = 0;
+      restoreByDay[day]++;
+      // 只有近24小时
+      if (new Date(rr.ts).getTime() >= twentyFourHrAgo) {
+        if (!restoreByHour[hrKey]) restoreByHour[hrKey] = 0;
+        restoreByHour[hrKey]++;
+      }
+    }
+    // 合并到 dailyStats
+    for (const ds of dailyStats) {
+      ds.restores = restoreByDay[ds.date] || 0;
+    }
+    // 合并到 hourlyStats: 先合并已有的，再补全只有恢复没有自愈事件的小时
+    const hrMap = {};
+    for (const hs of hourlyStats) {
+      hrMap[hs.hour] = hs;
+      const key = hs.hour.replace(' ', 'T').replace(':00', '').slice(0, 13);
+      hs.restores = restoreByHour[key] || 0;
+    }
+    // 补充只有恢复事件的小时
+    for (const [hrKey, rc] of Object.entries(restoreByHour)) {
+      // hrKey 格式: "2026-05-23T13"，转成 "2026-05-23 13:00"
+      const hourStr = hrKey.replace('T', ' ') + ':00';
+      if (!hrMap[hourStr]) {
+        hrMap[hourStr] = { hour: hourStr, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: rc };
+      }
+    }
+    // 重写 hourlyStats，按时间排序
+    const finalHourly = Object.values(hrMap).sort((a, b) => a.hour.localeCompare(b.hour));
+    hourlyStats.length = 0;
+    hourlyStats.push(...finalHourly);
+
+    // 合并恢复事件到 15 分钟桶
+    const threeHrAgo = new Date(Date.now() - 3 * 3600000);
+    const qhSelfHeal = [];
+    const qhBuckets = {};
+    // 自愈事件入 15 分钟桶
+    for (const e of allEntries) {
+      if (e.tsMs < threeHrAgo.getTime()) continue;
+      const m = parseInt(e.ts.slice(14, 16)) || 0;
+      const qh = Math.floor(isNaN(m) ? 0 : m / 15) * 15;
+      const key15 = e.ts.slice(0, 14) + String(qh).padStart(2, '0') + ':00';
+      if (!qhBuckets[key15]) qhBuckets[key15] = { time: key15, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 };
+      if (e.type === 'fixed') qhBuckets[key15].fixes++;
+      else if (e.type === 'interval_adjust' || e.type === 'selfheal') qhBuckets[key15].intervals++;
+      else if (e.type === 'archived') qhBuckets[key15].archives++;
+      else if (e.type === 'coin_diag') qhBuckets[key15].coinDiags++;
+    }
+    // 恢复事件入 15 分钟桶
+    for (const rr of restoredRules) {
+      if (new Date(rr.ts).getTime() < threeHrAgo.getTime()) continue;
+      const m = rr.ts.length >= 16 ? parseInt(rr.ts.slice(14, 16)) : 0;
+      const qh = Math.floor(isNaN(m) ? 0 : m / 15) * 15;
+      const dayHr = rr.ts.slice(0, 10) + ' ' + rr.ts.slice(11, 13);
+      const key15r = dayHr + ':' + String(qh).padStart(2, '0') + ':00';
+      if (!qhBuckets[key15r]) qhBuckets[key15r] = { time: key15r, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 };
+      qhBuckets[key15r].restores++;
+    }
+    // 补齐最近 3 小时的 12 个 15 分钟桶（填 0）
+    const nowHr = new Date();
+    nowHr.setMinutes(Math.floor(nowHr.getMinutes() / 15) * 15, 0, 0);
+    for (let i = 0; i < 12; i++) {
+      const ts = new Date(nowHr.getTime() - (11 - i) * 15 * 60 * 1000);
+      const key = ts.toISOString().slice(0, 10) + ' ' + String(ts.getHours()).padStart(2, '0') + ':' + String(ts.getMinutes()).padStart(2, '0') + ':00';
+      if (!qhBuckets[key]) qhBuckets[key] = { time: key, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 };
+      qhSelfHeal.push(qhBuckets[key]);
+    }
+
+    res.json({
+      exists: true,
+      totalEntries: allEntries.length,
+      lastUpdated: mtimeISO(logFile),
+      restoredSummary: {
+        count: restoredCount,
+      },
+      summary: {
+        fixes: fixes.length,
+        intervals: intervals.length,
+        archives: archiveEntries.length,
+        coinDiags: coinDiags.length,
+      },
+      daily: dailyStats,
+      hourly: hourlyStats,
+      quarterHourly: qhSelfHeal,
+      fixes,
+      intervals,
+      archives: archiveEntries,
+      coinDiags,
+      restoredRules,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/alert-activity ───────────────────────────
+// 警报规则动作统计: 从 btc-alert.log + 归档日志解析 CHECK_START/TRIGGERED/等事件
+app.get('/api/alert-activity', (req, res) => {
+  try {
+    const logFile = path.join(LOGS_DIR, 'btc-alert.log');
+    const historyDir = path.join(LOGS_DIR, 'alert-history');
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    // ── 收集需要读取的日志文件（当天 + 近7天归档） ──
+    function collectLogFiles() {
+      const files = [];
+      if (fs.existsSync(logFile)) files.push(logFile);
+      // 用本地日期收集近7天归档
+      const now = new Date();
+      for (let ago = 1; ago < 8; ago++) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ago);
+        const dayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        try {
+          for (const entry of fs.readdirSync(historyDir, { withFileTypes: true })) {
+            if (!entry.isDirectory()) continue;
+            const f = path.join(historyDir, entry.name, dayStr + '.log');
+            if (fs.existsSync(f)) { files.push(f); break; }
+          }
+        } catch {}
+      }
+      return files;
+    }
+
+    const logFiles = collectLogFiles();
+    const filesArg = logFiles.map(f => `"${f}"`).join(' ');
+    const allFilesExist = logFiles.length > 0;
+    if (!allFilesExist) {
+      return res.json({ exists: false, summary: {}, daily: [], hourly: [] });
+    }
+
+    // 用 grep 快速统计各事件类型总数
+    function countEvent(pattern) {
+      let total = 0;
+      for (const f of logFiles) {
+        const raw = safeExec(`grep -achF '${pattern}' "${f}" 2>/dev/null || true`);
+        if (raw) total += parseInt(raw.trim()) || 0;
+      }
+      return total;
+    }
+
+    const eventPatterns = [
+      'CHECK_START', 'TIMER_STARTED', 'TRIGGERED |', 'TRIGGER_COMPLETED',
+      'DATA_COLLECTED', 'RULE_UNLOADED', 'RULE_RELOADED', 'RULE_ARCHIVED',
+      'NETWORK_ADJUSTED', 'NETWORK_RESTORED', 'SELF_HEAL_TRIGGERED',
+      'SELF_HEAL_SPAWNED', 'SUMMARY_SENT'
+    ];
+
+    const totals = {};
+    for (const p of eventPatterns) {
+      totals[p] = countEvent(p);
+    }
+
+    // ── 近24小时逐小时统计（awk 临时脚本，避免 buffer/shell 转义） ──
+    const byHour = {};
+    const now = new Date();
+
+    const awkScript = `/tmp/alert-activity-${Date.now()}.awk`;
+    fs.writeFileSync(awkScript, `BEGIN { FS="[T:]" }
+{
+  d=$1; h=$2;
+  if (d !~ /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) next;
+  ts = d " " sprintf("%02d", h) ":00";
+  c[ts]++;
+  if (/CHECK_START/) ck[ts]++;
+  if (/TRIGGERED \\|/) tr[ts]++;
+  if (/NETWORK_ADJUSTED/) ad[ts]++;
+  if (/NETWORK_RESTORED/) rs[ts]++;
+  if (/RULE_ARCHIVED/) ar[ts]++;
+  if (/RULE_RELOADED/) rl[ts]++;
+  if (/RULE_UNLOADED/) ul[ts]++;
+  if (/\\[ERROR\\]/) er[ts]++;
+  if (/\\[WARN\\]/) wa[ts]++;
+}
+END {
+  for (ts in c) printf "%s|%d|%d|%d|%d|%d|%d|%d|%d|%d\\n", ts, ck[ts]+0, tr[ts]+0, er[ts]+0, wa[ts]+0, ad[ts]+0, rs[ts]+0, ar[ts]+0, rl[ts]+0, ul[ts]+0;
+}
+`);
+    const awkHourly = safeExec(`awk -f "${awkScript}" ${filesArg}`, { maxBuffer: 10 * 1024 * 1024 });
+    try { fs.unlinkSync(awkScript); } catch {}
+    if (awkHourly) {
+      for (const line of awkHourly.trim().split('\n').filter(Boolean)) {
+        const parts = line.split('|');
+        if (parts.length < 10) continue;
+        const hour = parts[0];
+        // 过滤：只保留近24小时（用本地时间比较）
+        const hourDate = new Date(hour + ':00');
+        const twentyFourHrAgoLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() - 24, now.getMinutes());
+        if (isNaN(hourDate.getTime()) || hourDate < twentyFourHrAgoLocal) continue;
+        byHour[hour] = {
+          checks: parseInt(parts[1]) || 0,
+          triggers: parseInt(parts[2]) || 0,
+          errors: parseInt(parts[3]) || 0,
+          warnings: parseInt(parts[4]) || 0,
+          adjust: parseInt(parts[5]) || 0,
+          restore: parseInt(parts[6]) || 0,
+          archive: parseInt(parts[7]) || 0,
+          reload: parseInt(parts[8]) || 0,
+          unload: parseInt(parts[9]) || 0,
+        };
+      }
+    }
+
+    // ── 按天统计（搜索所有日志文件含归档） ──
+    const byDay = {};
+    for (let ago = 0; ago < 7; ago++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ago);
+      const dayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      byDay[dayStr] = { checks:0, triggers:0, errors:0, warnings:0, adjust:0, restore:0, archive:0, reload:0, unload:0 };
+
+      function dayCount(pattern) {
+        // escape regex meta chars for grep (brackets, pipes)
+        const safe = pattern.replace(/[\[\]|\\]/g, '\\$&');
+        let total = 0;
+        for (const f of logFiles) {
+          const raw = safeExec(`grep -ach "^${dayStr}T.*${safe}" "${f}" 2>/dev/null || true`);
+          if (raw) total += parseInt(raw.trim()) || 0;
+        }
+        return total;
+      }
+      byDay[dayStr].checks = dayCount('CHECK_START');
+      byDay[dayStr].triggers = dayCount('TRIGGERED ');
+      byDay[dayStr].adjust = dayCount('NETWORK_ADJUSTED');
+      byDay[dayStr].restore = dayCount('NETWORK_RESTORED');
+      byDay[dayStr].archive = dayCount('RULE_ARCHIVED');
+      byDay[dayStr].reload = dayCount('RULE_RELOADED');
+      byDay[dayStr].unload = dayCount('RULE_UNLOADED');
+      // ERROR 和 WARN 有 [ERROR] / [WARN] 标记
+      byDay[dayStr].errors = dayCount('\\[ERROR\\]');
+      byDay[dayStr].warnings = dayCount('\\[WARN\\]');
+    }
+
+    // 合并近7天的按天统计 (不限于有 CHECK_START 的天)
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() - i * 86400000);
+      const dayStr = d.toISOString().slice(0, 10);
+      if (!byDay[dayStr]) byDay[dayStr] = { checks: 0, triggers: 0, errors: 0, warnings: 0, adjust: 0, restore: 0, archive: 0, reload: 0, unload: 0 };
+    }
+
+    const dailyStats = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).map(([date, stats]) => ({ date, ...stats }));
+    const hourlyStats = Object.entries(byHour).sort((a, b) => a[0].localeCompare(b[0])).map(([hour, stats]) => ({ hour, ...stats }));
+
+    // 15 分钟粒度统计（近 3 小时，共 12 个桶）
+    // awk: 每行的 ts 如 "2026-05-23T17:51:20"，取 hh:mm 并 floor minute 到 0/15/30/45
+    const threeHrAgo = new Date(Date.now() - 3 * 3600000);
+    const threeHrStr = threeHrAgo.toISOString().slice(0, 16); // "2026-05-23T14"
+    const quarterHourly = [];
+    const qhRaw = safeExec(`awk -F'[T:]' '/^${todayStr}T/{
+      h=\$2; m=int(\$3/15)*15;
+      key = sprintf(\"%02d:%02d\", h, m);
+      c[key]++;
+      if(/CHECK_START/) ck[key]++;
+      if(/TRIGGERED /) tr[key]++;
+      if(/NETWORK_ADJUSTED/) ad[key]++;
+      if(/NETWORK_RESTORED/) rs[key]++;
+    } END {
+      for(k in c) printf \"%s|%d|%d|%d|%d\\n\", k, ck[k]+0, tr[k]+0, ad[k]+0, rs[k]+0;
+    }' "${logFile}"`);
+    if (qhRaw) {
+      const qhMap = {};
+      for (const line of qhRaw.trim().split('\n').filter(Boolean)) {
+        const p = line.split('|');
+        if (p.length < 5) continue;
+        // key 格式 "17:45"，转为完整时间戳
+        const key = todayStr + ' ' + p[0] + ':00';
+        if (!qhMap[p[0]]) qhMap[p[0]] = {
+          time: key,
+          checks: parseInt(p[1]) || 0,
+          triggers: parseInt(p[2]) || 0,
+          adjust: parseInt(p[3]) || 0,
+          restore: parseInt(p[4]) || 0,
+        };
+      }
+      // 按 time 排序
+      const qhKeys = Object.keys(qhMap).sort();
+      // 只保留最近 12 个桶（3 小时）
+      const lastBins = qhKeys.slice(-12);
+      for (const k of lastBins) {
+        quarterHourly.push(qhMap[k]);
+      }
+    }
+
+    res.json({
+      exists: true,
+      lastUpdated: mtimeISO(logFile),
+      totals,
+      summary: {
+        checks: totals['CHECK_START'] || 0,
+        triggers: totals['TRIGGERED |'] || 0,
+        adjust: totals['NETWORK_ADJUSTED'] || 0,
+        restore: totals['NETWORK_RESTORED'] || 0,
+        unloads: totals['RULE_UNLOADED'] || 0,
+        archives: totals['RULE_ARCHIVED'] || 0,
+        reloads: totals['RULE_RELOADED'] || 0,
+      },
+      daily: dailyStats,
+      hourly: hourlyStats,
+      quarterHourly,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── SPA fallback ──────────────────────────────────────
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
@@ -1349,8 +2422,34 @@ app.get('*', (req, res) => {
   }
 });
 
+// ── Cron 名字缓存（后台定时更新，不依赖网页访问） ────
+function updateCronNameCache() {
+  const nameCacheFile = path.join(require('os').homedir(), '.openclaw', 'cron', 'job-names.json');
+  const nameMap = {};
+  try {
+    if (fs.existsSync(nameCacheFile)) {
+      Object.assign(nameMap, JSON.parse(fs.readFileSync(nameCacheFile, 'utf8')));
+    }
+  } catch {}
+  try {
+    const jobsRaw = safeExec('openclaw cron list --json 2>&1');
+    if (jobsRaw) {
+      const jd = JSON.parse(jobsRaw);
+      for (const j of (jd.jobs || [])) {
+        if (j.name) nameMap[j.id] = j.name;
+      }
+    }
+  } catch {}
+  try { fs.writeFileSync(nameCacheFile, JSON.stringify(nameMap), 'utf8'); } catch {}
+  return nameMap;
+}
+
 // ── 启动 ──────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`📈 七月 BTC 监控面板已启动: http://0.0.0.0:${PORT}`);
   console.log(`   工作目录: ${BASE_DIR}`);
+
+  // 后台定时更新 cron 名字缓存（每 60s），确保即时分析 job 在删除前被缓存
+  updateCronNameCache();
+  setInterval(updateCronNameCache, 60000);
 });

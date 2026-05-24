@@ -235,6 +235,12 @@ ${levelsCode}
 ];
 
 // ============================================================
+// K 线参数（间隔翻倍时 limit 自动缩放）
+// ============================================================
+const BAR = '5m';
+const BAR_MS = 5 * 60 * 1000;
+
+// ============================================================
 // 稳定性检查参数
 // ============================================================
 const STABILITY = {
@@ -258,7 +264,7 @@ module.exports = {
   archiveReason: null,
   // ═══ C19 END ═══
 
-  interval: 3 * 60 * 1000,
+  interval: 10 * 60 * 1000,
   lastTriggered: 0,
   levelStates: {},
   currentTriggeredLevels: [],
@@ -270,7 +276,8 @@ module.exports = {
     if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
 
     try {
-      const klines = await api.getOKXKlines(COIN, '1m', 3, 'SWAP');
+      const limit = Math.max(2, Math.round(this.interval / BAR_MS));
+      const klines = await api.getOKXKlines(COIN, BAR, limit, 'SWAP');
       if (!klines || klines.length === 0) return false;
 
       const periodHigh = Math.max(...klines.map(k => k.high));
@@ -347,7 +354,7 @@ module.exports = {
       }
 
       const statusStr = allLogs.length > 0 ? allLogs.join(' | ') : '无触及';
-      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} 3根1m K线 | [进度] \${this.name} | 区间: $\${periodLow.toFixed(5)}-$\${periodHigh.toFixed(5)} | 当前: $\${latestPrice.toFixed(5)} | \${statusStr} | 触发: \${confirmedLevels.length > 0} | [来源] ${reportPath.split('/').pop()}: "关键价位监控"\`);
+      console.log(\`[🔍警报检查] [API] OKX获取\${COIN} \${limit}根\${BAR} K线 | [进度] \${this.name} | 区间: $\${periodLow.toFixed(5)}-$\${periodHigh.toFixed(5)} | 当前: $\${latestPrice.toFixed(5)} | \${statusStr} | 触发: \${confirmedLevels.length > 0} | [来源] ${reportPath.split('/').pop()}: "关键价位监控"\`);
 
       if (confirmedLevels.length > 0) {
         this.currentTriggeredLevels = confirmedLevels;

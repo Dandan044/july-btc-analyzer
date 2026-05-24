@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📈 七月 BTC 监控面板</title>
+<title>七月-V0.1.1 Agent量化平台</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -49,6 +49,10 @@
 body {
   font-family: var(--font-sans);
   background: var(--bg-primary);
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center;
+  background-repeat: no-repeat;
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
@@ -127,19 +131,81 @@ header {
   box-shadow: 0 0 6px var(--red);
 }
 .logo .title-text {
-  background: linear-gradient(135deg, var(--accent), #7eb8ff);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 40%, #34d399 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(167,139,250,0.4));
 }
 
 .refresh-info {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-mono);
 }
+
+.refresh-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-right: 4px;
+}
+.last-refresh-label {
+  font-size: 0.5rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1;
+}
+.last-refresh-time {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  line-height: 1.2;
+}
+
+.refresh-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: var(--transition);
+  line-height: 1;
+  padding: 0;
+}
+.refresh-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+.refresh-btn:active { transform: scale(0.92); }
+.refresh-btn.spinning { animation: spin 0.6s ease; }
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .refresh-info .clock-wrapper {
   display: flex;
   flex-direction: column;
@@ -187,6 +253,24 @@ header {
     flex-direction: row;
     align-items: center;
     gap: 3px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .refresh-left {
+    display: none;
+  }
+  .refresh-actions {
+    gap: 2px;
+  }
+  .refresh-btn {
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+  }
+  #refresh-all-btn {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+  }
     position: relative;
   }
   .updates-toggle {
@@ -420,6 +504,25 @@ header {
 
 /* Status chips */
 /* ── 价格柱卡片 ──────────────────────────────────── */
+.price-vis-search {
+  flex: 1;
+  max-width: 220px;
+  margin: 0 10px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  outline: none;
+}
+.price-vis-search:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(var(--brand-rgb,99,102,241),0.15);
+}
+.price-vis-search::placeholder {
+  color: var(--text-muted);
+}
 .price-vis-body {
   padding: 10px 12px;
   display: flex;
@@ -428,7 +531,7 @@ header {
   overflow-x: auto;
 }
 .price-vis-body:empty::before {
-  content: '暂无活跃价格警报';
+  content: '正在加载...';
   color: var(--text-muted);
   font-size: 0.8rem;
   padding: 20px;
@@ -599,6 +702,161 @@ header {
   color: var(--text-primary);
 }
 
+/* ── 开仓决策卡片 ──────────────────────────────────── */
+.td-search-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: var(--transition);
+  margin: 0 8px 4px;
+  width: calc(100% - 16px);
+  box-sizing: border-box;
+}
+.td-search-bar:focus { border-color: var(--accent); }
+.td-search-bar::placeholder { color: var(--text-muted); }
+.td-card-list {
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.td-card-list:empty::before {
+  content: '暂无开仓决策';
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 16px;
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+.td-group {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.td-group-header {
+  cursor: pointer;
+  padding: 0;
+  transition: var(--transition);
+}
+.td-group-header:hover { background: var(--bg-hover); }
+.td-group-header.expanded .td-card-arrow { transform: rotate(90deg); }
+.td-group-body {
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  margin-left: 4px;
+  margin-bottom: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.td-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+.td-card:hover { border-color: var(--accent); }
+.td-card.expanded { border-color: var(--accent); }
+.td-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 18px;
+}
+.td-card-time {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.td-card-coin {
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  min-width: 34px;
+}
+.td-card-action {
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.td-card-action.open  { background: rgba(52,211,153,0.15); color: var(--green); }
+.td-card-action.add   { background: rgba(52,211,153,0.15); color: var(--green); }
+.td-card-action.reduce{ background: rgba(251,191,36,0.15); color: var(--yellow); }
+.td-card-action.close { background: rgba(239,68,68,0.15); color: var(--red); }
+.td-card-action.adjust{ background: rgba(99,102,241,0.15); color: #818cf8; }
+.td-card-action.hold  { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+.td-card-reject {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.td-card-arrow {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+.td-card.expanded .td-card-arrow { transform: rotate(90deg); }
+.td-card-detail {
+  display: none;
+  padding-top: 4px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.td-card.expanded .td-card-detail { display: block; }
+.td-detail-row {
+  display: flex;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 0.72rem;
+  gap: 6px;
+}
+.td-detail-row .label {
+  color: var(--text-muted);
+  min-width: 60px;
+  font-size: 0.68rem;
+}
+.td-detail-row .value {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+.td-detail-row .value.green { color: var(--green); }
+.td-detail-row .value.red { color: var(--red); }
+.td-detail-row .value.yellow { color: var(--yellow); }
+.td-obs-title {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  margin-bottom: 3px;
+}
+.td-obs-item {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  padding: 2px 0 2px 10px;
+  border-left: 2px solid var(--border);
+  margin-left: 4px;
+  line-height: 1.4;
+}
+
 .status-chips {
   display: flex;
   gap: 10px;
@@ -638,12 +896,29 @@ header {
 }
 .alert-item:hover { background: var(--bg-hover); }
 .alert-item:last-child { border-bottom: none; }
+
+/* ── PnL + Alerts 并排 ── */
+.pnl-alert-row {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+.pnl-alert-panel {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  .pnl-alert-row {
+    flex-direction: column;
+  }
+}
 .alert-time {
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 0.7rem;
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 150px;
   padding-top: 1px;
 }
 .alert-msg {
@@ -978,6 +1253,38 @@ header {
 .pm2-status-online { color: var(--green); font-weight: 600; }
 .pm2-status-offline { color: var(--red); font-weight: 600; }
 
+.sys-file-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  transition: var(--transition);
+}
+.sys-file-card:hover { border-color: var(--border-light); }
+
+/* ── 时间范围按钮（全局统一） ── */
+.sh-range-btn {
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-family: inherit;
+  transition: var(--transition);
+}
+.sh-range-btn:hover {
+  border-color: var(--border-light);
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+.sh-range-btn.active {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
 .health-content {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1196,25 +1503,30 @@ header {
   <div class="header-inner">
     <div class="logo">
       <span class="dot" id="engine-dot"></span>
-      <span class="title-text">📈 七月 BTC 监控</span>
+      <span class="title-text">七月-V0.1.1 Agent量化平台</span>
     </div>
     <div class="refresh-info" id="refresh-info">
-      <button class="stage2-toggle" id="stage2-toggle" title="切换山寨币阶段二分析版本">
-        <span>阶段二</span>
-        <span class="badge" id="stage2-badge">正常</span>
-      </button>
+      <div class="refresh-left">
+        <span class="last-refresh-label">最后刷新</span>
+        <span class="last-refresh-time" id="last-refresh-time">--:--:--</span>
+      </div>
       <div class="clock-wrapper">
         <div class="clock" id="header-clock">--:--:--</div>
         <div class="clock-label" id="clock-date">----年--月--日 周-</div>
       </div>
       <button class="updates-toggle" id="updates-toggle" title="数据刷新状态">⏱</button>
       <div class="updates" id="header-updates"></div>
+      <div class="refresh-actions">
+        <button class="refresh-btn" id="refresh-btn" title="刷新当前页面">🔄</button>
+        <button class="btn btn-sm btn-accent" id="refresh-all-btn" title="一键刷新所有数据">一键刷新</button>
+      </div>
     </div>
   </div>
   <div class="nav-tabs" id="nav-tabs">
     <button class="nav-tab active" data-tab="overview">总览</button>
     <button class="nav-tab" data-tab="archived">归档</button>
-    <button class="nav-tab" data-tab="cron">Cron</button>
+    <button class="nav-tab" data-tab="cron">系统任务</button>
+    <button class="nav-tab" data-tab="settings">设置</button>
     <button class="nav-tab" data-tab="system">系统</button>
   </div>
 </header>
@@ -1255,8 +1567,11 @@ header {
     </div>
   </div>
 
+  <!-- PnL + Alerts row (desktop side-by-side, mobile stacked) -->
+  <div class="pnl-alert-row">
+
   <!-- PnL Chart -->
-  <div class="info-panel" style="margin-bottom:18px;">
+  <div class="info-panel pnl-alert-panel">
     <div class="info-panel-header">
       📊 已实现盈亏趋势
       <div style="margin-left:auto;display:flex;gap:4px;">
@@ -1271,20 +1586,35 @@ header {
   </div>
 
   <!-- Alerts -->
-  <div class="info-panel" style="margin-bottom:18px;">
-    <div class="info-panel-header">🔔 近 6h 警报 <span style="font-weight:400;color:var(--text-muted)" id="alert-count"></span></div>
-    <div class="info-panel-body alert-scroll" id="recent-alerts" style="max-height:120px;"></div>
+  <div class="info-panel pnl-alert-panel">
+    <div class="info-panel-header">🔔 近 24h 警报 <span style="font-weight:400;color:var(--text-muted)" id="alert-count"></span></div>
+    <div class="info-panel-body alert-scroll" id="recent-alerts" style="max-height:228px;"></div>
+    <input type="text" class="td-search-bar" id="alert-search" placeholder="搜索警报规则..." oninput="filterAlerts()" style="display:none;">
   </div>
+
+  </div><!-- /pnl-alert-row -->
 
   <!-- Price Alert Visualization -->
   <div class="info-panel" style="margin-bottom:18px;" id="price-vis-panel">
     <div class="info-panel-header">
       📊 价格柱监控
-      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="price-vis-status"></span>
+      <input type="text" id="price-vis-search" class="price-vis-search" placeholder="输入币种搜索..." oninput="filterPriceVis()" autocomplete="off" spellcheck="false">
       <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="price-vis-info"></span>
     </div>
     <div class="price-vis-body" id="price-vis-body"></div>
   </div>
+
+  <!-- Trade Decision Cards -->
+  <div class="info-panel" style="margin-bottom:18px;" id="trade-decision-panel">
+    <div class="info-panel-header">
+      📋 开仓决策
+      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="td-status"></span>
+      <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="td-info"></span>
+    </div>
+    <input type="text" class="td-search-bar" id="td-search" placeholder="搜索币种..." oninput="filterTradeDecisions()" style="display:none;">
+    <div class="td-card-list" id="td-card-list"></div>
+  </div>
+
 
   <!-- Divider -->
   <div class="section-divider">
@@ -1369,26 +1699,289 @@ header {
       <span style="color:var(--text-muted)">加载中...</span>
     </div>
   </div>
+
+  <!-- ── 执行历史 ── -->
+  <div class="info-panel" style="margin-bottom:14px">
+    <div class="info-panel-header">
+      📜 执行历史
+      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;">（已完成的任务）</span>
+      <button class="btn btn-sm btn-accent" onclick="loadCronHistory()" style="margin-left:auto">🔄 刷新</button>
+    </div>
+    <div class="table-scroll" style="padding:0;max-height:320px;">
+      <table class="rule-table" id="cron-hist-table">
+        <thead><tr>
+          <th>时间</th><th>任务名</th><th>耗时</th><th>状态</th><th>模型</th><th>摘要</th>
+        </tr></thead>
+        <tbody id="cron-hist-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ TAB: SETTINGS ═══════════════ -->
+<div class="tab-content" id="tab-settings">
+
+  <!-- ── 阶段二模式 ── -->
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">🧪 阶段二分析模式</div>
+    <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;">
+      <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">当前模式</label>
+      <select id="setting-stage2-mode" onchange="saveSettingStage2()" style="flex:1;max-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
+        <option value="normal">正常版</option>
+        <option value="aggressive">激进版</option>
+      </select>
+      <span style="font-size:0.7rem;color:var(--text-muted);" id="setting-stage2-saved"></span>
+    </div>
+  </div>
+
+  <!-- ── 扫描上限 ── -->
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">🔍 扫描器配置</div>
+    <div style="padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">活跃周期上限</label>
+        <span style="font-size:0.75rem;color:var(--text-muted);background:var(--bg-card);padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);" id="setting-scanner-current">—</span>
+        <span style="color:var(--text-muted);">→</span>
+        <input type="number" id="setting-scanner-limit" value="45" min="5" max="200" style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
+        <button class="btn btn-sm btn-accent" onclick="saveSettingScannerLimit()">确认修改</button>
+        <span style="font-size:0.75rem;" id="setting-scanner-saved"></span>
+      </div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">超过此数量时扫描器将跳过新增币种，等待现有周期归档后释放空间</div>
+    </div>
+  </div>
+
+  <!-- ── 背景图片 ── -->
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">🖼 背景图片</div>
+    <div style="padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="font-size:0.75rem;color:var(--text-muted);" id="setting-bg-current">当前: —</span>
+        <input type="file" id="setting-bg-file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" onchange="uploadBackground()" style="display:none;">
+        <button class="btn btn-sm btn-accent" onclick="document.getElementById('setting-bg-file').click()">选择图片</button>
+        <button class="btn btn-sm btn-ghost" onclick="resetBackground()">恢复默认</button>
+        <span style="font-size:0.75rem;" id="setting-bg-saved"></span>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ═══════════════ TAB: SYSTEM ═══════════════ -->
 <div class="tab-content" id="tab-system">
+
+  <!-- ── PM2 ── -->
   <div class="info-panel" style="margin-bottom:16px">
     <div class="info-panel-header">⚙️ PM2 进程</div>
     <div class="pm2-grid" id="pm2-grid" style="padding: 12px;"></div>
   </div>
+
+  <!-- ── 周期创建时间线图表 ── -->
   <div class="info-panel" style="margin-bottom:16px">
-    <div class="info-panel-header">📋 系统信息</div>
-    <div class="info-panel-body" id="sys-info" style="padding: 14px 18px;"></div>
+    <div class="info-panel-header">📈 周期创建时间线</div>
+    <div style="padding:8px;" id="sys-timeline-container">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px;font-size:0.72rem;flex-wrap:wrap;">
+        <span class="legend-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);"></span><span style="color:var(--text-muted)">活跃</span>
+        <span class="legend-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--text-muted);"></span><span style="color:var(--text-muted)">归档</span>
+        <span class="legend-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);"></span><span style="color:var(--text-muted)">总计</span>
+        <button class="sh-range-btn active" data-tl-range="1H">日内</button>
+        <button class="sh-range-btn" data-tl-range="7D">7天</button>
+        <button class="sh-range-btn" data-tl-range="14D">14天</button>
+        <button class="sh-range-btn" data-tl-range="ALL">全部</button>
+      </div>
+      <div id="sys-cycle-chart-wrap" style="position:relative;">
+        <canvas id="sys-cycle-chart" style="width:100%;height:200px;"></canvas>
+        <div id="sys-tl-tooltip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity 0.1s;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;padding:6px 10px;font-size:0.7rem;font-family:var(--font-mono);white-space:nowrap;z-index:50;box-shadow:var(--shadow-lg);"></div>
+      </div>
+    </div>
   </div>
+
+  <!-- ── Cron 耗时箱线图 ── -->
   <div class="info-panel" style="margin-bottom:16px">
-    <div class="info-panel-header">🩺 最新健康报告</div>
-    <div class="health-content" id="health-report"></div>
+    <div class="info-panel-header">📊 任务耗时分布</div>
+    <div style="padding:8px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;font-size:0.7rem;flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:rgba(52,211,153,0.6);"></span> 分析任务</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:rgba(90,95,117,0.5);"></span> 其他</span>
+        <span style="flex:1;"></span>
+        <span id="bp-model-btns" style="display:flex;gap:4px;flex-wrap:wrap;"></span>
+        <span style="display:flex;gap:4px;margin-left:4px;">
+          <button class="sh-range-btn active" data-bp-range="24h">24小时</button>
+          <button class="sh-range-btn" data-bp-range="7d">7天</button>
+        </span>
+      </div>
+      <div style="position:relative;">
+        <canvas id="boxplot-canvas" style="width:100%;height:260px;"></canvas>
+        <canvas id="boxplot-bars" style="width:100%;height:60px;margin-top:2px;"></canvas>
+        <div id="boxplot-loading" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:var(--bg-card);border-radius:8px;z-index:10;"><span class="loading-spinner" style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.6s linear infinite;"></span></div>
+        <div id="boxplot-tooltip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity 0.1s;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;padding:6px 10px;font-size:0.7rem;font-family:var(--font-mono);white-space:nowrap;z-index:50;box-shadow:var(--shadow-lg);"></div>
+      </div>
+    </div>
   </div>
-  <div class="info-panel">
-    <div class="info-panel-header">📜 操作日志 (actions.log)</div>
-    <div class="log-viewer" id="actions-log"></div>
+
+  <!-- Self-Healing System Visualization -->
+  <div class="info-panel" style="margin-bottom:18px;" id="selfheal-panel">
+    <div class="info-panel-header">
+      🔧 自愈系统
+      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="sh-status"></span>
+      <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);cursor:pointer;" onclick="loadSelfHeal()" title="刷新">🔄</span>
+    </div>
+    <!-- 统计卡片 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;padding:10px 14px 6px;" id="sh-stats">
+      <div class="hero-card" style="padding:8px 10px;">
+        <div class="label" style="font-size:0.62rem;">A/B类修复</div>
+        <div class="value accent" style="font-size:1.1rem;" id="sh-fix-count">--</div>
+        <div class="sub" id="sh-fix-sub" style="font-size:0.58rem;"></div>
+      </div>
+      <div class="hero-card" style="padding:8px 10px;">
+        <div class="label" style="font-size:0.62rem;">C类间隔翻倍</div>
+        <div class="value accent" style="font-size:1.1rem;" id="sh-interval-count">--</div>
+        <div class="sub" id="sh-interval-sub" style="font-size:0.58rem;"></div>
+      </div>
+      <div class="hero-card" style="padding:8px 10px;">
+        <div class="label" style="font-size:0.62rem;">已恢复</div>
+        <div class="value green" style="font-size:1.1rem;" id="sh-restored-count">--</div>
+        <div class="sub" id="sh-restored-sub" style="font-size:0.58rem;"></div>
+      </div>
+      <div class="hero-card" style="padding:8px 10px;">
+        <div class="label" style="font-size:0.62rem;">规则归档</div>
+        <div class="value accent" style="font-size:1.1rem;" id="sh-archive-count">--</div>
+        <div class="sub" id="sh-archive-sub" style="font-size:0.58rem;"></div>
+      </div>
+      <div class="hero-card" style="padding:8px 10px;">
+        <div class="label" style="font-size:0.62rem;">币种诊断</div>
+        <div class="value accent" style="font-size:1.1rem;" id="sh-diag-count">--</div>
+        <div class="sub" id="sh-diag-sub" style="font-size:0.58rem;"></div>
+      </div>
+    </div>
+       <!-- 逐日趋势图 -->
+    <div style="padding:4px 14px 6px;display:none;" id="sh-chart-wrap">
+      <!-- 图例 -->
+      <div style="display:flex;align-items:center;gap:14px;padding:2px 4px 6px;font-size:0.65rem;color:var(--text-secondary);flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(52,211,153,0.6);display:inline-block;"></span> 修复</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(251,191,36,0.6);display:inline-block;"></span> 间隔调整</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(125,211,252,0.6);display:inline-block;"></span> 已恢复</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(248,113,113,0.6);display:inline-block;"></span> 归档</span>
+        <span style="flex:1;"></span>
+        <!-- 统一时间范围按钮（同时控制两张图） -->
+        <span class="sh-range-pills" style="display:flex;gap:4px;">
+          <button class="sh-range-btn" data-range="3h">3小时</button>
+          <button class="sh-range-btn active" data-range="24h">24小时</button>
+          <button class="sh-range-btn" data-range="7d">7天</button>
+          <button class="sh-range-btn" data-range="all">全部</button>
+        </span>
+      </div>
+      <div style="position:relative;">
+        <canvas id="sh-chart" height="80" style="width:100%;display:block;"></canvas>
+        <div id="sh-tooltip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity 0.1s;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;padding:6px 10px;font-size:0.7rem;font-family:var(--font-mono);white-space:nowrap;z-index:50;box-shadow:var(--shadow-lg);"></div>
+      </div>
+    </div>
+
+    <!-- 第二张图: 警报引擎活动（含统计卡片） -->
+    <div id="aa-section" style="display:none;">
+      <!-- 统计卡片（4个紧凑卡片） -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;padding:2px 14px 4px;">
+        <div class="hero-card" style="padding:4px 8px;">
+          <div class="label" style="font-size:0.55rem;">检查</div>
+          <div class="value accent" style="font-size:0.95rem;" id="aa-checks">--</div>
+          <div class="sub" id="aa-checks-sub" style="font-size:0.55rem;"></div>
+        </div>
+        <div class="hero-card" style="padding:4px 8px;">
+          <div class="label" style="font-size:0.55rem;">触发</div>
+          <div class="value green" style="font-size:0.95rem;" id="aa-triggers">--</div>
+          <div class="sub" id="aa-triggers-sub" style="font-size:0.55rem;"></div>
+        </div>
+        <div class="hero-card" style="padding:4px 8px;">
+          <div class="label" style="font-size:0.55rem;">调整</div>
+          <div class="value" style="font-size:0.95rem;color:#fbbf24;" id="aa-adjust">--</div>
+          <div class="sub" id="aa-adjust-sub" style="font-size:0.55rem;"></div>
+        </div>
+        <div class="hero-card" style="padding:4px 8px;">
+          <div class="label" style="font-size:0.55rem;">恢复</div>
+          <div class="value" style="font-size:0.95rem;color:#7dd3fc;" id="aa-restore">--</div>
+          <div class="sub" id="aa-restore-sub" style="font-size:0.55rem;"></div>
+        </div>
+      </div>
+      <!-- 图例 + 图表 -->
+      <div style="padding:2px 14px 6px;" id="aa-chart-wrap">
+        <div style="display:flex;align-items:center;gap:10px;padding:2px 4px 4px;font-size:0.6rem;color:var(--text-secondary);flex-wrap:wrap;">
+          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent);display:inline-block;"></span> 检查</span>
+          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--green);display:inline-block;"></span> 触发</span>
+          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#fbbf24;display:inline-block;"></span> 调整</span>
+          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#7dd3fc;display:inline-block;"></span> 恢复</span>
+        </div>
+        <div style="position:relative;">
+          <canvas id="aa-chart" height="80" style="width:100%;display:block;"></canvas>
+          <div id="aa-tooltip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity 0.1s;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;padding:6px 10px;font-size:0.7rem;font-family:var(--font-mono);white-space:nowrap;z-index:50;box-shadow:var(--shadow-lg);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- A/B类修复列表 -->
+    <div class="collapsible-section">
+      <div class="collapsible-header" onclick="toggleSHCollapsible(this, 'fix')">
+        <span class="arrow">▶</span> A/B 类修复日志
+        <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="sh-fix-header-label"></span>
+      </div>
+      <div class="collapsible-body" id="sh-fix-body">
+        <div class="empty-state" style="padding:14px;"><div class="icon">🔧</div>加载中...</div>
+      </div>
+    </div>
+    <!-- C类间隔翻倍列表 -->
+    <div class="collapsible-section">
+      <div class="collapsible-header" onclick="toggleSHCollapsible(this, 'interval')">
+        <span class="arrow">▶</span> C 类间隔调整
+        <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="sh-interval-header-label"></span>
+      </div>
+      <div class="collapsible-body" id="sh-interval-body">
+        <div class="empty-state" style="padding:14px;"><div class="icon">⏱</div>加载中...</div>
+      </div>
+    </div>
+    <!-- 规则恢复列表 -->
+    <div class="collapsible-section">
+      <div class="collapsible-header" onclick="toggleSHCollapsible(this, 'restore')">
+        <span class="arrow">▶</span> 间隔恢复记录
+        <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="sh-restore-header-label"></span>
+      </div>
+      <div class="collapsible-body" id="sh-restore-body">
+        <div class="empty-state" style="padding:14px;"><div class="icon">🔄</div>加载中...</div>
+      </div>
+    </div>
+    <!-- 币种诊断 -->
+    <div class="collapsible-section">
+      <div class="collapsible-header" onclick="toggleSHCollapsible(this, 'diag')">
+        <span class="arrow">▶</span> 币种诊断
+        <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="sh-diag-header-label"></span>
+      </div>
+      <div class="collapsible-body" id="sh-diag-body">
+        <div class="empty-state" style="padding:14px;"><div class="icon">💊</div>加载中...</div>
+      </div>
+    </div>
   </div>
+
+
+  <!-- ── 资源概览 ── -->
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">📂 资源概览 <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:8px;" id="sys-disk-mini"></span></div>
+    <div class="info-panel-body" id="sys-files" style="padding: 10px 16px 14px;"></div>
+  </div>
+
+  <!-- ── 健康报告（含操作日志折叠） ── -->
+  <div class="info-panel" style="margin-bottom:16px">
+    <div class="info-panel-header">🩺 健康报告</div>
+    <div class="info-panel-body">
+      <div id="health-report-list" style="max-height:200px;overflow-y:auto;padding:6px 14px;"></div>
+      <div class="collapsible-section" style="border-top:1px solid var(--border);">
+        <div class="collapsible-header" onclick="toggleHealthLog(this)" style="padding:8px 14px;font-size:0.72rem;">
+          <span class="arrow">▶</span> 📜 操作日志
+          <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="actions-log-count"></span>
+        </div>
+        <div class="collapsible-body" id="health-actions-log" style="max-height:220px;overflow-y:auto;">
+          <div class="log-viewer" id="actions-log" style="max-height:none;font-size:0.7rem;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 </div><!-- /app-container -->
 
@@ -1451,13 +2044,79 @@ let sortDesc = true;
 let analysisJobs = {};
 let analysisPollTimer = null;
 
+// ── UI state snapshot/restore (prevents refresh from collapsing expanded views) ──
+function snapshotUIState() {
+  const openLogs = [];
+  document.querySelectorAll('.rule-log-viewer.open').forEach(v => {
+    const file = v.id.replace('log-view-', '');
+    openLogs.push(file);
+  });
+  const expandedTdGroups = [];
+  document.querySelectorAll('.td-group-body').forEach(b => {
+    if (b.style.display !== 'none') {
+      const coin = b.closest('.td-group')?.dataset.coin;
+      if (coin) expandedTdGroups.push(coin);
+    }
+  });
+  return {
+    expandedCycles: { ...expandedCycles },
+    openRuleLogs: openLogs,
+    expandedTdGroups,
+    expandedTdIdx,
+    expandedPriceVisCoin,
+    alertSearchVal: document.getElementById('alert-search')?.value || '',
+    tdSearchVal: document.getElementById('td-search')?.value || '',
+  };
+}
+
+async function restoreUIState(state) {
+  if (!state) return;
+  // 1. 恢复周期展开状态（日志恢复由 loadCycleRules 在渲染完成后自动处理）
+  const detailCycles = Object.keys(state.expandedCycles);
+  if (detailCycles.length > 0) {
+    await new Promise(r => setTimeout(r, 50));
+    for (const cycleId of detailCycles) {
+      const card = document.querySelector(`.cycle-card[data-cycle="${cycleId}"]`);
+      if (!card) continue;
+      card.classList.add('expanded');
+      expandedCycles[cycleId] = state.expandedCycles[cycleId];
+      renderDetailRow(cycleId);
+    }
+  }
+  // 2. 恢复开仓决策展开
+  if (state.expandedTdGroups?.length) {
+    await new Promise(r => setTimeout(r, 100));
+    for (const coin of state.expandedTdGroups) {
+      const body = document.getElementById(`td-group-body-${coin}`);
+      if (body) { body.style.display = 'block'; body.previousElementSibling?.classList.add('expanded'); }
+    }
+  }
+  if (state.expandedTdIdx != null) {
+    expandedTdIdx = state.expandedTdIdx;
+    setTimeout(() => {
+      const card = document.querySelector(`.td-card[data-idx="${state.expandedTdIdx}"]`);
+      if (card) { card.classList.add('expanded'); const d = card.querySelector('.td-card-detail'); if (d) d.style.display = 'block'; }
+    }, 150);
+  }
+  // 3. 恢复搜索框
+  const alertSearch = document.getElementById('alert-search');
+  if (alertSearch) alertSearch.value = state.alertSearchVal || '';
+  const tdSearch = document.getElementById('td-search');
+  if (tdSearch) tdSearch.value = state.tdSearchVal || '';
+  // 4. 恢复价格柱展开
+  if (state.expandedPriceVisCoin) {
+    expandedPriceVisCoin = state.expandedPriceVisCoin;
+  }
+}
+
 function switchTab(name) {
   activeTab = name;
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${name}`));
   if (name === 'overview') refreshOverview();
   else if (name === 'archived') loadArchivedCycles();
-  else if (name === 'cron') loadCronJobs();
+  else if (name === 'cron') { loadCronJobs(); loadCronHistory(); }
+  else if (name === 'settings') loadSettings();
   else if (name === 'system') loadSystem();
 }
 
@@ -1487,52 +2146,151 @@ document.addEventListener('click', e => {
   }
 });
 
-// ── Stage2 模式切换按钮 ────────────────────────────
-document.getElementById('stage2-toggle')?.addEventListener('click', async () => {
-  const btn = document.getElementById('stage2-toggle');
-  const badge = document.getElementById('stage2-badge');
-  if (!btn || !badge) return;
-  btn.disabled = true;
-  btn.style.opacity = '0.5';
+// ── 设置页：阶段二模式 ────────────────────────────
+async function saveSettingStage2() {
+  const sel = document.getElementById('setting-stage2-mode');
+  const saved = document.getElementById('setting-stage2-saved');
+  if (!sel || !saved) return;
   try {
-    // 先获取当前状态
-    const statusRes = await fetch('/api/stage2-mode');
-    const status = await statusRes.json();
-    const newMode = status.mode === 'normal' ? 'aggressive' : 'normal';
     const res = await fetch('/api/stage2-mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: newMode })
+      body: JSON.stringify({ mode: sel.value })
     });
     const data = await res.json();
     if (data.ok) {
-      badge.textContent = data.mode === 'aggressive' ? '激进' : '正常';
-      badge.className = 'badge ' + data.mode;
-      showToast(`阶段二已切换为 ${data.mode === 'aggressive' ? '激进版' : '正常版'}`);
+      saved.textContent = '已保存';
+      setTimeout(() => { saved.textContent = ''; }, 2000);
     } else {
-      showToast('切换失败: ' + (data.error || '未知错误'), 'error');
+      saved.textContent = '失败';
     }
   } catch(e) {
-    showToast('请求失败: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.style.opacity = '1';
+    saved.textContent = '错误';
   }
-});
+}
 
-// 页面加载时读取当前 Stage2 模式
-fetch('/api/stage2-mode').then(r => r.json()).then(data => {
-  const badge = document.getElementById('stage2-badge');
-  if (badge) {
-    badge.textContent = data.mode === 'aggressive' ? '激进' : '正常';
-    badge.className = 'badge ' + data.mode;
+async function saveSettingScannerLimit() {
+  const inp = document.getElementById('setting-scanner-limit');
+  const current = document.getElementById('setting-scanner-current');
+  const saved = document.getElementById('setting-scanner-saved');
+  if (!inp || !saved) return;
+  const v = parseInt(inp.value);
+  if (isNaN(v) || v < 1) { saved.textContent = '请输入有效数字'; saved.style.color = 'var(--red)'; return; }
+  try {
+    const res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scannerLimit: v })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (current) current.textContent = v;
+      saved.textContent = '✅ 已修改';
+      saved.style.color = 'var(--green)';
+      setTimeout(() => { saved.textContent = ''; }, 3000);
+    } else {
+      saved.textContent = '❌ 保存失败';
+      saved.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    saved.textContent = '❌ 请求错误';
+    saved.style.color = 'var(--red)';
   }
-}).catch(() => {});
+}
+
+// 切换到设置页时加载当前值
+function applyBackground(src) {
+  const isVideo = /\.(mp4|webm)$/i.test(src);
+  let el = document.getElementById('bg-video');
+  if (isVideo) {
+    if (!el) {
+      el = document.createElement('video');
+      el.id = 'bg-video';
+      el.autoplay = true;
+      el.muted = true;
+      el.loop = true;
+      el.playsInline = true;
+      el.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;';
+      document.body.prepend(el);
+    }
+    el.src = src + '?t=' + Date.now();
+    el.style.display = 'block';
+    document.body.style.backgroundImage = 'none';
+  } else {
+    if (el) { el.style.display = 'none'; el.src = ''; }
+    document.body.style.backgroundImage = 'url(' + src + '?t=' + Date.now() + ')';
+  }
+}
+
+function loadSettings() {
+  fetch('/api/stage2-mode').then(r => r.json()).then(data => {
+    const sel = document.getElementById('setting-stage2-mode');
+    if (sel) sel.value = data.mode || 'normal';
+  }).catch(() => {});
+
+  fetch('/api/settings').then(r => r.json()).then(data => {
+    const inp = document.getElementById('setting-scanner-limit');
+    const current = document.getElementById('setting-scanner-current');
+    if (inp && data.scannerLimit) inp.value = data.scannerLimit;
+    if (current && data.scannerLimit) current.textContent = data.scannerLimit;
+    const bg = data.backgroundImage || '/images/1.png';
+    applyBackground(bg);
+    const bgInfo = document.getElementById('setting-bg-current');
+    if (bgInfo) bgInfo.textContent = '当前: ' + bg.replace('/images/', '');
+  }).catch(() => {});
+}
+
+async function uploadBackground() {
+  const file = document.getElementById('setting-bg-file')?.files?.[0];
+  const saved = document.getElementById('setting-bg-saved');
+  if (!file || !saved) return;
+  const form = new FormData();
+  form.append('image', file);
+  try {
+    const res = await fetch('/api/settings/background', { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.ok) {
+      applyBackground(data.path);
+      const bgInfo = document.getElementById('setting-bg-current');
+      if (bgInfo) bgInfo.textContent = '当前: ' + data.path.replace('/images/', '');
+      saved.textContent = '✅ 已更新';
+      saved.style.color = 'var(--green)';
+      setTimeout(() => { saved.textContent = ''; }, 3000);
+    } else {
+      saved.textContent = '❌ ' + (data.error || '上传失败');
+      saved.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    saved.textContent = '❌ 请求错误';
+    saved.style.color = 'var(--red)';
+  }
+}
+
+async function resetBackground() {
+  const saved = document.getElementById('setting-bg-saved');
+  if (!saved) return;
+  try {
+    const res = await fetch('/api/settings/background', { method: 'DELETE' });
+    const data = await res.json();
+    if (data.ok) {
+      applyBackground('/images/1.png');
+      const bgInfo = document.getElementById('setting-bg-current');
+      if (bgInfo) bgInfo.textContent = '当前: 1.png';
+      saved.textContent = '✅ 已恢复默认';
+      saved.style.color = 'var(--green)';
+      setTimeout(() => { saved.textContent = ''; }, 3000);
+    }
+  } catch(e) {
+    saved.textContent = '❌ 请求错误';
+    saved.style.color = 'var(--red)';
+  }
+}
 
 function setRefreshTime(key) {
   const now = new Date();
   if (key) refreshTimes[key] = now;
   lastRefresh = now;
+  updateLastRefreshTime();
   renderRefreshInfo();
 }
 
@@ -1593,6 +2351,9 @@ async function refreshOverview() {
       API.get('/api/cycles')
     ]);
 
+    // ★ Snapshot UI state before any DOM changes
+    const uiState = snapshotUIState();
+
     // ── Engine dot ──
     const dot = document.getElementById('engine-dot');
     dot.className = 'dot' + (dash.engineStatus !== 'online' ? ' offline' : '');
@@ -1613,23 +2374,40 @@ async function refreshOverview() {
 
     // ── Recent alerts ──
     const alertsEl = document.getElementById('recent-alerts');
+    const alertSearch = document.getElementById('alert-search');
     document.getElementById('alert-count').textContent = dash.recentAlerts.length ? `(${dash.recentAlerts.length})` : '';
+    cachedAlerts = dash.recentAlerts;
     if (dash.recentAlerts.length === 0) {
-      alertsEl.innerHTML = '<div style="padding:20px 18px;text-align:center;color:var(--text-muted);font-size:0.82rem;">🔕 近 6 小时无触发警报</div>';
+      alertsEl.innerHTML = '<div style="padding:20px 18px;text-align:center;color:var(--text-muted);font-size:0.82rem;">🔕 近 24 小时无触发警报</div>';
+      alertSearch.style.display = 'none';
     } else {
-      alertsEl.innerHTML = dash.recentAlerts.map(a => `
-        <div class="alert-item">
-          <span class="alert-time">${formatTime(a.time)}</span>
-          <span class="alert-msg">${escHtml(a.rule)}</span>
-        </div>`).join('');
+      alertSearch.style.display = 'block';
+      renderFilteredAlerts(dash.recentAlerts);
     }
 
     // ── Cycles ──
     cycleData = cyc.cycles;
+    // ★ 设置日志恢复映射（由 loadCycleRules 完成后自动恢复日志查看器）
+    window._pendingLogRestore = {};
+    for (const file of (uiState.openRuleLogs || [])) {
+      for (const cycleId of Object.keys(uiState.expandedCycles)) {
+        if (uiState.expandedCycles[cycleId] === 'rules') {
+          if (!window._pendingLogRestore[cycleId]) window._pendingLogRestore[cycleId] = [];
+          window._pendingLogRestore[cycleId].push(file);
+          break;
+        }
+      }
+    }
     renderCycleGrid(sortCycles(cyc.cycles));
 
     // ── Price Visualization ──
     loadPriceVisualization();
+
+    // ── Trade Decisions ──
+    loadTradeDecisions();
+
+    // ★ Restore UI state after DOM rebuild
+    restoreUIState(uiState);
 
     setRefreshTime('overview');
   } catch (e) {
@@ -1734,21 +2512,13 @@ function renderCycleGrid(cycles) {
       const silence = !Number.isFinite(sh) || sh >= 999 ? '从未' : (sh >= 24 ? `${Math.floor(sh/24)}d${Math.floor(sh%24)}h` : `${sh.toFixed(1)}h`);
       const silEl = card.querySelectorAll('.stat-val')[3];
       if (silEl && silEl.textContent !== silence) silEl.textContent = silence;
-      // 展开详情也顺便更新
+      // 更新展开 detail 中的 subtab 按钮文本（如规则数变了）
       const detailEl = document.getElementById(`detail-${c.cycleId}`);
       if (detailEl) {
-        const name = expandedCycles[c.cycleId];
-        if (name === 'rules') {
-          const rulesPanel = document.getElementById(`panel-${c.cycleId}-rules`);
-          if (rulesPanel) {
-            const badge = document.querySelector(`.cycle-subtab-btn[onclick*="rules"]`);
-            // 规则数变了 → 重新加载
-            if (rulesPanel.querySelector('.loading') === null) {
-              // 已加载内容，刷新
-              loadCycleRules(c.cycleId);
-            }
-          }
-        }
+        const rulesBtn = detailEl.querySelector('.cycle-subtab-btn[onclick*="rules"]');
+        if (rulesBtn) rulesBtn.textContent = `🔔 规则 (${c.activeRuleCount})`;
+        const reportsBtn = detailEl.querySelector('.cycle-subtab-btn[onclick*="reports"]');
+        if (reportsBtn) reportsBtn.textContent = `📝 报告 (${c.reportCount})`;
       }
     }
     return;
@@ -1985,6 +2755,17 @@ async function loadCycleRules(cycleId) {
   try {
     const data = await API.get(`/api/cycles/${cycleId}`);
     panel.innerHTML = renderRulesTable(data.rules || []);
+    // ★ 恢复之前打开的日志查看器
+    const pending = window._pendingLogRestore?.[cycleId];
+    if (pending?.length) {
+      for (const file of pending) {
+        const viewer = document.getElementById(`log-view-${file}`);
+        if (viewer) {
+          const btn = document.querySelector(`.rule-log-toggle[onclick*="${file}"]`);
+          if (btn) btn.click();
+        }
+      }
+    }
   } catch (e) {
     panel.innerHTML = `<div class="error-msg">${e.message}</div>`;
   }
@@ -2004,9 +2785,9 @@ function renderRulesTable(rules) {
     return 0;
   });
   return `<div class="table-scroll"><table class="rule-table">
-    <thead><tr><th>规则名</th><th>类型</th><th>状态</th><th>创建时间</th><th>最后检查</th><th>来源</th><th>日志</th></tr></thead>
+    <thead><tr><th>规则名</th><th>类型</th><th>状态</th><th>创建时间</th><th>最后检查</th><th>来源</th><th>日志</th><th>操作</th></tr></thead>
     <tbody>${sorted.map(r => `
-      <tr>
+      <tr data-rule-file="${escAttr(r.file)}">
         <td>${r.name||r.file}</td>
         <td>${r.ruleType||'-'}</td>
         <td class="${r.status==='active'?'rule-status-active':'rule-status-archived'}">${r.status==='active'?'● 活跃':'○ 归档'}</td>
@@ -2014,8 +2795,9 @@ function renderRulesTable(rules) {
         <td>${formatTime(r.lastCheckedAt)}</td>
         <td>${r.createdBy||'-'}</td>
         <td><span class="rule-log-toggle" onclick="loadRuleLogs('${escAttr(r.file)}','${escAttr(r.name||'')}', event)">📜 查看</span></td>
+        <td>${r.status === 'active' ? `<button class="btn btn-sm btn-danger" style="font-size:0.6rem;padding:1px 5px;" onclick="archiveRuleConfirm('${escAttr(r.file)}','${escAttr(r.name||r.file)}')">📦 归档</button>` : '<span style="font-size:0.6rem;color:var(--text-muted);">已归档</span>'}</td>
       </tr>
-      <tr id="log-row-${r.file}" style="display:none;"><td colspan="7">
+      <tr id="log-row-${r.file}" style="display:none;"><td colspan="8">
         <div class="rule-log-viewer" id="log-view-${r.file}"></div>
       </td></tr>`).join('')}
   </tbody></table></div>`;
@@ -2155,6 +2937,7 @@ function renderCycleLogs(cycleId, data) {
         <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 200)">200行</button>
         <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 500)">500行</button>
         <button class="btn btn-sm btn-ghost" onclick="loadCycleLogs('${cycleId}', 1000)">全量</button>
+        <button class="btn btn-sm btn-danger" style="font-size:0.65rem;padding:2px 8px;" onclick="deleteLogConfirm('${cycleId}')">🗑 清空</button>
       </div>
     </div>
     <div class="log-viewer" style="max-height:420px;font-size:0.7rem;line-height:1.5;">${renderLogEntries(data.entries)}</div>`;
@@ -2177,11 +2960,16 @@ function renderReportsPlaceholder(c) {
 
 function renderReportsList(reports) {
   if (reports.length === 0) return '<div class="empty-state"><div class="icon">📝</div>无报告</div>';
-  return reports.map(r => `
+  return reports.map(r => {
+    const filename = r.name;
+    const cycleId = r.path.match(/active\/([^/]+)\/reports/)?.[1] || r.path.match(/archived\/([^/]+)\/reports/)?.[1] || '';
+    return `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
-      <a class="report-link" style="cursor:pointer;" onclick="openReport('${escAttr(r.path)}','${escAttr(r.name)}')" title="点击查看报告">📄 ${r.name}</a>
-      <span style="font-size:0.7rem;color:var(--text-muted)">${formatTime(r.time)}</span>
-    </div>`).join('');
+      <a class="report-link" style="cursor:pointer;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" onclick="openReport('${escAttr(r.path)}','${escAttr(r.name)}')" title="点击查看报告">📄 ${r.name}</a>
+      <span style="font-size:0.7rem;color:var(--text-muted);margin:0 8px;white-space:nowrap;">${formatTime(r.time)}</span>
+      <button class="btn btn-sm btn-danger" style="font-size:0.6rem;padding:1px 5px;" onclick="deleteReportConfirm('${escAttr(cycleId)}','${escAttr(filename)}')">🗑 删除</button>
+    </div>`;
+  }).join('');
 }
 
 
@@ -2445,6 +3233,73 @@ async function deleteArchivedCycle(cycleId, coin) {
     }
   } catch (e) {
     alert(`删除失败: ${e.message}`);
+  }
+}
+
+// ── 规则归档 ──────────────────────────────────────
+function archiveRuleConfirm(file, name) {
+  if (!confirm(`确定归档规则「${name}」吗？\n\n规则文件将被移动到归档目录，引擎将自动卸载该规则。`)) return;
+  archiveRule(file, name);
+}
+
+async function archiveRule(file, name) {
+  try {
+    const data = await API.post('/api/rules/archive', { file });
+    if (data.success) {
+      // 从DOM中移除该规则行
+      const row = document.querySelector(`tr[data-rule-file="${file}"]`);
+      if (row) {
+        row.querySelector('.rule-status-active')?.classList.replace('rule-status-active', 'rule-status-archived');
+        const statusCell = row.querySelector('.rule-status-active') || row.querySelector('.rule-status-archived');
+        if (statusCell) statusCell.textContent = '○ 归档';
+        // 替换归档按钮
+        const actionCell = row.querySelector('td:last-child');
+        if (actionCell) actionCell.innerHTML = '<span style="font-size:0.6rem;color:var(--text-muted);">已归档</span>';
+      }
+    } else {
+      alert(`归档失败: ${data.error || JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    alert(`归档失败: ${e.message}`);
+  }
+}
+
+// ── 报告删除 ──────────────────────────────────────
+function deleteReportConfirm(cycleId, filename) {
+  if (!confirm(`确定删除报告「${filename}」吗？\n\n此操作不可恢复。`)) return;
+  deleteReport(cycleId, filename);
+}
+
+async function deleteReport(cycleId, filename) {
+  try {
+    const data = await API.del(`/api/reports/${cycleId}/${encodeURIComponent(filename)}`);
+    if (data.success) {
+      // 重新加载报告列表
+      loadCycleReports(cycleId);
+    } else {
+      alert(`删除失败: ${data.error || JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    alert(`删除失败: ${e.message}`);
+  }
+}
+
+// ── 日志清空 ──────────────────────────────────────
+function deleteLogConfirm(cycleId) {
+  if (!confirm(`确定清空该周期的进程日志吗？\n\n日志文件将被清空（文件保留），此操作不可恢复。`)) return;
+  deleteLog(cycleId);
+}
+
+async function deleteLog(cycleId) {
+  try {
+    const data = await API.del(`/api/cycles/${cycleId}/logs`);
+    if (data.success) {
+      loadCycleLogs(cycleId);
+    } else {
+      alert(`清空失败: ${data.error || JSON.stringify(data)}`);
+    }
+  } catch (e) {
+    alert(`清空失败: ${e.message}`);
   }
 }
 
@@ -2798,12 +3653,64 @@ async function deleteCronJob(id, name) {
   catch(e) { showToast(e.message, 'err'); }
 }
 
+/** Cron 执行历史（已完成的任务） */
+async function loadCronHistory() {
+  const tbody = document.getElementById('cron-hist-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px;">加载中...</td></tr>';
+  try {
+    const data = await API.get('/api/cron/history?limit=100');
+    const entries = data.entries || [];
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">暂无执行记录</td></tr>';
+      return;
+    }
+    tbody.innerHTML = entries.map(e => {
+      const ts = e.runAtMs ? new Date(e.runAtMs).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '-';
+      const dur = e.durationMs ? (e.durationMs>=60000 ? Math.round(e.durationMs/60000)+'m'+Math.round((e.durationMs%60000)/1000)+'s' : Math.round(e.durationMs/1000)+'s') : '-';
+      const statusColor = e.status==='ok'?'var(--green)':e.status==='error'?'var(--red)':'var(--text-muted)';
+      const summary = (e.summary||'').slice(0, 60);
+      const displayName = e.name || (e.jobId||'').slice(0, 8);
+      return `<tr>
+        <td style="white-space:nowrap;font-size:0.72rem;">${ts}</td>
+        <td style="font-size:0.68rem;font-family:var(--font-mono);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(displayName)}">${escHtml(displayName)}</td>
+        <td style="font-size:0.72rem;">${dur}</td>
+        <td style="font-size:0.72rem;color:${statusColor};">${e.status||'-'}</td>
+        <td style="font-size:0.65rem;color:var(--text-muted);">${escHtml(e.model||'-')}</td>
+        <td style="font-size:0.7rem;color:var(--text-secondary);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escHtml(e.summary||'')}">${escHtml(summary)}${(e.summary||'').length>60?'…':''}</td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--red);text-align:center;padding:12px;">加载失败: ${e.message}</td></tr>`;
+  }
+}
+
 // ═══════════════════════════════════════════════════
 //  TAB: SYSTEM
 // ═══════════════════════════════════════════════════
+// ── 系统页面缓存 ──
+let cachedSysCycleTimeline = null;
+let cachedSysCycleHourly = null;
+let sysTLRange = '1H';
+
 async function loadSystem() {
   try {
     const d = await API.get('/api/system');
+    cachedSysCycleTimeline = d.cycles?.timeline || [];
+    cachedSysCycleHourly = d.cycles?.hourly || [];
+
+    // ── 资源概览（统一 stats） ──
+    const fmtSign = v => v > 0 ? '+'+v : String(v);
+    const fmtDelta = v => `<span style="color:${v>0?'var(--green)':v<0?'#f87171':'var(--text-muted)'}">${fmtSign(v)}</span>`;
+
+    // 磁盘 → 缩放到 header
+    document.getElementById('sys-disk-mini').innerHTML = `💾 ${d.disk?.used ?? '-'}/${d.disk?.size ?? '-'} (${d.disk?.usePct ?? '-'})`;
+
+    // ── 周期时间线图表 ──
+    renderSysTimelineChart();
+    loadSelfHeal();
+
+    // ── PM2 ──
     document.getElementById('pm2-grid').innerHTML = d.pm2.map(p => {
       const statusClass = p.status === 'online' ? 'pm2-status-online' : 'pm2-status-offline';
       const uptime = p.uptime ? formatDuration(Date.now() - p.uptime) : '-';
@@ -2819,27 +3726,249 @@ async function loadSystem() {
       </div>`;
     }).join('') || '<div style="color:var(--text-muted);padding:8px;">无 PM2 进程数据</div>';
 
-    document.getElementById('sys-info').innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:0.78rem;">
-        <div><span style="color:var(--text-muted)">磁盘:</span> ${d.disk.used||'-'} / ${d.disk.size||'-'} (${d.disk.usePct||'-'})</div>
-        <div><span style="color:var(--text-muted)">活跃规则文件:</span> ${d.rules.active}</div>
-        <div><span style="color:var(--text-muted)">已归档规则文件:</span> ${d.rules.archived}</div>
-        <div><span style="color:var(--text-muted)">健康报告数:</span> ${d.healthReports.length}</div>
+    // ── 统一资源概览卡片 ──
+    const act = d.cycles?.active || {};
+    const arc = d.cycles?.archived || {};
+    const cyc = d.cycles || {};
+    const card = (icon, label, value, sub1, sub2) => `
+      <div class="sys-file-card" style="display:flex;flex-direction:column;gap:2px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:var(--text-muted);font-size:0.7rem;">${icon} ${label}</span>
+          <span style="font-weight:700;font-family:var(--font-mono);font-size:0.85rem;">${value}</span>
+        </div>
+        <div style="display:flex;gap:8px;font-size:0.6rem;color:var(--text-muted);">
+          <span>${sub1}</span>
+          ${sub2 ? '<span>'+sub2+'</span>' : ''}
+        </div>
+      </div>`;
+    document.getElementById('sys-files').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;">
+        ${card('📦','活跃周期', act.total ?? '-', `BTC ${act.btc??0} · 山寨 ${act.alt??0}`, `近24h ${fmtDelta(cyc.delta24hActive??0)} · 7日 ${fmtDelta(cyc.delta7dActive??0)}`)}
+        ${card('🗄️','归档周期', arc.total ?? '-', `BTC ${arc.btc??0} · 山寨 ${arc.alt??0}`, `近24h ${fmtDelta(cyc.delta24hArchived??0)} · 7日 ${fmtDelta(cyc.delta7dArchived??0)}`)}
+        ${card('📊','活跃规则', d.rules?.active ?? '-', `归档 ${d.rules?.archived ?? 0} 条`, `近24h ${fmtDelta(d.rules?.delta24h??0)} · 7日 ${fmtDelta(d.rules?.delta7d??0)}`)}
+        ${card('📝','日志文件', d.files?.logs ?? '-', `data/ ${d.files?.data ?? 0} · learnings/ ${d.files?.learnings ?? 0}`, `近24h ${fmtDelta(d.files?.delta24h??0)} · 7日 ${fmtDelta(d.files?.delta7d??0)}`)}
+        ${card('🏥','健康检查', d.healthReports?.length ?? '-', `actions.log ${d.actionsLog?.length ?? 0} 条`, `近24h ${fmtDelta(d.files?.healthDelta24h??0)} · 7日 ${fmtDelta(d.files?.healthDelta7d??0)}`)}
       </div>`;
 
-    if (d.healthSummary) {
-      document.getElementById('health-report').textContent = '加载中...';
-      const hd = await API.get(`/api/health/${d.healthSummary.date}`);
-      document.getElementById('health-report').textContent = hd.content || '无内容';
-    } else {
-      document.getElementById('health-report').textContent = '暂无健康报告';
-    }
+    // ── 健康报告列表 ──
+    _cachedHealthReports = d.healthReports || [];
+    renderHealthReportList();
 
-    document.getElementById('actions-log').textContent = d.actionsLog.join('\n') || '暂无操作日志';
+    // ── 操作日志（折叠内） ──
+    const logText = d.actionsLog?.join('\n') || '暂无操作日志';
+    document.getElementById('actions-log').textContent = logText;
+    document.getElementById('actions-log-count').textContent = `(${d.actionsLog?.length || 0} 条)`;
     setRefreshTime('system');
+    loadBoxplot();
   } catch (e) {
     document.getElementById('pm2-grid').innerHTML = `<div class="error-msg">${e.message}</div>`;
   }
+}
+
+/** 系统页面周期创建时间线图表（带动画） */
+let sysTLAnimProgress = 1;
+let sysTLAnimFrame = null;
+
+function renderSysTimelineChart() {
+  const data = cachedSysCycleTimeline;
+  const canvas = document.getElementById('sys-cycle-chart');
+  if (!canvas) return;
+  if (!data || data.length === 0) {
+    canvas.style.display = 'none';
+    return;
+  }
+  canvas.style.display = '';
+
+  // 按时间范围过滤
+  let filtered = data;
+  if (sysTLRange === '1H') {
+    const hourly = cachedSysCycleHourly;
+    if (hourly && hourly.length > 0) {
+      filtered = hourly.map(h => ({
+        date: h.hour + ':00',
+        active: h.active,
+        archived: h.archived,
+        total: h.total,
+      }));
+    } else {
+      filtered = [];
+    }
+  } else if (sysTLRange !== 'ALL') {
+    const days = parseInt(sysTLRange) || 14;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    filtered = data.filter(d => d.date >= cutoffStr);
+  }
+
+  if (filtered.length === 0) { filtered = [data[data.length - 1]]; }
+  if (filtered.length < 1) return;
+
+  // 启动动画
+  if (sysTLAnimFrame) cancelAnimationFrame(sysTLAnimFrame);
+  sysTLAnimProgress = 0;
+
+  function animLoop() {
+    sysTLAnimProgress = Math.min(1, sysTLAnimProgress + 0.06);
+    _drawSysTimelineChart(filtered, sysTLAnimProgress);
+    if (sysTLAnimProgress < 1) {
+      sysTLAnimFrame = requestAnimationFrame(animLoop);
+    } else {
+      sysTLAnimFrame = null;
+    }
+  }
+  animLoop();
+}
+
+function _drawSysTimelineChart(filtered, animProgress) {
+  const canvas = document.getElementById('sys-cycle-chart');
+  if (!canvas || !filtered || filtered.length < 1) return;
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = Math.max(rect.width, 300);
+  const H = 200;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { top: 20, bottom: 28, left: 40, right: 16 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  const maxVal = Math.max(1, ...filtered.map(d => d.total));
+
+  // ── Y 轴标签与网格（逐渐淡入） ──
+  ctx.globalAlpha = 0.3 + 0.7 * animProgress;
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#5a5f75';
+  const labelCount = 4;
+  for (let i = 0; i <= labelCount; i++) {
+    const y = pad.top + plotH - (plotH * i / labelCount);
+    const val = Math.round(maxVal * i / labelCount);
+    ctx.fillText(val, pad.left - 4, y);
+    ctx.strokeStyle = 'rgba(42,45,58,0.3)';
+    ctx.lineWidth = 0.4;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // ── 柱状图（从底部升起） ──
+  const barW = Math.max(2, Math.min(20, (plotW / filtered.length) - 2));
+  const gap = filtered.length > 1 ? Math.max(0, (plotW - barW * filtered.length) / (filtered.length - 1)) : 0;
+  const bottomY = pad.top + plotH;
+
+  for (let i = 0; i < filtered.length; i++) {
+    const d = filtered[i];
+    const x = pad.left + i * (barW + gap);
+    const fullHActive = (d.active / maxVal) * plotH;
+    const fullHArchived = (d.archived / maxVal) * plotH;
+    const fullHTotal = (d.total / maxVal) * plotH;
+    const curHArchived = fullHArchived * animProgress;
+    const curHActive = fullHActive * animProgress;
+
+    // 归档柱（底部 → 活跃柱叠加在上）
+    if (fullHArchived > 0) {
+      ctx.fillStyle = 'rgba(90,95,117,0.55)';
+      ctx.fillRect(x, bottomY - curHArchived, barW, curHArchived);
+    }
+    if (fullHActive > 0) {
+      ctx.fillStyle = 'rgba(52,211,153,0.7)';
+      ctx.fillRect(x, bottomY - (curHArchived + curHActive), barW, curHActive);
+    }
+  }
+
+  // ── X 轴标签（逐渐淡入） ──
+  ctx.fillStyle = '#5a5f75';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.globalAlpha = Math.min(1, animProgress * 2);
+  const step = Math.max(1, Math.floor(filtered.length / 12));
+  const isHourly = sysTLRange === '1H';
+  for (let i = 0; i < filtered.length; i += step) {
+    const d = filtered[i];
+    const label = isHourly ? d.date.slice(0, 2) + '时' : d.date.slice(5);
+    ctx.fillText(label, pad.left + i * (barW + gap) + barW / 2, bottomY + 6);
+  }
+  // 最后一个点补上
+  if (filtered.length > 1 && (filtered.length - 1) % step !== 0) {
+    const last = filtered[filtered.length - 1];
+    const label = isHourly ? last.date.slice(0, 2) + '时' : last.date.slice(5);
+    ctx.fillText(label, pad.left + (filtered.length - 1) * (barW + gap) + barW / 2, bottomY + 6);
+  }
+  ctx.globalAlpha = 1;
+
+  // ── 悬停提示（柱位置按完整高度计算） ──
+  const barPositions = filtered.map((d, i) => {
+    const x = pad.left + i * (barW + gap);
+    const fullH = (d.total / maxVal) * plotH;
+    return { i, d, x, w: barW, y: bottomY - fullH, h: fullH };
+  });
+
+  const tooltip = document.getElementById('sys-tl-tooltip');
+  if (!tooltip) return;
+
+  canvas.onmousemove = function(e) {
+    const cr = canvas.getBoundingClientRect();
+    const mx = e.clientX - cr.left;
+    const my = e.clientY - cr.top;
+
+    let hit = null;
+    for (const b of barPositions) {
+      if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+        hit = b;
+        break;
+      }
+    }
+
+    if (hit) {
+      const d = hit.d;
+      const timeLabel = isHourly ? d.date.slice(0, 2) + ':00' : d.date;
+      tooltip.innerHTML = '<strong>' + timeLabel + '</strong><br>' +
+        '🟢 活跃:' + (d.active || 0) + ' · ⬜ 归档:' + (d.archived || 0) + ' · 总计:' + (d.total || 0);
+      tooltip.style.opacity = '1';
+
+      let tx = mx + 12;
+      let ty = my - 8;
+      const tw = tooltip.offsetWidth;
+      if (tx + tw > cr.width - 4) {
+        tx = mx - tw - 8;
+      }
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top = ty + 'px';
+    } else {
+      tooltip.style.opacity = '0';
+    }
+  };
+
+  canvas.onmouseleave = function() {
+    tooltip.style.opacity = '0';
+  };
+}
+
+// 系统时间线范围切换
+// 监听容器（含按钮 + canvas），由 sh-range-btn 触发
+const sysTLContainer = document.getElementById('sys-timeline-container');
+if (sysTLContainer) {
+  sysTLContainer.addEventListener('click', e => {
+    const btn = e.target.closest('.sh-range-btn');
+    if (btn) {
+      sysTLRange = btn.dataset.tlRange;
+      sysTLContainer.querySelectorAll('.sh-range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSysTimelineChart();
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════
@@ -2856,6 +3985,31 @@ function formatTime(iso) {
   if (diffMs < 60000) return '刚刚';
   if (diffMs < 3600000) return `${Math.floor(diffMs/60000)}分钟前`;
   return `${Math.floor(diffMs/3600000)}小时前`;
+}
+
+// Absolute time: "05-23 15:04" format (short, no year)
+function formatTimeAbs(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}-${dd} ${hh}:${min}`;
+}
+
+// Relative time for non-ISO strings (e.g. "2026-05-23 14:30")
+function formatTimeRel(str) {
+  if (!str) return '';
+  const d = new Date(str.replace(' ', 'T') + ':00');
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const diffMs = now - d;
+  if (diffMs < 0) return '';
+  if (diffMs < 60000) return '刚刚';
+  if (diffMs < 3600000) return `${Math.floor(diffMs/60000)}分钟前`;
+  if (diffMs < 86400000) return `${Math.floor(diffMs/3600000)}小时前`;
+  return `${Math.floor(diffMs/86400000)}天前`;
 }
 
 function formatDuration(ms) {
@@ -2928,7 +4082,8 @@ async function loadLivePnl() {
 function startLivePnlTimer() {
   if (livePnlTimer) clearInterval(livePnlTimer);
   loadLivePnl();
-  livePnlTimer = setInterval(loadLivePnl, 120000); // 2 min
+  // 不再自动刷新，改为手动（通过 🔄 或 一键刷新 按钮）
+  // livePnlTimer = setInterval(loadLivePnl, 120000); // 2 min
 }
 
 // ── Realized PnL ──────────────────────────────────
@@ -3164,37 +4319,72 @@ function renderPnlChart(animProgress = 1) {
   ctx.fillText(`${lastVal >= 0 ? '+' : ''}${lastVal.toFixed(2)}`, lastX + (lastX > W / 2 ? -8 : 8), lastY - 8);
 }
 
-// ── Auto-refresh ───────────────────────────────────
-// 本地数据（周期、规则、警报等）30s 刷新；OKX 数据（实盘盈亏）2min 刷新
-setInterval(() => {
-  // 1. 刷新当前活跃 tab 的界面（用户可见）
-  if (activeTab === 'overview') {
-    refreshOverview();
-  } else if (activeTab === 'cron') {
-    loadCronJobs();
-  } else if (activeTab === 'system') {
-    loadSystem();
-  }
-}, 30000);
-
-// 2. 后台静默刷新所有非活跃 tab 的数据（90s 间隔，让更新指示器保持绿色）
-//    即使不切换到其他 tab，各数据源的 refreshTimes 也会持续更新
-setInterval(() => {
-  if (activeTab !== 'overview') {
-    fetch('/api/dashboard').then(() => setRefreshTime('overview')).catch(() => {});
-  }
-  if (activeTab !== 'cron') {
-    fetch('/api/cron/jobs').then(() => setRefreshTime('cron')).catch(() => {});
-  }
-  if (activeTab !== 'system') {
-    fetch('/api/system').then(() => setRefreshTime('system')).catch(() => {});
-  }
-}, 90000);
-
 // livePnlTimer 由 startLivePnlTimer() 管理，维持 2min 间隔（含 OKX API）
+// 注意：不再自动刷新本地数据（周期、规则、警报等），改为手动刷新
+// 刷新按钮：🔄（刷新当前tab）和「一键刷新」（刷新全部tab）
+
+// 手动更新最后刷新时间显示
+function updateLastRefreshTime() {
+  const el = document.getElementById('last-refresh-time');
+  if (el && lastRefresh) {
+    el.textContent = lastRefresh.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+}
 
 // ── Init ────────────────────────────────────────────
+// 页面加载时应用背景（无需进入设置页）
+fetch('/api/settings').then(r => r.json()).then(data => {
+  applyBackground(data.backgroundImage || '/images/1.png');
+}).catch(() => {
+  applyBackground('/images/1.png');
+});
 refreshOverview();
+// ── 手动控制刷新 ───────────────────────────────────
+document.getElementById('refresh-btn')?.addEventListener('click', function(e) {
+  this.classList.add('spinning');
+  if (activeTab === 'overview') refreshOverview();
+  else if (activeTab === 'archived') loadArchivedCycles();
+  else if (activeTab === 'cron') { loadCronJobs(); loadSystemCrontab(); loadPm2Processes(); loadCronHistory(); }
+  else if (activeTab === 'system') loadSystem();
+  // 更新最后刷新时间
+  lastRefresh = new Date();
+  updateLastRefreshTime();
+  setRefreshTime(activeTab);
+  setTimeout(() => this.classList.remove('spinning'), 600);
+});
+
+document.getElementById('refresh-all-btn')?.addEventListener('click', function(e) {
+  this.textContent = '刷新中...';
+  this.disabled = true;
+  Promise.all([
+    fetch('/api/dashboard'),
+    fetch('/api/cycles'),
+    fetch('/api/cycles?archived=true'),
+    fetch('/api/cron/jobs'),
+    fetch('/api/system'),
+    fetch('/api/live-pnl')
+  ]).then(() => {
+    lastRefresh = new Date();
+    updateLastRefreshTime();
+    const ts = lastRefresh;
+    refreshTimes.overview = ts;
+    refreshTimes.livePnl = ts;
+    refreshTimes.cron = ts;
+    refreshTimes.system = ts;
+    renderRefreshInfo();
+    // 重新加载当前 tab
+    if (activeTab === 'overview') refreshOverview();
+    else if (activeTab === 'archived') loadArchivedCycles();
+    else if (activeTab === 'cron') { loadCronJobs(); loadSystemCrontab(); loadPm2Processes(); loadCronHistory(); }
+    else if (activeTab === 'system') loadSystem();
+  }).catch(e => {
+    showToast('刷新失败: ' + e.message, 'err');
+  }).finally(() => {
+    this.textContent = '一键刷新';
+    this.disabled = false;
+  });
+});
+
 startLivePnlTimer();
 loadRealizedPnl();
 
@@ -3382,6 +4572,9 @@ function renderPnlChartWithHighlight(highlightIdx) {
 // ── 价格柱卡片渲染 ────────────────────────────────────
 let cachedPriceVisData = null;
 let expandedPriceVisCoin = null;
+let cachedTdData = null;
+let cachedAlerts = null;
+let expandedTdIdx = null;
 
 /** 判断两个币种列表的结构是否一致（币种、cycleId 不变） */
 function priceVisDataSame(a, b) {
@@ -3390,6 +4583,30 @@ function priceVisDataSame(a, b) {
     if (a[i].coin !== b[i].coin || a[i].cycleId !== b[i].cycleId) return false;
   }
   return true;
+}
+
+function filterPriceVis() {
+  const q = (document.getElementById('price-vis-search')?.value || '').trim().toUpperCase();
+  const body = document.getElementById('price-vis-body');
+  const info = document.getElementById('price-vis-info');
+  if (!body || !cachedPriceVisData) return;
+
+  const filtered = q
+    ? cachedPriceVisData.filter(d => d.coin.toUpperCase().includes(q))
+    : cachedPriceVisData;
+
+  if (filtered.length === 0) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.8rem;">无匹配币种</div>';
+    if (info) info.textContent = '0 个匹配';
+    return;
+  }
+
+  expandedPriceVisCoin = null;
+  renderPriceVisCards(body, filtered);
+  if (info) {
+    if (q) info.textContent = `${filtered.length} / ${cachedPriceVisData.length} 个匹配`;
+    else info.textContent = `${filtered.length} 个币种 · ${cachedPriceVisData.reduce((s, d) => s + d.stats.checkCount, 0)} 次检查`;
+  }
 }
 
 /** 静默刷新：只更新 canvas 像素，不操作 DOM */
@@ -3408,16 +4625,21 @@ function priceVisSilentUpdate(body, data) {
       drawMiniBar(canvas, d);
     }
   }
-  // 更新状态栏文字
-  const status = document.getElementById('price-vis-status');
-  if (status) status.textContent = data.map(d => d.coin).join(' · ');
+  // 更新信息栏
   const info = document.getElementById('price-vis-info');
-  if (info) info.textContent = `${data.reduce((s, dd) => s + dd.stats.checkCount, 0)} 次检查`;
+  if (info) {
+    const q = (document.getElementById('price-vis-search')?.value || '').trim().toUpperCase();
+    if (q) {
+      const shown = data.filter(d => d.coin.toUpperCase().includes(q)).length;
+      info.textContent = `${shown} / ${data.length} 个匹配`;
+    } else {
+      info.textContent = `${data.length} 个币种 · ${data.reduce((s, d) => s + d.stats.checkCount, 0)} 次检查`;
+    }
+  }
 }
 
 async function loadPriceVisualization() {
   const body = document.getElementById('price-vis-body');
-  const status = document.getElementById('price-vis-status');
   const info = document.getElementById('price-vis-info');
   if (!body) return;
   try {
@@ -3429,40 +4651,253 @@ async function loadPriceVisualization() {
     if (!data || data.length === 0) {
       body.innerHTML = '';
       expandedPriceVisCoin = null;
-      if (status) status.textContent = '—— 无活跃价格警报';
       if (info) info.textContent = '';
       return;
     }
 
-    if (status) status.textContent = data.map(d => d.coin).join(' · ');
-    if (info) info.textContent = `${data.reduce((s, d) => s + d.stats.checkCount, 0)} 次检查`;
+    if (info) info.textContent = `${data.length} 个币种 · ${data.reduce((s, d) => s + d.stats.checkCount, 0)} 次检查`;
 
-    // 结构没变 → 静默更新 canvas 像素，不重建 DOM
-    if (priceVisDataSame(prev, data)) {
-      priceVisSilentUpdate(body, data);
-    } else {
-      // 结构变了（币种增删）→ 完整重建，之后恢复展开
+    const q = (document.getElementById('price-vis-search')?.value || '').trim().toUpperCase();
+    const filtered = q ? data.filter(d => d.coin.toUpperCase().includes(q)) : data;
+
+    if (!priceVisDataSame(prev, data)) {
       const restoredCoin = expandedPriceVisCoin;
       expandedPriceVisCoin = null;
-      renderPriceVisCards(body, data);
+      if (filtered.length > 0) renderPriceVisCards(body, filtered);
+      else body.innerHTML = '';
       if (restoredCoin) {
         setTimeout(() => {
           const card = body.querySelector(`.price-vis-card[data-coin="${restoredCoin}"]`);
           if (card) togglePriceVisCard(card, restoredCoin);
         }, 60);
       }
+    } else if (body.querySelector('.price-vis-card')) {
+      priceVisSilentUpdate(body, data);
+    } else {
+      if (filtered.length > 0) renderPriceVisCards(body, filtered);
     }
   } catch {
     if (cachedPriceVisData) {
       const body2 = document.getElementById('price-vis-body');
       if (body2 && body2.querySelector('.price-vis-card')) {
         priceVisSilentUpdate(body2, cachedPriceVisData);
-      } else {
-        renderPriceVisCards(body2, cachedPriceVisData);
       }
     }
-    if (status && !cachedPriceVisData) status.textContent = '—— 加载失败';
+    if (info && !cachedPriceVisData) info.textContent = '加载失败';
   }
+}
+
+
+
+const ACTION_ZH = { open: '开仓', add: '加仓', reduce: '减仓', close: '平仓', adjust: '调仓', hold: '观望' };
+const DIR_ZH = { long: '做多', short: '做空' };
+
+async function loadTradeDecisions() {
+  const list = document.getElementById('td-card-list');
+  const status = document.getElementById('td-status');
+  const info = document.getElementById('td-info');
+  if (!list) return;
+  try {
+    const data = await (await fetch('/api/trade-decisions')).json();
+    cachedTdData = data;
+
+    const tdSearch = document.getElementById('td-search');
+    if (!data || data.length === 0) {
+      list.innerHTML = ''; expandedTdIdx = null;
+      if (status) status.textContent = '—— 暂无决策';
+      if (info) info.textContent = '';
+      tdSearch.style.display = 'none';
+      return;
+    }
+
+    tdSearch.style.display = 'block';
+    const query = tdSearch.value.trim().toLowerCase();
+    const filtered = query ? data.filter(d => (d.coin || '').toLowerCase().includes(query)) : data;
+
+    const counts = {};
+    filtered.forEach(d => { const a = d.action || 'hold'; counts[a] = (counts[a] || 0) + 1; });
+    const countStr = Object.entries(counts).map(([k,v]) => `${ACTION_ZH[k]||k} ${v}`).join(' · ');
+    if (status) status.textContent = countStr;
+    if (info) info.textContent = `${filtered.length}/${data.length} 条`;
+
+    renderTdCards(list, filtered);
+  } catch {
+    if (!cachedTdData) {
+      if (status) status.textContent = '—— 加载失败';
+    }
+  }
+}
+
+function renderTdCards(container, data) {
+  // 按币种分组，每组默认显示最新一条（缩略），点击组头可展开历史
+  const groups = {};
+  data.forEach(d => {
+    const coin = d.coin || '?';
+    if (!groups[coin]) groups[coin] = [];
+    groups[coin].push(d);
+  });
+
+  // 每组按时间倒序（最新在前）
+  Object.values(groups).forEach(g => g.sort((a, b) => (b._fileTime || '').localeCompare(a._fileTime || '')));
+
+  let globalIdx = 0;
+  const htmlParts = [];
+
+  for (const [coin, items] of Object.entries(groups)) {
+    const latest = items[0];
+    const action = latest.action || 'hold';
+    const actionZh = ACTION_ZH[action] || action;
+    const dirZh = latest.direction ? (DIR_ZH[latest.direction] || latest.direction) : '';
+    const reject = latest.reject_reason;
+    const rejectShort = reject ? (reject.length > 36 ? reject.slice(0, 36) + '…' : reject) : '';
+    const timeLabel = latest._fileTime || '--';
+    const locationTag = latest._location === 'archived' ? ' 归' : '';
+    const totalCount = items.length;
+
+    htmlParts.push(`<div class="td-group" data-coin="${coin}">
+      <div class="td-group-header" onclick="toggleTdGroup('${coin}')">
+        <div class="td-card-summary">
+          <span class="td-card-time">${timeLabel} <span style="font-size:0.65rem;color:var(--text-muted);">${formatTimeRel(latest._fileTime)}</span></span>
+          <span class="td-card-coin">${coin}${locationTag}</span>
+          <span class="td-card-action ${action}">${actionZh}${dirZh ? ' ' + dirZh : ''}</span>
+          ${rejectShort ? `<span class="td-card-reject">${escHtml(rejectShort)}</span>` : ''}
+          <span class="td-card-arrow">▶</span>
+          <span style="font-size:0.65rem;color:var(--text-muted);margin-left:2px;">${totalCount}条</span>
+        </div>
+      </div>
+      <div class="td-group-body" id="td-group-body-${coin}" style="display:none;">
+        ${items.map(d => {
+          const i = globalIdx++;
+          const a2 = d.action || 'hold';
+          const aZh = ACTION_ZH[a2] || a2;
+          const dZh = d.direction ? (DIR_ZH[d.direction] || d.direction) : '';
+          const rj = d.reject_reason;
+          const rjShort = rj ? (rj.length > 36 ? rj.slice(0, 36) + '…' : rj) : '';
+          const tL = d._fileTime || '--';
+          const locTag = d._location === 'archived' ? ' 归' : '';
+          return `<div class="td-card" data-idx="${i}" onclick="toggleTdCard(${i})">
+            <div class="td-card-summary">
+              <span class="td-card-time">${tL} <span style="font-size:0.65rem;color:var(--text-muted);">${formatTimeRel(d._fileTime)}</span></span>
+              <span class="td-card-coin">${d.coin}${locTag}</span>
+              <span class="td-card-action ${a2}">${aZh}${dZh ? ' ' + dZh : ''}</span>
+              ${rjShort ? `<span class="td-card-reject">${escHtml(rjShort)}</span>` : ''}
+              <span class="td-card-arrow">▶</span>
+            </div>
+            <div class="td-card-detail" id="td-detail-${i}">
+              ${renderTdDetail(d)}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`);
+  }
+
+  container.innerHTML = htmlParts.join('');
+}
+
+function renderTdDetail(d) {
+  const action = d.action || 'hold';
+  const rows = [];
+
+  rows.push(tdRow('币种', d.coin || '--'));
+  rows.push(tdRow('操作', ACTION_ZH[action] || action));
+  if (d.direction) rows.push(tdRow('方向', DIR_ZH[d.direction] || d.direction, d.direction === 'long' ? 'green' : 'red'));
+  rows.push(tdRow('触发条件', d.entry_condition === 'immediate' ? '立即执行' : (d.entry_condition || '--')));
+
+  if (d.nominal_base) rows.push(tdRow('建议仓位', `${d.nominal_base} USDT`));
+  if (d.stop_loss) {
+    const slDir = d.direction === 'long' ? 'red' : 'green';
+    rows.push(tdRow('止损', `$${formatPrice(d.stop_loss)}`, slDir));
+  }
+  if (d.take_profit1) {
+    const tpDir = d.direction === 'long' ? 'green' : 'red';
+    rows.push(tdRow('止盈一', `$${formatPrice(d.take_profit1)}`, tpDir));
+  }
+  if (d.take_profit2) {
+    const tpDir = d.direction === 'long' ? 'green' : 'red';
+    rows.push(tdRow('止盈二', `$${formatPrice(d.take_profit2)}`, tpDir));
+  }
+  if (d.tp1_ratio && action !== 'hold') rows.push(tdRow('TP1平仓比', `${d.tp1_ratio}%`));
+
+  if (d.reject_reason) rows.push(tdRow('拒绝原因', escHtml(d.reject_reason), 'yellow', true));
+  if (d.reduce_ratio) rows.push(tdRow('减仓比', `${d.reduce_ratio}%`));
+
+  if (d.calc_position_output) {
+    const cpo = d.calc_position_output;
+    if (cpo.status === 'OK') {
+      rows.push(tdRow('计算止损%', `${cpo.offset?.final_stop_pct || '--'}%`));
+      rows.push(tdRow('建议仓位', `${cpo.position?.size || '--'} USDT`));
+    } else if (cpo.status === 'REJECT') {
+      rows.push(tdRow('仓位计算拒', cpo.reason || '计算拒绝', 'red'));
+    }
+  }
+
+  if (d.observation_conditions && d.observation_conditions.length > 0) {
+    rows.push(`<div class="td-obs-title">观望条件</div>`);
+    d.observation_conditions.forEach(c => {
+      rows.push(`<div class="td-obs-item">${escHtml(c)}</div>`);
+    });
+  }
+
+  return rows.join('');
+}
+
+function tdRow(label, value, colorClass, fullWidth) {
+  return `<div class="td-detail-row">
+    <span class="label">${label}</span>
+    <span class="value${colorClass ? ' ' + colorClass : ''}"${fullWidth ? ' style="flex:1;min-width:0;word-break:break-all;"' : ''}>${value}</span>
+  </div>`;
+}
+
+function toggleTdCard(idx) {
+  if (expandedTdIdx === idx) { expandedTdIdx = null; } else { expandedTdIdx = idx; }
+  const list = document.getElementById('td-card-list');
+  if (!list) return;
+  list.querySelectorAll('.td-card').forEach((c, i) => {
+    c.classList.toggle('expanded', i === expandedTdIdx);
+  });
+}
+
+function toggleTdGroup(coin) {
+  const body = document.getElementById('td-group-body-' + coin);
+  const header = body?.previousElementSibling;
+  if (!body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (header) {
+    header.classList.toggle('expanded', !isOpen);
+  }
+}
+
+// ── 搜索过滤 ──────────────────────────────────────
+function filterTradeDecisions() {
+  const query = document.getElementById('td-search').value.trim().toLowerCase();
+  if (!cachedTdData) return;
+  const filtered = query ? cachedTdData.filter(d => (d.coin || '').toLowerCase().includes(query)) : cachedTdData;
+  const list = document.getElementById('td-card-list');
+  const info = document.getElementById('td-info');
+  if (info) info.textContent = `${filtered.length}/${cachedTdData.length} 条`;
+  renderTdCards(list, filtered);
+}
+
+function renderFilteredAlerts(alerts) {
+  const query = document.getElementById('alert-search').value.trim().toLowerCase();
+  const filtered = query ? alerts.filter(a => (a.rule || '').toLowerCase().includes(query)) : alerts;
+  const el = document.getElementById('recent-alerts');
+  if (filtered.length === 0) {
+    el.innerHTML = `<div style="padding:20px 18px;text-align:center;color:var(--text-muted);font-size:0.82rem;">🔕 ${query ? '无匹配警报' : '近 24 小时无触发警报'}</div>`;
+    return;
+  }
+  el.innerHTML = filtered.map(a => `
+    <div class="alert-item">
+      <span class="alert-time">${formatTimeAbs(a.time)} ${formatTime(a.time)}</span>
+      <span class="alert-msg">${escHtml(a.rule)}</span>
+    </div>`).join('');
+}
+
+function filterAlerts() {
+  if (!cachedAlerts) return;
+  renderFilteredAlerts(cachedAlerts);
 }
 
 /** 绘制迷你柱子（折叠态：影线+实体+价位虚线，无文字标注） */
@@ -3813,6 +5248,984 @@ window.addEventListener('resize', () => {
 
 // Setup chart interaction after DOM ready
 setupChartInteraction();
+
+// ═══════════════════════════════════════════════════
+//  SELF-HEAL SYSTEM VISUALIZATION
+// ═══════════════════════════════════════════════════
+
+let cachedSelfHealData = null;
+let shTimeRange = '24h'; // 24h | 7d | all
+
+/** 更新统计卡片（根据当前时间范围） */
+function updateSHStats(filtered, isHourly) {
+  const fixCount = document.getElementById('sh-fix-count');
+  const intervalCount = document.getElementById('sh-interval-count');
+  const archiveCount = document.getElementById('sh-archive-count');
+  const diagCount = document.getElementById('sh-diag-count');
+  if (!fixCount) return;
+
+  let fixes = 0, intervals = 0, archives = 0, diags = 0, restores = 0;
+  for (const d of filtered) {
+    fixes += d.fixes || 0;
+    intervals += d.intervals || 0;
+    archives += d.archives || 0;
+    diags += d.coinDiags || 0;
+    restores += d.restores || 0;
+  }
+
+  const label = isHourly ? '（近24h）' : shTimeRange === '7d' ? '（近7天）' : '（全部）';
+
+  fixCount.textContent = fixes;
+  document.getElementById('sh-fix-sub').textContent = '已自动修复' + label;
+  intervalCount.textContent = intervals;
+  document.getElementById('sh-interval-sub').textContent = '间隔已翻倍' + label;
+  document.getElementById('sh-restored-count').textContent = restores;
+  document.getElementById('sh-restored-sub').textContent = '已自动恢复' + label;
+  archiveCount.textContent = archives;
+  document.getElementById('sh-archive-sub').textContent = '规则已归档' + label;
+  diagCount.textContent = diags;
+  document.getElementById('sh-diag-sub').textContent = '已处理' + label;
+}
+
+/** 切换时间范围按钮样式 */
+function shSwitchRange(range) {
+  shTimeRange = range;
+  document.querySelectorAll('.sh-range-btn').forEach(btn => {
+    if (btn.dataset.range === range) {
+      btn.style.background = 'var(--accent-glow)';
+      btn.style.color = 'var(--accent)';
+    } else {
+      btn.style.background = 'transparent';
+      btn.style.color = 'var(--text-muted)';
+    }
+  });
+  if (cachedSelfHealData) {
+    const daily = cachedSelfHealData.daily;
+    renderSHChart(daily);
+    // 更新统计卡片也基于当前范围
+    let filtered = daily;
+    let isHourly = false;
+    if (shTimeRange === '24h' && cachedSelfHealData.hourly?.length >= 1) {
+      filtered = cachedSelfHealData.hourly;
+      isHourly = true;
+    } else if (shTimeRange === '7d') {
+      filtered = daily.slice(-7);
+    }
+    updateSHStats(filtered, isHourly);
+  }
+  // 同步更新警报引擎活动图
+  if (cachedAlertActivity) animateAARChart();
+}
+
+async function loadSelfHeal() {
+  const status = document.getElementById('sh-status');
+  const fixCount = document.getElementById('sh-fix-count');
+  const intervalCount = document.getElementById('sh-interval-count');
+  const archiveCount = document.getElementById('sh-archive-count');
+  const diagCount = document.getElementById('sh-diag-count');
+  if (!fixCount) return;
+
+  try {
+    const data = await API.get('/api/self-heal');
+    cachedSelfHealData = data;
+
+    if (!data.exists || data.totalEntries === 0) {
+      if (status) status.textContent = '—— 无记录';
+      return;
+    }
+
+    if (status) status.textContent = `${data.summary.fixes} 修复 · ${data.summary.intervals} 间隔 · ${data.summary.coinDiags} 诊断`;
+
+    // 已恢复数量
+    const restoredInfo = data.restoredSummary || {};
+    document.getElementById('sh-restored-count').textContent = restoredInfo.count || 0;
+    document.getElementById('sh-restored-sub').textContent = (restoredInfo.count || 0) > 0 ? '已自动恢复' : '无';
+
+    // 规则恢复列表
+    const restoreRules = data.restoredRules || [];
+    document.getElementById('sh-restore-header-label').textContent = `(${restoreRules.length} 条)`;
+    renderRestores(document.getElementById('sh-restore-body'), restoreRules);
+
+    // 趋势图（内部会根据 shTimeRange 过滤并更新统计卡片）
+    renderSHChart(data.daily);
+
+    // 加载警报引擎活动数据（第二张图随之更新）
+    loadAlertActivity();
+
+    // A/B 修复列表
+    const fixBody = document.getElementById('sh-fix-body');
+    document.getElementById('sh-fix-header-label').textContent = `(${data.summary.fixes} 条)`;
+    renderFixes(fixBody, data.fixes);
+
+    // C 类间隔列表
+    const intervalBody = document.getElementById('sh-interval-body');
+    document.getElementById('sh-interval-header-label').textContent = `(${data.summary.intervals} 条)`;
+    renderIntervals(intervalBody, data.intervals);
+
+    // 币种诊断
+    const diagBody = document.getElementById('sh-diag-body');
+    document.getElementById('sh-diag-header-label').textContent = `(${data.summary.coinDiags} 条)`;
+    renderCoinDiags(diagBody, data.coinDiags);
+
+  } catch (e) {
+    if (status) status.textContent = '—— 加载失败';
+  }
+}
+
+/** 渲染 A/B 类修复列表 */
+function renderFixes(container, fixes) {
+  if (!fixes || fixes.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:14px;"><div class="icon">✅</div>无 A/B 类修复记录</div>';
+    return;
+  }
+  const maxShow = 30;
+  const show = fixes.slice(0, maxShow);
+  container.innerHTML = show.map(f => `
+    <div class="alert-item" style="padding:6px 14px;">
+      <span class="alert-time" style="min-width:130px;">${f.ts || ''}</span>
+      <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+        <span style="font-size:0.78rem;color:var(--text-primary);font-weight:600;">${escHtml(f.rule)}</span>
+        <span style="font-size:0.68rem;color:var(--text-muted);">${f.problem ? escHtml(f.problem) : ''}</span>
+        ${f.file ? `<span style="font-size:0.62rem;color:var(--green);">📄 ${escHtml(f.file)}</span>` : ''}
+      </span>
+    </div>
+  `).join('');
+  if (fixes.length > maxShow) {
+    container.innerHTML += `<div style="padding:6px 14px;text-align:center;font-size:0.7rem;color:var(--text-muted);">仅显示最新 ${maxShow} 条，共 ${fixes.length} 条</div>`;
+  }
+}
+
+/** 渲染 C 类间隔调整列表 */
+function renderIntervals(container, intervals) {
+  if (!intervals || intervals.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:14px;"><div class="icon">✅</div>无 C 类间隔调整记录</div>';
+    return;
+  }
+  const maxShow = 30;
+  const show = intervals.slice(0, maxShow);
+  container.innerHTML = show.map(iv => `
+    <div class="alert-item" style="padding:6px 14px;">
+      <span class="alert-time" style="min-width:130px;">${iv.ts || ''}</span>
+      <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+        <span style="font-size:0.78rem;color:var(--text-primary);font-weight:600;">${escHtml(iv.rule)}</span>
+        <span style="font-size:0.68rem;color:var(--yellow);">⏱ ${iv.origInterval || '?'} → ${iv.newInterval || '?'}</span>
+        <span style="font-size:0.68rem;color:var(--text-muted);">${iv.reason ? escHtml(iv.reason) : ''}</span>
+      </span>
+    </div>
+  `).join('');
+  if (intervals.length > maxShow) {
+    container.innerHTML += `<div style="padding:6px 14px;text-align:center;font-size:0.7rem;color:var(--text-muted);">仅显示最新 ${maxShow} 条，共 ${intervals.length} 条</div>`;
+  }
+}
+
+/** 渲染已恢复规则列表 */
+function renderRestores(container, restores) {
+  if (!restores || restores.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:14px;"><div class="icon">✅</div>无间隔恢复记录</div>';
+    return;
+  }
+  const maxShow = 20;
+  const show = restores.slice(0, maxShow);
+  container.innerHTML = show.map(r => `
+    <div class="alert-item" style="padding:6px 14px;">
+      <span class="alert-time" style="min-width:130px;">${r.ts || ''}</span>
+      <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+        <span style="font-size:0.78rem;color:var(--green);font-weight:600;">${escHtml(r.rule)}</span>
+        <span style="font-size:0.65rem;color:var(--text-muted);">🔄 已自动恢复</span>
+      </span>
+    </div>
+  `).join('');
+  if (restores.length > maxShow) {
+    container.innerHTML += `<div style="padding:6px 14px;text-align:center;font-size:0.7rem;color:var(--text-muted);">仅显示最新 ${maxShow} 条，共 ${restores.length} 条</div>`;
+  }
+}
+
+/** 渲染币种诊断 */
+function renderCoinDiags(container, diags) {
+  if (!diags || diags.length === 0) {
+    container.innerHTML = '<div class="empty-state" style="padding:14px;"><div class="icon">✅</div>无币种诊断记录</div>';
+    return;
+  }
+  const maxShow = 20;
+  const show = diags.slice(0, maxShow);
+  container.innerHTML = show.map(d => `
+    <div class="alert-item" style="padding:6px 14px;">
+      <span class="alert-time" style="min-width:130px;">${d.ts || ''}</span>
+      <span style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+        <span style="font-size:0.78rem;color:var(--accent);font-weight:600;">💊 ${escHtml(d.coin)}</span>
+        <span style="font-size:0.68rem;color:var(--text-muted);">修复 ${d.fixedCount || 0} 个规则 · ${d.problem ? escHtml(d.problem) : ''}</span>
+      </span>
+    </div>
+  `).join('');
+  if (diags.length > maxShow) {
+    container.innerHTML += `<div style="padding:6px 14px;text-align:center;font-size:0.7rem;color:var(--text-muted);">仅显示最新 ${maxShow} 条，共 ${diags.length} 条</div>`;
+  }
+}
+
+/** 自愈系统逐日趋势图 */
+let shAnimProgress = 1;
+let shAnimFrame = null;
+
+/** 启动柱状图动画（从底升起） */
+function animateSHChart(daily) {
+  const wrap = document.getElementById('sh-chart-wrap');
+  const canvas = document.getElementById('sh-chart');
+  if (!daily || daily.length < 2) {
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+  if (wrap) wrap.style.display = 'block';
+
+  // 解析数据
+  const filtered = getSHFilteredData(daily);
+  let isHourly = !!(((shTimeRange === '24h' || shTimeRange === '3h') && cachedSelfHealData?.hourly?.length >= 1));
+
+  if (filtered.length < 2) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  if (shAnimFrame) cancelAnimationFrame(shAnimFrame);
+  shAnimProgress = 0;
+
+  // 更新统计卡片（立即，不等动画完成）
+  if (isHourly && shTimeRange === '24h' && cachedSelfHealData?.hourly) {
+    updateSHStats(cachedSelfHealData.hourly, true);
+  } else if (shTimeRange === '7d') {
+    updateSHStats(daily.slice(-7), false);
+  } else {
+    updateSHStats(daily, false);
+  }
+
+  function animLoop() {
+    shAnimProgress = Math.min(1, shAnimProgress + 0.06);
+    _drawSHChart(daily, shAnimProgress);
+    if (shAnimProgress < 1) {
+      shAnimFrame = requestAnimationFrame(animLoop);
+    } else {
+      shAnimFrame = null;
+    }
+  }
+  animLoop();
+}
+
+/** 获取当前时间范围过滤后的数据 */
+function getSHFilteredData(daily) {
+  if (shTimeRange === '3h') {
+    const qh = cachedSelfHealData?.quarterHourly;
+    if (qh && qh.length >= 2) return qh;
+    // 降级
+    const hourly = cachedSelfHealData?.hourly;
+    if (hourly && hourly.length >= 3) return hourly.slice(-3);
+    return daily.slice(-2);
+  }
+  if (shTimeRange === '24h') {
+    const hourly = cachedSelfHealData?.hourly;
+    if (hourly && hourly.length >= 1) return hourly;
+    return daily.slice(-2);
+  } else if (shTimeRange === '7d') {
+    return daily.slice(-7);
+  }
+  return daily;
+}
+
+/** 实际绘制柱状图（支持动画进度） */
+function _drawSHChart(daily, animProgress) {
+  const wrap = document.getElementById('sh-chart-wrap');
+  const canvas = document.getElementById('sh-chart');
+  if (!canvas || !daily || daily.length < 2) return;
+
+  const filtered = getSHFilteredData(daily);
+  let isHourly = !!(((shTimeRange === '24h' || shTimeRange === '3h') && cachedSelfHealData?.hourly?.length >= 1));
+  if (filtered.length < 2) return;
+
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = 80 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 80;
+  const padL = 30;
+  const barW = Math.max(4, ((W - 30 - 16) / filtered.length) * 0.5);
+  const padR = Math.max(16, barW);
+  const padT = 6, padB = 16;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const maxVal = Math.max(1, ...filtered.map(d => Math.max(d.fixes, d.intervals, d.restores || 0, d.archives)));
+
+  ctx.clearRect(0, 0, W, H);
+
+  const xScale = i => padL + (i / Math.max(1, filtered.length - 1)) * plotW;
+  const yScaleFull = v => padT + plotH - (v / maxVal) * plotH;
+  // 动画：从底部升起，柱顶和 X 轴标签各自插值
+  const bottomY = padT + plotH;
+  const yScale = v => bottomY - ((bottomY - yScaleFull(v)) * animProgress);
+
+  // 网格（逐步淡入）
+  ctx.globalAlpha = 0.3 + 0.7 * animProgress;
+  ctx.strokeStyle = 'rgba(42,45,58,0.3)'; ctx.lineWidth = 0.4;
+  for (let i = 0; i <= 2; i++) {
+    const y = yScaleFull((maxVal * i) / 2);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // 堆叠柱
+  for (let i = 0; i < filtered.length; i++) {
+    const x = xScale(i) - barW / 2;
+    const d = filtered[i];
+    let cy = bottomY;
+    const drawPartial = (val, color) => {
+      if (val <= 0) return;
+      const fullH = (val / maxVal) * plotH;
+      const curH = fullH * animProgress;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, cy - curH, barW, curH);
+      cy -= curH;
+    };
+    // 从底部到顶部: 修复 → 间隔调整 → 已恢复 → 归档
+    drawPartial(d.fixes, 'rgba(52,211,153,0.5)');
+    drawPartial(d.intervals, 'rgba(251,191,36,0.5)');
+    drawPartial(d.restores || 0, 'rgba(125,211,252,0.5)');   // 已恢复: 浅蓝色
+    drawPartial(d.archives, 'rgba(248,113,113,0.5)');
+  }
+
+  // X 标签（逐渐淡入，位置固定）
+  ctx.fillStyle = '#5a5f75';
+  ctx.font = '7.5px monospace';
+  ctx.textAlign = 'center';
+  ctx.globalAlpha = Math.min(1, animProgress * 2);
+  const step = Math.max(1, Math.floor(filtered.length / 6));
+  for (let i = 0; i < filtered.length; i += step) {
+    const d = filtered[i];
+    let label;
+    if (isHourly) {
+      // quarterHourly 用 time 字段 (格式 2026-05-23 17:45:00)
+      const t = d.time || d.hour || '';
+      label = t.length >= 16 ? t.slice(11, 16) : t.slice(5);
+    } else {
+      label = (d.date || '').slice(5);
+    }
+    ctx.fillText(label, xScale(i), H - 3);
+  }
+  if (filtered.length > 1) {
+    const last = filtered[filtered.length - 1];
+    let label;
+    if (isHourly) {
+      const t = last.time || last.hour || '';
+      label = t.length >= 16 ? t.slice(11, 16) : t.slice(5);
+    } else {
+      label = (last.date || '').slice(5);
+    }
+    ctx.fillText(label, xScale(filtered.length - 1), H - 3);
+  }
+  ctx.globalAlpha = 1;
+
+  // ═══ 悬停提示（柱位置始终按完整高度计算） ═══
+  const barPositions = filtered.map((d, i) => {
+    const x = xScale(i) - barW / 2;
+    return { i, d, x, w: barW, y: padT, h: plotH };
+  });
+
+  const tooltip = document.getElementById('sh-tooltip');
+  if (!tooltip) return;
+
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    let hit = null;
+    for (const b of barPositions) {
+      if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+        hit = b;
+        break;
+      }
+    }
+
+    if (hit) {
+      const d = hit.d;
+      let timeLabel;
+      if (isHourly) {
+        const t = d.time || d.hour || '';
+        timeLabel = t.length >= 16 ? t.slice(11, 16) : t;
+      } else {
+        timeLabel = d.date || '';
+      }
+
+      const parts = [];
+      if (d.fixes > 0) parts.push(`🟢修复:${d.fixes}`);
+      if (d.intervals > 0) parts.push(`🟡间隔:${d.intervals}`);
+      if ((d.restores || 0) > 0) parts.push(`🔵恢复:${d.restores}`);
+      if (d.archives > 0) parts.push(`🔴归档:${d.archives}`);
+
+      tooltip.innerHTML = '<strong>' + timeLabel + '</strong><br>' + parts.join(' · ');
+      tooltip.style.opacity = '1';
+
+      let tx = mx + 12;
+      let ty = my - 8;
+      const tw = tooltip.offsetWidth;
+      if (tx + tw > rect.width - 4) {
+        tx = mx - tw - 8;
+      }
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top = ty + 'px';
+    } else {
+      tooltip.style.opacity = '0';
+    }
+  };
+
+  canvas.onmouseleave = function() {
+    tooltip.style.opacity = '0';
+  };
+}
+
+/** 兼容旧接口：直接绘制，无动画 */
+function renderSHChart(daily) {
+  // 启动动画
+  animateSHChart(daily);
+}
+
+/** 自愈系统的折叠/展开 */
+let shCollapsibleState = { fix: false, interval: false, diag: false };
+
+function toggleSHCollapsible(header, key) {
+  const body = header.nextElementSibling;
+  const isOpen = body.classList.contains('open');
+  shCollapsibleState[key] = !isOpen;
+  body.classList.toggle('open');
+  header.classList.toggle('open');
+}
+
+/** 健康报告内操作日志折叠/展开 */
+function toggleHealthLog(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+  header.classList.toggle('open');
+}
+
+/** 加载指定日期的健康报告内容 */
+let _cachedHealthReports = null;
+
+function renderHealthReportList() {
+  const hrList = document.getElementById('health-report-list');
+  if (!hrList) return;
+  const reports = _cachedHealthReports || [];
+  if (reports.length > 0) {
+    hrList.innerHTML = reports.map((f, i) => {
+      const date = f.replace('-cycle-health.md', '');
+      const active = i === 0 ? ' style="color:var(--green);font-weight:600;"' : '';
+      return `<div style="display:flex;align-items:center;padding:3px 0;font-size:0.75rem;border-bottom:1px solid var(--border-light);">
+        <span${active}>📋 ${date}</span>
+        <a href="#" onclick="loadHealthReport('${date}');return false;" style="margin-left:auto;font-size:0.65rem;color:var(--accent);text-decoration:none;">查看 →</a>
+      </div>`;
+    }).join('');
+  } else {
+    hrList.innerHTML = '<div style="color:var(--text-muted);padding:8px;">暂无健康报告</div>';
+  }
+}
+
+async function loadHealthReport(date) {
+  if (!date) return;
+
+  // 复用报告模态框
+  const overlay = document.createElement('div');
+  overlay.className = 'report-modal-overlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeReportModal(); };
+
+  overlay.innerHTML = `
+    <div class="report-modal">
+      <div class="report-modal-header">
+        <span class="title">🩺 健康报告 · ${date}</span>
+        <button class="btn btn-sm btn-ghost" onclick="closeReportModal()">✕ 关闭</button>
+      </div>
+      <div class="report-modal-body" id="report-modal-body">
+        <div class="loading">加载中...</div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const data = await API.get(`/api/health/${date}`);
+    const body = document.getElementById('report-modal-body');
+    if (data.content) {
+      body.innerHTML = renderMarkdown(data.content);
+    } else {
+      body.innerHTML = '<div class="error-msg">报告内容为空</div>';
+    }
+  } catch (e) {
+    const body = document.getElementById('report-modal-body');
+    if (body) body.innerHTML = `<div class="error-msg">加载失败: ${e.message}</div>`;
+  }
+}
+
+// 初始化: 随系统 tab 加载（见 loadSystem）
+// 时间范围按钮事件代理 (只绑定一次)
+document.getElementById('sh-chart-wrap').addEventListener('click', e => {
+  const btn = e.target.closest('.sh-range-btn');
+  if (btn) {
+    e.preventDefault();
+    shSwitchRange(btn.dataset.range);
+  }
+});
+
+// 窗口尺寸变化时重绘（自愈 + 周期时间线）
+let shResizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(shResizeTimer);
+  shResizeTimer = setTimeout(() => {
+    if (cachedSelfHealData && document.getElementById('sh-chart-wrap')?.style.display !== 'none') {
+      renderSHChart(cachedSelfHealData.daily);
+    }
+    if (cachedSysCycleTimeline && document.getElementById('sys-cycle-chart')?.style.display !== 'none') {
+      renderSysTimelineChart();
+    }
+  }, 300);
+});
+
+// ═══════════════════════════════════════════════════
+//  ALERT ACTIVITY MONITORING
+// ═══════════════════════════════════════════════════
+
+let cachedAlertActivity = null;
+let aaAnimProgress = 1;
+let aaAnimFrame = null;
+
+function renderAAStats(data, filtered, isHourly) {
+  // 表格 4 个小卡片（检查/触发/调整/恢复）
+  const lbl = isHourly ? '（近24h）' : shTimeRange === '3h' ? '（近3h）' : shTimeRange === '7d' ? '（近7天）' : '（全部）';
+  document.getElementById('aa-checks').textContent = data.summary.checks.toLocaleString();
+  document.getElementById('aa-triggers').textContent = data.summary.triggers.toLocaleString();
+  document.getElementById('aa-adjust').textContent = data.summary.adjust;
+  document.getElementById('aa-restore').textContent = data.summary.restore;
+  let ck = 0, tr = 0, ad = 0, rs = 0;
+  for (const d of filtered) {
+    ck += d.checks || 0; tr += d.triggers || 0; ad += d.adjust || 0; rs += d.restore || 0;
+  }
+  document.getElementById('aa-checks-sub').textContent = ck.toLocaleString() + lbl;
+  document.getElementById('aa-triggers-sub').textContent = tr + lbl;
+  document.getElementById('aa-adjust-sub').textContent = ad + lbl;
+  document.getElementById('aa-restore-sub').textContent = rs + lbl;
+}
+
+async function loadAlertActivity() {
+  const status = document.getElementById('aa-status');
+  try {
+    const data = await API.get('/api/alert-activity');
+    cachedAlertActivity = data;
+    if (!data.exists) {
+      if (status) status.textContent = '—— 无日志';
+      return;
+    }
+    if (status) status.textContent = `${data.summary.checks.toLocaleString()} 检查 · ${data.summary.triggers} 触发`;
+    animateAARChart();
+  } catch (e) {
+    if (status) status.textContent = '—— 加载失败';
+  }
+}
+
+function getAAFiltered() {
+  if (!cachedAlertActivity) return [];
+  if (shTimeRange === '3h') {
+    const qh = cachedAlertActivity.quarterHourly;
+    if (qh && qh.length >= 2) return qh;
+    return (cachedAlertActivity.hourly || []).slice(-3);
+  }
+  if (shTimeRange === '24h') {
+    const hourly = cachedAlertActivity.hourly;
+    if (hourly && hourly.length >= 2) return hourly;
+    return (cachedAlertActivity.daily || []).slice(-2);
+  }
+  if (shTimeRange === '7d') return (cachedAlertActivity.daily || []).slice(-7);
+  return cachedAlertActivity.daily || [];
+}
+
+function animateAARChart() {
+  const wrap = document.getElementById('aa-chart-wrap');
+  const section = document.getElementById('aa-section');
+  const canvas = document.getElementById('aa-chart');
+  const data = cachedAlertActivity;
+  if (!data || !data.exists) return;
+  const filtered = getAAFiltered();
+  if (filtered.length < 2) { if (section) section.style.display = 'none'; return; }
+  if (section) section.style.display = 'block';
+
+  const isHourly = shTimeRange === '24h' || shTimeRange === '3h';
+  renderAAStats(data, filtered, isHourly);
+
+  if (aaAnimFrame) cancelAnimationFrame(aaAnimFrame);
+  aaAnimProgress = 0;
+
+  function loop() {
+    aaAnimProgress = Math.min(1, aaAnimProgress + 0.06);
+    drawAARChart(aaAnimProgress);
+    if (aaAnimProgress < 1) aaAnimFrame = requestAnimationFrame(loop);
+    else aaAnimFrame = null;
+  }
+  loop();
+}
+
+function drawAARChart(animProgress) {
+  const canvas = document.getElementById('aa-chart');
+  if (!canvas) return;
+  const filtered = getAAFiltered();
+  if (filtered.length < 2) return;
+
+  const isHourly = shTimeRange === '24h' || shTimeRange === '3h';
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = 80 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = 80;
+  const padL = 28, padT = 6, padB = 16;
+  const barW = Math.max(4, ((W - 28 - 16) / filtered.length) * 0.5);
+  const padR = Math.max(16, barW);
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const maxVal = Math.max(1, ...filtered.map(d => Math.max(d.checks || 0, d.triggers || 0, d.adjust || 0, d.restore || 0)));
+
+  ctx.clearRect(0, 0, W, H);
+
+  const xScale = i => padL + (i / Math.max(1, filtered.length - 1)) * plotW;
+  const bottomY = padT + plotH;
+
+  ctx.globalAlpha = 0.3 + 0.7 * animProgress;
+  ctx.strokeStyle = 'rgba(42,45,58,0.3)'; ctx.lineWidth = 0.4;
+  for (let i = 0; i <= 2; i++) {
+    const y = padT + plotH - ((maxVal * i) / 2 / maxVal) * plotH;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // 堆叠柱: checks → triggers → adjust → restore
+  for (let i = 0; i < filtered.length; i++) {
+    const x = xScale(i) - barW / 2;
+    const d = filtered[i];
+    let cy = bottomY;
+    const drawSeg = (val, color) => {
+      if (val <= 0) return;
+      const fh = (val / maxVal) * plotH;
+      const ch = fh * animProgress;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, cy - ch, barW, ch);
+      cy -= ch;
+    };
+    drawSeg(d.checks || 0, 'rgba(79,140,255,0.45)');
+    drawSeg(d.triggers || 0, 'rgba(52,211,153,0.45)');
+    drawSeg(d.adjust || 0, 'rgba(251,191,36,0.45)');
+    drawSeg(d.restore || 0, 'rgba(125,211,252,0.45)');
+  }
+
+  // X 标签
+  ctx.fillStyle = '#5a5f75';
+  ctx.font = '7.5px monospace';
+  ctx.textAlign = 'center';
+  ctx.globalAlpha = Math.min(1, animProgress * 2);
+  const step = Math.max(1, Math.floor(filtered.length / 6));
+  for (let i = 0; i < filtered.length; i += step) {
+    const d = filtered[i];
+    // quarterHourly 用 time 字段，hourly 用 hour 字段，daily 用 date 字段
+    function getAALabel(d) {
+      if (shTimeRange === '3h') return (d.time || '').slice(11, 16);
+      if (isHourly) return (d.hour || '').slice(11, 16);
+      return (d.date || '').slice(5);
+    }
+    const label = getAALabel(d);
+    ctx.fillText(label, xScale(i), H - 3);
+  }
+  if (filtered.length > 1) {
+    const last = filtered[filtered.length - 1];
+    ctx.fillText(getAALabel(last), xScale(filtered.length - 1), H - 3);
+  }
+  ctx.globalAlpha = 1;
+
+  // Tooltip
+  const barPos = filtered.map((d, i) => ({ i, d, x: xScale(i) - barW / 2, w: barW, y: padT, h: plotH }));
+  const tooltip = document.getElementById('aa-tooltip');
+  if (!tooltip) return;
+
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hit = null;
+    for (const b of barPos) {
+      if (mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) { hit = b; break; }
+    }
+    if (hit) {
+      const d = hit.d;
+      function getAALabel(d) {
+        if (shTimeRange === '3h') return (d.time || '').slice(11, 16);
+        if (isHourly) return (d.hour || '').slice(11, 16);
+        return (d.date || '');
+      }
+      const timeLabel = getAALabel(d);
+      const parts = [];
+      if (d.checks) parts.push('🔵检查:' + d.checks);
+      if (d.triggers) parts.push('🟢触发:' + d.triggers);
+      if (d.adjust) parts.push('🟡调整:' + d.adjust);
+      if (d.restore) parts.push('🔵恢复:' + d.restore);
+      tooltip.innerHTML = '<strong>' + timeLabel + '</strong><br>' + parts.join(' · ');
+      tooltip.style.opacity = '1';
+      let tx = mx + 12, ty = my - 8;
+      if (tx + tooltip.offsetWidth > rect.width - 4) tx = mx - tooltip.offsetWidth - 8;
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top = ty + 'px';
+    } else { tooltip.style.opacity = '0'; }
+  };
+  canvas.onmouseleave = function() { tooltip.style.opacity = '0'; };
+}
+
+// ═══════════════════════════════════════════════════
+//  CRON 耗时箱线图
+// ═══════════════════════════════════════════════════
+
+let boxplotRange = '24h';
+let boxplotModel = '';
+let boxplotData = null;
+
+async function loadBoxplot(model) {
+  if (model !== undefined) boxplotModel = model;
+  const loading = document.getElementById('boxplot-loading');
+  try {
+    if (loading) loading.style.display = 'flex';
+    const url = '/api/cron/boxplot?range=' + boxplotRange + (boxplotModel ? '&model=' + encodeURIComponent(boxplotModel) : '');
+    const data = await API.get(url);
+    boxplotData = data;
+    renderBoxplot();
+    renderBoxplotModels(data.availableModels || []);
+  } catch {}
+  finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function renderBoxplotModels(models) {
+  const container = document.getElementById('bp-model-btns');
+  if (!container || !models.length) return;
+  container.innerHTML = models.map(m => {
+    const active = m === boxplotModel ? ' active' : '';
+    const label = m.length > 16 ? m.slice(0,14)+'..' : m;
+    return `<button class="sh-range-btn${active}" data-bp-model="${escHtml(m)}" title="${escHtml(m)}">${escHtml(label)}</button>`;
+  }).join('') + (boxplotModel ? '<button class="sh-range-btn" data-bp-model="">全部</button>' : '<button class="sh-range-btn active" data-bp-model="">全部</button>');
+}
+
+function renderBoxplot() {
+  const canvas = document.getElementById('boxplot-canvas');
+  if (!canvas || !boxplotData?.buckets) return;
+  const buckets = boxplotData.buckets;
+  if (buckets.length === 0) return;
+
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const W = Math.max(rect.width, 400);
+  const H = 260;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = { top: 16, bottom: 36, left: 48, right: 16 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  // 收集所有值域
+  let allVals = [];
+  for (const b of buckets) {
+    for (const cat of ['analysis','other']) {
+      const s = b[cat];
+      if (s && s.count) { allVals.push(s.min, s.max, ...(s.outliers||[])); }
+    }
+  }
+  if (allVals.length === 0) return;
+  const maxVal = Math.max(...allVals, 1);
+  const yScale = v => pad.top + plotH - (v / maxVal) * plotH;
+  const fmtDur = ms => ms >= 60000 ? Math.round(ms/60000)+'m' : Math.round(ms/1000)+'s';
+
+  // Y 轴
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#5a5f75';
+  const yTicks = 4;
+  for (let i = 0; i <= yTicks; i++) {
+    const v = maxVal * i / yTicks;
+    const y = yScale(v);
+    ctx.fillText(fmtDur(v), pad.left - 4, y);
+    ctx.strokeStyle = 'rgba(42,45,58,0.3)';
+    ctx.lineWidth = 0.4;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+  }
+
+  const barW = Math.max(3, Math.min(10, (plotW / buckets.length) * 0.4));
+  const gap = buckets.length > 1 ? (plotW - barW * 2 * buckets.length) / (buckets.length - 1 + 2) : 0;
+  const step = barW * 2 + gap;
+
+  const tooltip = document.getElementById('boxplot-tooltip');
+  const hitZones = [];
+
+  for (let i = 0; i < buckets.length; i++) {
+    const b = buckets[i];
+    const cx = pad.left + i * step + barW;
+
+    for (const [ci, cat] of ['analysis','other'].entries()) {
+      const s = b[cat];
+      if (!s || !s.count) continue;
+      const x = cx - barW + ci * barW * 2;
+      const midX = x + barW / 2;
+
+      // 触须线
+      ctx.strokeStyle = cat === 'analysis' ? 'rgba(52,211,153,0.5)' : 'rgba(90,95,117,0.5)';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath(); ctx.moveTo(midX, yScale(s.min)); ctx.lineTo(midX, yScale(s.max)); ctx.stroke();
+
+      // 箱体
+      const boxTop = yScale(s.q3);
+      const boxH = Math.max(1, yScale(s.q1) - yScale(s.q3));
+      ctx.fillStyle = cat === 'analysis' ? 'rgba(52,211,153,0.35)' : 'rgba(90,95,117,0.3)';
+      ctx.fillRect(x, boxTop, barW, boxH);
+      ctx.strokeStyle = cat === 'analysis' ? 'rgba(52,211,153,0.7)' : 'rgba(90,95,117,0.6)';
+      ctx.strokeRect(x, boxTop, barW, boxH);
+
+      // 中位线
+      const medY = yScale(s.median);
+      ctx.strokeStyle = cat === 'analysis' ? '#34d399' : '#8b8fa3';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(x, medY); ctx.lineTo(x + barW, medY); ctx.stroke();
+
+      // 异常点
+      for (const o of (s.outliers || [])) {
+        ctx.fillStyle = cat === 'analysis' ? '#34d399' : '#8b8fa3';
+        ctx.beginPath(); ctx.arc(midX, yScale(o), 1.5, 0, Math.PI*2); ctx.fill();
+      }
+
+      hitZones.push({ x, w: barW, y: boxTop, h: Math.max(1, boxH), label: b.label, cat, s });
+    }
+
+    // X 轴标签
+    const step2 = Math.max(1, Math.floor(buckets.length / 12));
+    if (i % step2 === 0) {
+      ctx.fillStyle = '#5a5f75';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(b.label, cx, pad.top + plotH + 6);
+    }
+  }
+
+  // 悬停
+  canvas.onmousemove = function(e) {
+    const cr = canvas.getBoundingClientRect();
+    const mx = e.clientX - cr.left;
+    const my = e.clientY - cr.top;
+    let hit = null;
+    for (const h of hitZones) {
+      if (mx >= h.x && mx <= h.x + h.w && my >= h.y && my <= h.y + h.h) { hit = h; break; }
+    }
+    if (hit) {
+      const s = hit.s;
+      tooltip.innerHTML = `<strong>${hit.label}</strong> · ${hit.cat==='analysis'?'🟢分析':'⬜其他'}<br>` +
+        `次数:${s.count} | min:${fmtDur(s.rawMin)} | Q1:${fmtDur(s.q1)} | 中位:${fmtDur(s.median)} | Q3:${fmtDur(s.q3)} | max:${fmtDur(s.rawMax)}`;
+      tooltip.style.opacity = '1';
+      let tx = mx + 12, ty = my - 8;
+      const tw = tooltip.offsetWidth;
+      if (tx + tw > cr.width - 4) tx = mx - tw - 8;
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top = ty + 'px';
+    } else { tooltip.style.opacity = '0'; }
+  };
+  canvas.onmouseleave = function() { tooltip.style.opacity = '0'; };
+
+  // ── 副图: 任务个数柱状图 ──
+  const barCanvas = document.getElementById('boxplot-bars');
+  if (barCanvas) {
+    const bH = 60, bW = W;
+    const bPad = { top: 8, bottom: 18, left: pad.left, right: pad.right };
+    barCanvas.width = bW * dpr;
+    barCanvas.height = bH * dpr;
+    barCanvas.style.width = bW + 'px';
+    barCanvas.style.height = bH + 'px';
+    const bCtx = barCanvas.getContext('2d');
+    bCtx.scale(dpr, dpr);
+    bCtx.clearRect(0, 0, bW, bH);
+
+    let maxCount = 1;
+    for (const b of buckets) {
+      for (const cat of ['analysis','other']) {
+        const s = b[cat];
+        if (s && s.count > maxCount) maxCount = s.count;
+      }
+    }
+    const bPlotH = bH - bPad.top - bPad.bottom;
+    const yTo = v => bPad.top + bPlotH - (v / maxCount) * bPlotH;
+
+    bCtx.font = '8px monospace';
+    bCtx.textAlign = 'right';
+    bCtx.textBaseline = 'middle';
+    bCtx.fillStyle = '#5a5f75';
+    for (let i = 0; i <= 2; i++) {
+      const v = Math.round(maxCount * i / 2);
+      const y = yTo(v);
+      bCtx.fillText(v, bPad.left - 4, y);
+      bCtx.strokeStyle = 'rgba(42,45,58,0.2)';
+      bCtx.lineWidth = 0.3;
+      bCtx.beginPath(); bCtx.moveTo(bPad.left, y); bCtx.lineTo(bW - bPad.right, y); bCtx.stroke();
+    }
+
+    for (let i = 0; i < buckets.length; i++) {
+      const b = buckets[i];
+      const cx = pad.left + i * step + barW;
+      let stackedY = bPad.top + bPlotH;
+      for (const [ci, cat] of ['analysis','other'].entries()) {
+        const s = b[cat];
+        const h = s && s.count ? Math.max(1, (s.count / maxCount) * bPlotH) : 0;
+        if (h <= 0) continue;
+        bCtx.fillStyle = cat === 'analysis' ? 'rgba(52,211,153,0.6)' : 'rgba(90,95,117,0.5)';
+        bCtx.fillRect(cx - barW, stackedY - h, barW * 2, h);
+        stackedY -= h;
+      }
+    }
+  }
+}
+
+// 箱线图事件代理
+document.addEventListener('click', e => {
+  const rangeBtn = e.target.closest('.sh-range-btn[data-bp-range]');
+  if (rangeBtn) {
+    boxplotRange = rangeBtn.dataset.bpRange;
+    const panel = rangeBtn.closest('.info-panel');
+    if (panel) {
+      panel.querySelectorAll('.sh-range-btn[data-bp-range]').forEach(b => b.classList.remove('active'));
+      rangeBtn.classList.add('active');
+    }
+    loadBoxplot();
+    return;
+  }
+  const modelBtn = e.target.closest('.sh-range-btn[data-bp-model]');
+  if (modelBtn) {
+    const model = modelBtn.dataset.bpModel || '';
+    const container = document.getElementById('bp-model-btns');
+    if (container) {
+      container.querySelectorAll('.sh-range-btn').forEach(b => b.classList.remove('active'));
+      modelBtn.classList.add('active');
+    }
+    loadBoxplot(model);
+  }
+});
+
+// 初始化
+setTimeout(loadAlertActivity, 800);
 </script>
 </body>
 </html>

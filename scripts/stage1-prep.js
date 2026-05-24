@@ -234,28 +234,43 @@ try {
 log('合约数据获取: 调用 get_altcoin_analysis.js...');
 
 const getScript = path.join(WORKSPACE, 'skills', 'btc-market-lite', 'scripts', 'get_altcoin_analysis.js');
+
+// ─── 合约数据获取（带退避重试） ───
+const CONTRACT_MAX_RETRIES = 3;       // 最多重试 3 次（共 4 次尝试）
+const CONTRACT_TIMEOUT_MS = 30000;    // 单次超时 30s
+const CONTRACT_RETRY_DELAYS = [10000, 20000, 60000]; // 退避：10s → 20s → 60s（最长 1min）
+
 let contractOk = false;
 
 // 日期格式化：YYYYMMDD → YYYY-MM-DD
 const dateFormatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
+const contractCmd = `node "${getScript}" --coin ${COIN} --json --save --proxy http://127.0.0.1:7890`;
 
-try {
-  const contractCmd = `node "${getScript}" --coin ${COIN} --json --save --proxy http://127.0.0.1:7890`;
-  execSync(contractCmd, { encoding: 'utf8', timeout: 30000, stdio: ['pipe', 'pipe', 'pipe'] });
+for (let attempt = 0; attempt <= CONTRACT_MAX_RETRIES; attempt++) {
+  try {
+    execSync(contractCmd, { encoding: 'utf8', timeout: CONTRACT_TIMEOUT_MS, stdio: ['pipe', 'pipe', 'pipe'] });
 
-  // 脚本保存到 data/YYYY-MM-DD_COIN.json，重命名为 data/{COIN}-YYYY-MM-DD.json
-  const srcFile = path.join(WORKSPACE, 'data', `${dateFormatted}_${COIN}.json`);
-  const destFile = path.join(WORKSPACE, 'data', `${COIN}-${dateFormatted}.json`);
+    // 脚本保存到 data/YYYY-MM-DD_COIN.json，重命名为 data/{COIN}-YYYY-MM-DD.json
+    const srcFile = path.join(WORKSPACE, 'data', `${dateFormatted}_${COIN}.json`);
+    const destFile = path.join(WORKSPACE, 'data', `${COIN}-${dateFormatted}.json`);
 
-  if (fs.existsSync(srcFile)) {
-    fs.renameSync(srcFile, destFile);
-    contractOk = true;
-    log(`合约数据获取: 成功 → data/${COIN}-${dateFormatted}.json`);
-  } else {
-    log(`合约数据获取: 脚本执行成功但未找到源文件 ${dateFormatted}_${COIN}.json`, 'WARN');
+    if (fs.existsSync(srcFile)) {
+      fs.renameSync(srcFile, destFile);
+      contractOk = true;
+      log(`合约数据获取: 成功 → data/${COIN}-${dateFormatted}.json` + (attempt > 0 ? ` (第 ${attempt + 1} 次尝试)` : ''));
+    } else {
+      log(`合约数据获取: 脚本执行成功但未找到源文件 ${dateFormatted}_${COIN}.json`, 'WARN');
+    }
+    break; // 成功，跳出重试循环
+  } catch (e) {
+    if (attempt < CONTRACT_MAX_RETRIES) {
+      const delay = CONTRACT_RETRY_DELAYS[attempt];
+      log(`合约数据获取失败: ${e.message} — ${delay / 1000}s 后重试 (${attempt + 1}/${CONTRACT_MAX_RETRIES})`, 'WARN');
+      execSync(`sleep ${delay / 1000}`, { timeout: delay + 5000 });
+    } else {
+      log(`合约数据获取失败（已重试 ${CONTRACT_MAX_RETRIES} 次）: ${e.message}`, 'ERROR');
+    }
   }
-} catch (e) {
-  log(`合约数据获取失败: ${e.message}`, 'ERROR');
 }
 
 // ════════════════════════════════════════════

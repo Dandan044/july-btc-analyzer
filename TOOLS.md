@@ -19,6 +19,19 @@
 
 **常见错误**：`return ageHours < 72` ❌ → `return ageHours < 72 ? 'active' : 'expired'` ✅
 
+### OCO 拆分张数必须对齐 lotSz
+
+`stage3-executor.js` 中拆分两档 OCO 仓位时，张数必须对齐合约的 `lotSz`。
+
+| 币种 | lotSz | 拆分 40% | 错误 | 正确 |
+|------|-------|---------|------|------|
+| SAHARA | 1 | 96×0.4=38.4 | `--sz 38.4` ❌ | `--sz 38` ✅ |
+| 某币 | 0.01 | 96.5×0.4=38.6 | 不处理 | `--sz 38.60` ✅ |
+
+**修复：** 用 `alignToLot = (v) => lotSz > 0 ? Math.floor(v / lotSz) * lotSz : round(v, 4)` 对齐后再传给 OKX。
+
+---
+
 ### symbol vs instId 参数陷阱
 
 警报规则中传 `symbol` 只传币种基础名（`CRV`），不要传完整 `instId`（`CRV-USDT-SWAP`）。
@@ -119,8 +132,8 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 | `scripts/alt-scanner-oi-filter.py` | 山寨币 OI 过滤 | 扫描流程 |
 | `scripts/alt-scanner-screening.py` | 山寨币筛选 | 扫描流程 |
 | `scripts/generate_kline_chart.py` | K线图生成 | 报告可视化 |
-| `scripts/multi_timeframe_fib.py` | 多时间框架斐波那契 | 阶段二调用 |
-| `scripts/sync_positions.js` | 仓位同步 | `tasks/sync-positions.md` |
+| `scripts/sync_positions.js` | BTC 仓位同步 | `tasks/sync-positions.md` |
+| `scripts/sync-alt-positions.js` | 山寨币仓位同步 | 阶段一/三调用 |
 
 ---
 

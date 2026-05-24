@@ -59,16 +59,16 @@ ACTIVE_COUNT=$(ls -d active/alt-* 2>/dev/null | wc -l)
 
 | 条件 | 操作 |
 |------|------|
-| `ACTIVE_COUNT < 30` | 继续扫描 |
-| `ACTIVE_COUNT >= 30` | 跳过本轮 |
+| `ACTIVE_COUNT < 45` | 继续扫描 |
+| `ACTIVE_COUNT >= 45` | 跳过本轮 |
 
 **日志记录：**
 
 ```
-[$NOW] [扫描] 活跃周期: ${ACTIVE_COUNT}/30
+[$NOW] [扫描] 活跃周期: ${ACTIVE_COUNT}/45
 ```
 
-**上限值: 30**（与 `tasks/global-config.json` → `maxAltcoinCycles` 保持同步）。
+**上限值: 45**（与 `tasks/global-config.json` → `maxAltcoinCycles` 保持同步）。
 
 如果已达上限：
 
@@ -424,7 +424,7 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 
 ## 核心要求
 
-1. **先检查上限**：活跃周期 ≥ 30 直接跳过
+1. **先检查上限**：活跃周期 ≥ 45 直接跳过
 2. **绝对值排序**：取 `|涨跌幅%|` 最大的前 60，涨跌都纳入
 3. **只取 -USDT-SWAP**：忽略 USD/UM 变体
 4. **从中部开始扫描**：第 26-30 位，避开极端位置

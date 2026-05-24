@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v12 更新**：警报引擎死循环修复 + 非价格规则全类型实现 + 阶段二双视角框架 + 模型统一。
+> **v13 更新**：Dashboard 2.0 + 阶段三阻拦逻辑移除 + 警报引擎并发控制 + 合约数据退避重试 + OCO 管理修复。
 
 ## 🚀 快速开启
 
@@ -328,6 +328,78 @@ env: {
 ---
 
 ## 更新日志
+
+### 2026-05-24
+> 🔧 v13 — Dashboard 2.0 + 阶段三阻拦逻辑移除 + 警报引擎并发控制 + 合约数据退避重试 + OCO 管理修复
+
+**变更内容（基于 v12 增量）：**
+
+**① 🎨 Dashboard 2.0 大改版（`dashboard/public/index.html` +2733行，`dashboard/server.js` +1127行）：**
+- **设置面板**：新增 `GET/POST /api/settings` 端点，持久化 dashboard 配置到 `data/dashboard-settings.json`
+- **扫描器上限仪表盘可控**：新增 `scannerLimit` 字段（默认45），scanner 启动时从 settings 动态读取
+- **背景图片/视频上传**：`POST /api/settings/background` + `DELETE /api/settings/background`，支持 50MB 以内图片/视频，multer 文件管理
+- **警报缓存窗口扩大**：最近触发警报从 6h → 24h，grep 从 `tail -200` → `tail -1000`
+- **静态资源缓存策略强化**：`Cache-Control: no-store, no-cache, must-revalidate` 禁止浏览器缓存
+- **toast 通知系统优化**
+
+**② 🔧 阶段三执行器重构（`scripts/stage3-executor.js` +367行）：**
+- **移除全部预设阻拦逻辑（4处）**：
+  - 方向冲突拦截移除：`hasPosition && direction !== positionDirection` 不再 skip → 阶段二知道当前持仓，反方向开仓有它的理由
+  - 20u 下限移除：`nominalFinal < 20` 不再终止 → 阶段二决定名义值，脚本不设下限
+  - 余额检查移除：`available < 5 USDT` 不再预判 → 余额不足让 OKX 报错
+  - 只保留阶段二决策输入（`reject_reason`/`hold`/`entry_condition`/逻辑不可能操作）
+- **OKX 命令退避重试**：`runOkxCmd()` 新增 `retries=2`、`baseDelayMs=2000`，自动识别网络错误（ETIMEDOUT/ECONNRESET/EPIPE 等）并重试，关键操作（持仓确认）额外配置 `retries=3`
+- **OCO 拆分张数对齐 lotSz**：新增 `alignToLot()` 函数，`floor(v/lotSz)*lotSz`，修复 SAHARA（lotSz=1）等币种拆分精度错误
+- **加仓 `executeAdd()` 修复**：取消旧 OCO → 加仓 → 加权均价算偏移 → 总仓位设新 OCO（旧逻辑：未取消旧单、按加仓量设 OCO、用 lastPrice）
+- **减仓 `executeReduce()` 修复**：取消旧 OCO → 减仓 → 原始均价算偏移 → 剩余仓位设新 OCO（旧逻辑：未取消旧单、用 lastPrice）
+- **新增 `extractOcoPrices()` 兜底函数**：从旧 OCO 算法单中提取 SL/TP 价格，阶段二未传参时直接复用
+- **双模式 TP/SL 选择**：A 模式（阶段二传参→calcPnlOffset 偏移） / B 模式（兜底复用旧 OCO 价格，不二次偏移）
+- **空 `entry_condition` 不再阻塞**：`entry_condition && entry_condition !== 'immediate'` 防止 null 值误判
+
+**③ 🚦 警报引擎并发控制（`skills/btc-alert/engine.js` +121行）：**
+- **并发门控**：新增 `MAX_CONCURRENT_CHECKS=3`、`acquireSlot()`、`releaseSlot()`，最多 3 条规则同时执行 API 调用，超出的排队等待
+- **429 误判修复**：`isNetworkError()` 新增 `/Too Many Requests/i` 模式，429 现在直接走引擎层自动翻倍间隔，不再走自愈 spawn 流程
+- **`runRule()` 改造**：`check()`/`collect()`/`trigger()` 全部包裹在 `acquireSlot()...releaseSlot()` 中
+
+**④ 🔄 合约数据退避重试（`scripts/stage1-prep.js` +43行，`scripts/stage1-instant.js` +47行）：**
+- 两个脚本均新增三级退避重试：10s → 20s → 60s（共 4 次尝试）
+- 超时从 30s 提升，重试日志带尝试次数标注
+- stage1-instant 重构为 for 循环 + break 模式（原为 try-catch 单次）
+
+**⑤ ⏱️ 多价位警报规则优化（`scripts/stage4-executor.js` + `tasks/set-alert.md`）：**
+- K 线粒度从 `1m` 升级为 `5m`（减少 OKX API 调用量）
+- `limit` 从硬编码 `3` 改为 `Math.max(2, Math.round(this.interval / BAR_MS))`，间隔翻倍时自动缩放
+- 默认检测间隔从 `3min` 提升至 `10min`（降低引擎负载）
+- set-alert.md C2 约束同步更新
+
+**⑥ 📊 扫描器上限动态化（`scripts/scanner-full.py` + `tasks/alt-scanner.md` + `tasks/global-config.json`）：**
+- `MAX_ALT_COINS` 从硬编码 `30` 改为从 `data/dashboard-settings.json` 动态读取 `scannerLimit`，缺省 `45`
+- `maxAltcoinCycles` 从 `30` 提升至 `45`
+- alt-scanner.md 所有上限引用同步更新
+
+**⑦ ⚙️ PM2 配置更新（`ecosystem.config.js` +16行）：**
+- 新增 `cron-name-cache` 进程（`scripts/cron-name-cache.js`），autorestart，max 5 次重启
+
+**⑧ 📋 复盘经验新增（`learnings/PENDING_TRADE_LESSONS.json` +30行）：**
+- 「滞后入场（行情已走>70%）应等待回调入场而非追入」— INJ 做多入场@5.346（行情已走90%），止损触发 -7.4%
+- 「OI 增长的方向性含义必须与价格行为绑定解读」— OI+31% 被误读为新多头信号，实际是空头增仓
+- INJ 复盘报告：`learnings/review-INJ-20260524-1329.md`
+
+**⑨ 📝 阶段二文档补充（`tasks/alt-pipeline/alt-intel-stage2.md` +10行）：**
+- 新增「加仓/减仓 TP/SL 语义」表格：`add` 面向总仓位，`reduce` 面向剩余仓位
+- 兜底机制说明：阶段二未传 TP/SL 时阶段三从旧 OCO 提取复用
+
+**⑩ 🧹 TOOLS.md 维护（+17/-1行）：**
+- 新增陷阱「OCO 拆分张数必须对齐 lotSz」含 SAHARA 案例
+- 脚本索引新增 `sync-alt-positions.js`，移除 `multi_timeframe_fib.py`
+
+**⑪ 📄 事件记录：**
+- `changelog/2026-05-23-警报器429误判与并发控制.md`
+- `changelog/2026-05-23-阶段三阻拦逻辑移除与加仓减仓OCO管理修复.md`
+- `changelog/2026-05-23-阶段二开单率分析与激进版创建.md`（上一commit内容）
+- `changelog/2026-05-24-Gateway-OOM崩溃记录.md`（仅记录，未修复）
+
+---
 
 ### 2026-05-22
 > 🔧 v12 — 警报引擎死循环修复 + 非价格规则全类型实现 + 阶段二双视角框架 + 模型统一

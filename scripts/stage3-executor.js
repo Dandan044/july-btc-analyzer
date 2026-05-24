@@ -72,33 +72,58 @@ function output(data) {
   console.log(JSON.stringify(data));
 }
 
-function runOkxCmd(args) {
-  try {
-    // 检查 args 是否已包含 --json
-    const jsonFlag = args.includes('--json') ? '' : ' --json';
-    const cmd = `bash "${PROXY}" --profile live ${args}${jsonFlag} 2>/dev/null`;
-    const out = execSync(cmd, { encoding: 'utf8', timeout: 20000, stdio: ['pipe', 'pipe', 'pipe'] });
-    // 提取 JSON：多行输出，直接解析全部
-    const trimmed = out.trim();
-    if (!trimmed || trimmed === '[]') return [];
-    // 找到第一个 [ 或 { 的位置
-    let jsonStart = -1;
-    for (let i = 0; i < trimmed.length; i++) {
-      if (trimmed[i] === '[' || trimmed[i] === '{') {
-        jsonStart = i;
-        break;
+function runOkxCmd(args, opts = {}) {
+  const { retries = 2, baseDelayMs = 2000, isCritical = false } = opts;
+  const maxAttempts = retries + 1;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // 检查 args 是否已包含 --json
+      const jsonFlag = args.includes('--json') ? '' : ' --json';
+      const cmd = `bash "${PROXY}" --profile live ${args}${jsonFlag} 2>/dev/null`;
+      const out = execSync(cmd, { encoding: 'utf8', timeout: 20000, stdio: ['pipe', 'pipe', 'pipe'] });
+      // 提取 JSON：多行输出，直接解析全部
+      const trimmed = out.trim();
+      if (!trimmed || trimmed === '[]') return [];
+      // 找到第一个 [ 或 { 的位置
+      let jsonStart = -1;
+      for (let i = 0; i < trimmed.length; i++) {
+        if (trimmed[i] === '[' || trimmed[i] === '{') {
+          jsonStart = i;
+          break;
+        }
       }
-    }
-    if (jsonStart < 0) {
-      log(`OKX 命令无 JSON 输出: ${args}`, 'ERROR');
+      if (jsonStart < 0) {
+        log(`OKX 命令无 JSON 输出: ${args}`, 'ERROR');
+        if (attempt < maxAttempts) {
+          const delay = baseDelayMs * attempt;
+          log(`重试 ${attempt}/${retries}: ${delay}ms 后重试...`);
+          execSync(`sleep ${delay / 1000}`);
+          continue;
+        }
+        return null;
+      }
+      const jsonStr = trimmed.slice(jsonStart);
+      return JSON.parse(jsonStr);
+    } catch (e) {
+      const isNetworkError = e.message?.includes('ETIMEDOUT') || e.message?.includes('ECONNRESET')
+        || e.message?.includes('ENOTFOUND') || e.message?.includes('ECONNREFUSED')
+        || e.message?.includes('signal SIGTERM') || e.message?.includes('timed out')
+        || e.message?.includes('EPIPE') || e.message?.includes('socket hang up');
+
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * attempt;
+        const reason = isNetworkError ? '网络错误' : '解析/执行错误';
+        log(`OKX ${reason} (${attempt}/${retries}): ${args} → ${e.message}，${delay}ms 后重试...`, 'WARN');
+        execSync(`sleep ${delay / 1000}`);
+        continue;
+      }
+
+      log(`OKX 命令最终失败 (${maxAttempts}次): ${args} → ${e.message}`, 'ERROR');
       return null;
     }
-    const jsonStr = trimmed.slice(jsonStart);
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    log(`OKX 命令异常: ${args} → ${e.message}`, 'ERROR');
-    return null;
   }
+  return null;
 }
 
 function num(v) {
@@ -108,6 +133,37 @@ function num(v) {
 
 function round(v, d = 2) {
   return Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
+}
+
+// ─── 从旧 OCO 算法单中提取 SL/TP 价格（兜底用） ───
+function extractOcoPrices(algos) {
+  // 返回 { slPrice, tp1Price, tp2Price }
+  let slPrice = null;
+  const tpPrices = [];
+  if (!algos || !Array.isArray(algos)) return { slPrice, tp1Price: null, tp2Price: null };
+
+  for (const order of algos) {
+    if (order.ordType !== 'oco') continue;
+    const sl = parseFloat(order.slTriggerPx);
+    const tp = parseFloat(order.tpTriggerPx);
+    if (!isNaN(sl) && sl > 0) slPrice = sl;
+    if (!isNaN(tp) && tp > 0) tpPrices.push(tp);
+  }
+
+  // 去重
+  const seen = new Set();
+  const uniqueTps = [];
+  for (const p of tpPrices) {
+    const key = round(p, 8).toString();
+    if (!seen.has(key)) { seen.add(key); uniqueTps.push(p); }
+  }
+  uniqueTps.sort((a, b) => a - b);
+
+  return {
+    slPrice,
+    tp1Price: uniqueTps[0] || null,
+    tp2Price: uniqueTps[1] || null,
+  };
 }
 
 // ─── 盈亏比偏移函数 ───
@@ -286,10 +342,6 @@ if (reject_reason) {
 } else if (hasPosition && action === 'open' && direction === positionDirection) {
   adjustedAction = 'add';
   log('已有同方向仓位且建议开仓 → 视为加仓', 'WARN');
-} else if (hasPosition && action === 'open' && direction !== positionDirection) {
-  skipExecution = true;
-  skipReason = '方向冲突（已有仓位与开仓方向相反）';
-  log('⚠️ 方向冲突，跳过执行', 'WARN');
 } else if (action === 'hold' || action === '观望') {
   skipExecution = true;
   skipReason = '观望';
@@ -299,7 +351,7 @@ if (reject_reason) {
 // ════════════════════════════════════════════
 // 步骤 6: 执行判断
 // ════════════════════════════════════════════
-if (!skipExecution && entry_condition !== 'immediate') {
+if (!skipExecution && entry_condition && entry_condition !== 'immediate') {
   skipExecution = true;
   skipReason = `等待触发: ${entry_condition}`;
   log(`等待触发条件: ${entry_condition}，跳过执行`);
@@ -325,11 +377,6 @@ if (!skipExecution && (adjustedAction === 'open' || adjustedAction === 'add')) {
       const corr = hedgeJson.corr;
 
       nominalFinal = Math.round(nominalFinal * y);
-      if (nominalFinal < 20) {
-        log(`对冲后仓位 ${nominalFinal}u < 20u，终止执行`, 'WARN');
-        skipExecution = true;
-        skipReason = `对冲后仓位过小 (${nominalFinal}u)`;
-      }
 
       log(`BTC对冲 | ${COIN} dir=${direction} | BTC=${btcTrend} | 逆势=${isCounter ? 'YES' : 'NO'} | corr=${corr} | y=${y} | ${nominal_base}u→${nominalFinal}u`);
     } catch (e) {
@@ -472,17 +519,6 @@ async function executeOpen(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio
   logOp(`💰 OPEN: 开仓 | direction=${direction} | nominal=${nominalFinal}u`);
 
   // 7.1.1 余额检查
-  const balance = runOkxCmd('account balance USDT');
-  if (!balance || !balance[0] || !balance[0].details || !balance[0].details[0]) {
-    throw new Error('获取余额失败');
-  }
-  const available = num(balance[0].details[0].availBal);
-  log(`可用余额: ${available} USDT`);
-  if (available < 5) {
-    log(`⛔ ERROR: 可用余额不足，需要 ≥ 5 USDT，可用 ${available} USDT`, 'ERROR');
-    return;
-  }
-
   // 7.1.2 获取价格和合约信息
   const tickerData = runOkxCmd(`market ticker ${INST_ID}`);
   if (!tickerData || !tickerData[0]) throw new Error('获取价格失败');
@@ -539,7 +575,7 @@ async function executeOpen(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio
 
   // 7.1.5 等待确认
   await new Promise(r => setTimeout(r, 2000));
-  const posCheck = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`);
+  const posCheck = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`, { retries: 3, isCritical: true });
   if (posCheck && posCheck[0]) {
     logOp(`💰 OPEN: 持仓确认 | 张数=${posCheck[0].pos} | 入场价=${posCheck[0].avgPx}`);
   }
@@ -553,9 +589,13 @@ async function executeOpen(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio
   const finalSide = posSide === "long" ? "sell" : "buy";
 
   // 拆分仓位：两笔 OCO 单，分别绑定 TP1+SL 和 TP2+SL
+  // 对齐 lotSz（如 lotSz=1 取整到整数，lotSz=0.01 取整到百分位）
+  const alignToLot = (v) => lotSz > 0 ? Math.floor(v / lotSz) * lotSz : round(v, 4);
   const ratio1 = (tp1Ratio || 50) / 100;
-  const szTp1 = Math.max(minSz, Math.round(sz * ratio1 * 10000) / 10000);
-  const szTp2 = tp2 ? Math.max(minSz, Math.round((sz - szTp1) * 10000) / 10000) : 0;
+  const rawSzTp1 = sz * ratio1;
+  const szTp1 = Math.max(minSz, alignToLot(rawSzTp1));
+  const remaining = sz - szTp1;
+  const szTp2 = tp2 ? Math.max(minSz, alignToLot(remaining)) : 0;
 
   logOp(`💰 OPEN: 止盈止损偏移 | SL: ${stopLoss}→${slOffset} | TP1: ${tp1}→${tp1Offset}${tp2 ? ` | TP2: ${tp2}→${tp2Offset}` : ''} | 拆分: ${szTp1}张(TP1) + ${szTp2}张(TP2)`);
 
@@ -601,16 +641,12 @@ async function executeOpen(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio
 async function executeAdd(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio) {
   logOp(`💰 ADD: 加仓 | direction=${direction} | nominal=${nominalFinal}u`);
 
-  // 获取当前持仓
+  // A. 获取当前持仓（用于取原始入场价 + 计算总仓位）
   const posData = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`);
   if (!posData || !posData[0]) throw new Error('获取持仓失败');
-
-  const balance = runOkxCmd('account balance USDT');
-  const available = balance?.[0]?.details?.[0] ? num(balance[0].details[0].availBal) : 0;
-  if (available < 5) {
-    log(`⚠️ WARN: 可用余额不足 (${available} USDT)，跳过加仓`, 'WARN');
-    return;
-  }
+  const existingSz = num(posData[0].pos);
+  const existingAvgPx = num(posData[0].avgPx);
+  const posSide = posData[0].posSide;
 
   const tickerData = runOkxCmd(`market ticker ${INST_ID}`);
   const lastPrice = num(tickerData[0].last);
@@ -628,10 +664,11 @@ async function executeAdd(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio)
   const maxLever = num(contractInfo.lever);
   const tickSz = num(contractInfo.tickSz) || 0.00001;
   const leverActual = Math.min(10, maxLever);
+  const alignToLot = (v) => lotSz > 0 ? Math.floor(v / lotSz) * lotSz : round(v, 4);
 
   const rawSz = nominalFinal / (lastPrice * ctVal);
   let sz = rawSz;
-  if (lotSz > 0) sz = Math.round(rawSz / lotSz) * lotSz;
+  if (lotSz > 0) sz = alignToLot(sz);
   sz = round(sz, 4);
 
   if (sz < minSz) {
@@ -640,44 +677,81 @@ async function executeAdd(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio)
   }
 
   const side = direction === 'long' ? 'buy' : 'sell';
-  const posSide = direction;
 
-  logOp(`💰 ADD: 下单 → ${sz}张`);
-  const placeResult = runOkxCmd(`swap place --instId ${INST_ID} --side ${side} --ordType market --sz ${sz} --tdMode cross --posSide ${posSide} --lever ${leverActual}`);
+  // B. 第一步：保存旧 OCO 价格（兜底用）+ 取消现有算法单
+  const oldAlgos = runOkxCmd(`swap algo orders --instId ${INST_ID} --tdMode cross`);
+  const oldOcoPrices = extractOcoPrices(oldAlgos);
+  log(`旧OCO价格 | SL=${oldOcoPrices.slPrice}, TP1=${oldOcoPrices.tp1Price}, TP2=${oldOcoPrices.tp2Price}`);
+
+  if (oldAlgos && oldAlgos.length > 0) {
+    for (const order of oldAlgos) {
+      logOp(`💰 ADD: 取消旧算法单 → algoId=${order.algoId}`);
+      runOkxCmd(`swap algo cancel --instId ${INST_ID} --algoId ${order.algoId}`, { retries: 3, isCritical: true });
+    }
+  }
+
+  // C. 第二步：执行加仓市场单
+  logOp(`💰 ADD: 加仓下单 → ${sz}张`);
+  const placeResult = runOkxCmd(`swap place --instId ${INST_ID} --side ${side} --ordType market --sz ${sz} --tdMode cross --posSide ${posSide} --lever ${leverActual}`, { retries: 3, isCritical: true });
   if (!placeResult) throw new Error('加仓下单失败');
-
-  logOp(`💰 ADD: 下单成功`);
+  logOp(`💰 ADD: 加仓成功 | 加 ${sz}张`);
   await new Promise(r => setTimeout(r, 2000));
 
-  // 更新止盈止损：取消旧 + 设新
-  const entryPx = lastPrice;
-  const slOffset = calcPnlOffset(entryPx, stopLoss, 'sl', direction, tickSz);
-  const tp1Offset = calcPnlOffset(entryPx, tp1, 'tp', direction, tickSz);
-  const tp2Offset = tp2 ? calcPnlOffset(entryPx, tp2, 'tp', direction, tickSz) : null;
+  // D. 第三步：查询最终持仓（总张数 + 加权均价）
+  const posAfter = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`, { retries: 3, isCritical: true });
+  const totalSz = posAfter?.[0] ? num(posAfter[0].pos) : existingSz + sz;
+  const totalAvgPx = posAfter?.[0] ? num(posAfter[0].avgPx) : null;
+  logOp(`💰 ADD: 加仓后总持仓 ${totalSz}张`);
+
+  // E. 第四步：设置新止盈止损——三个阶段传入参数 / 兜底复用旧OCO价格
+  const entryPx = totalAvgPx || ((existingAvgPx * existingSz + lastPrice * sz) / (existingSz + sz));
+  log(`加仓加权均价: entryPx=${round(entryPx, 4)} (原=${existingAvgPx}, 加仓价=${lastPrice})`);
+
+  let slOffset, tp1Offset, tp2Offset;
+  const useFallback = !stopLoss || !tp1;
+
+  if (!useFallback) {
+    // 模式A：阶段二传入的参数 → 计算偏移
+    slOffset = calcPnlOffset(entryPx, stopLoss, 'sl', direction, tickSz);
+    tp1Offset = calcPnlOffset(entryPx, tp1, 'tp', direction, tickSz);
+    tp2Offset = tp2 ? calcPnlOffset(entryPx, tp2, 'tp', direction, tickSz) : null;
+    log(`TP/SL 来源: 阶段二传入参数 | SL=${stopLoss}→${slOffset}, TP1=${tp1}→${tp1Offset}${tp2 ? `, TP2=${tp2}→${tp2Offset}` : ''}`);
+  } else if (oldOcoPrices.slPrice && oldOcoPrices.tp1Price) {
+    // 模式B：兜底——阶段二未传入 → 复用旧 OCO 价格（已经是偏移后的价格，不再二次偏移）
+    slOffset = oldOcoPrices.slPrice;
+    tp1Offset = oldOcoPrices.tp1Price;
+    tp2Offset = oldOcoPrices.tp2Price;
+    log(`⚠️ TP/SL 来源: 兜底复用旧OCO（阶段二未传入参数）| SL=${slOffset}, TP1=${tp1Offset}, TP2=${tp2Offset}`, 'WARN');
+  } else {
+    log(`⚠️ WARN: 无可用的TP/SL参数（阶段二未传入 + 旧OCO无数据），跳过止盈止损设置`, 'WARN');
+    logOp(`💰 ADD: 加仓完成（无TP/SL）| 总持仓 ${totalSz}张`);
+    return;
+  }
 
   const finalSide = posSide === "long" ? "sell" : "buy";
 
-  // 拆分仓位：两笔 OCO 单
-  const ratio1 = (tp1Ratio || 50) / 100;
-  const szTp1 = Math.max(minSz, Math.round(sz * ratio1 * 10000) / 10000);
-  const szTp2 = tp2 ? Math.max(minSz, Math.round((sz - szTp1) * 10000) / 10000) : 0;
+  // 拆分总仓位到两笔 OCO
+  const rawSzTp1 = totalSz * ((tp1Ratio || 50) / 100);
+  const szTp1 = Math.max(minSz, alignToLot(rawSzTp1));
+  const remaining = totalSz - szTp1;
+  const szTp2 = tp2 ? Math.max(minSz, alignToLot(remaining)) : 0;
 
-  logOp(`💰 ADD: 更新止盈止损 | SL→${slOffset} | TP1→${tp1Offset}${tp2 ? ` | TP2→${tp2Offset}` : ''} | 拆分: ${szTp1}张+${szTp2}张`);
+  logOp(`💰 ADD: 新止盈止损（基于总仓位 ${totalSz}张）| SL→${slOffset} | TP1→${tp1Offset}${tp2 ? ` | TP2→${tp2Offset}` : ''} | 拆分: ${szTp1}张+${szTp2}张`);
 
   // OCO 1: TP1 + SL
   if (szTp1 >= minSz) {
-    runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${posSide} --sz ${szTp1} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`);
+    runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${posSide} --sz ${szTp1} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
   }
 
   // OCO 2: TP2 + SL
   if (szTp2 >= minSz && tp2 && tp2Offset) {
-    runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${posSide} --sz ${szTp2} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp2Offset} --tpOrdPx=-1 --reduceOnly true`);
-  } else if (!tp2 && sz >= minSz) {
+    runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${posSide} --sz ${szTp2} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp2Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
+  } else if (!tp2 && totalSz >= minSz) {
     // 无 TP2：整单
-    runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${posSide} --sz ${sz} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`);
+    runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${posSide} --sz ${totalSz} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
   }
 
-  logOp(`💰 ADD: 加仓完成`);
+  logOp(`💰 ADD: 加仓完成 | 总持仓 ${totalSz}张 | 加权均价 ${round(entryPx, 4)}`);
 }
 
 // ─── 7.3 减仓 ───
@@ -690,68 +764,119 @@ async function executeReduce(reduceRatio, stopLoss, tp1, tp2) {
     return;
   }
 
+  // 获取合约信息
+  const instrumentsRaw = runOkxCmd('market instruments --instType SWAP');
+  let contractInfo = null;
+  if (instrumentsRaw && Array.isArray(instrumentsRaw)) {
+    contractInfo = instrumentsRaw.find(i => i.instId === INST_ID);
+  }
+  if (!contractInfo) throw new Error('获取合约信息失败');
+
+  const ctVal = num(contractInfo.ctVal);
+  const minSz = num(contractInfo.minSz);
+  const lotSz = num(contractInfo.lotSz);
+  const tickSz = num(contractInfo.tickSz) || 0.00001;
+  const alignToLot = (v) => lotSz > 0 ? Math.floor(v / lotSz) * lotSz : round(v, 4);
+
   const currentSz = num(posData[0].pos);
   const direction = posData[0].posSide;
-  const reduceSz = Math.round(currentSz * (reduceRatio || 50) / 100 * 100) / 100;
+  const avgPx = num(posData[0].avgPx);
+
+  const rawReduceSz = currentSz * (reduceRatio || 50) / 100;
+  const reduceSz = alignToLot(rawReduceSz);
+
+  // 当前价格
+  const tickerData = runOkxCmd(`market ticker ${INST_ID}`);
+  const lastPrice = tickerData?.[0] ? num(tickerData[0].last) : 0;
+  const reduceNominal = lastPrice > 0 ? reduceSz * lastPrice * ctVal : 0;
+
+  log(`合约信息: ctVal=${ctVal}, minSz=${minSz}, lotSz=${lotSz}, tickSz=${tickSz}`);
+  log(`减仓计算: 持仓${currentSz}张 × ${reduceRatio || 50}% = ${rawReduceSz} → 对齐lotSz=${reduceSz}张 | 名义价值≈${round(reduceNominal, 2)}u`);
 
   if (reduceSz <= 0) {
-    log('⚠️ 减仓张数 ≤ 0，跳过', 'WARN');
+    log(`⚠️ 减仓张数对齐后为 0（原始 ${rawReduceSz}，lotSz=${lotSz}），无法减仓`, 'WARN');
+    log(`⚠️ 原因: 持仓 ${currentSz}张 × ${(reduceRatio || 50)}% = ${rawReduceSz}张 → lotSz 对齐后不足1单位`, 'WARN');
     return;
   }
 
-  // 反向市价单减仓（不能用 swap close）
+  if (reduceSz < minSz) {
+    log(`⚠️ 减仓张数 ${reduceSz} < 最小下单张数 ${minSz}，跳过减仓`, 'WARN');
+    log(`⚠️ 详情: 持仓=${currentSz}张 | 减仓比例=${reduceRatio || 50}% | 原始计算=${rawReduceSz}张 | lotSz对齐=${reduceSz}张 | 名义价值≈${round(reduceNominal, 2)}u | minSz=${minSz}`, 'WARN');
+    return;
+  }
+
+  // ── A. 第一步：保存旧的 OCO 价格（兜底用）+ 取消现有算法单 ──
+  const oldAlgos = runOkxCmd(`swap algo orders --instId ${INST_ID} --tdMode cross`);
+  const oldOcoPrices = extractOcoPrices(oldAlgos);
+  log(`旧OCO价格 | SL=${oldOcoPrices.slPrice}, TP1=${oldOcoPrices.tp1Price}, TP2=${oldOcoPrices.tp2Price}`);
+
+  if (oldAlgos && oldAlgos.length > 0) {
+    for (const order of oldAlgos) {
+      logOp(`💰 REDUCE: 取消旧算法单 → algoId=${order.algoId}`);
+      runOkxCmd(`swap algo cancel --instId ${INST_ID} --algoId ${order.algoId}`, { retries: 3, isCritical: true });
+    }
+  }
+
+  // ── B. 第二步：执行减仓市价单 ──
   const side = direction === 'long' ? 'sell' : 'buy';
   logOp(`💰 REDUCE: 反向市价单 → ${side} ${reduceSz}张`);
 
-  const placeResult = runOkxCmd(`swap place --instId ${INST_ID} --side ${side} --ordType market --sz ${reduceSz} --tdMode cross --posSide ${direction} --reduceOnly true`);
+  const placeResult = runOkxCmd(`swap place --instId ${INST_ID} --side ${side} --ordType market --sz ${reduceSz} --tdMode cross --posSide ${direction} --reduceOnly true`, { retries: 3, isCritical: true });
   if (!placeResult) throw new Error('减仓下单失败');
 
   logOp(`💰 REDUCE: 减仓成功 | 减 ${reduceSz}张`);
   await new Promise(r => setTimeout(r, 2000));
 
-  // 更新剩余仓位的止盈止损
-  if (stopLoss && tp1) {
-    const tickerData = runOkxCmd(`market ticker ${INST_ID}`);
-    const lastPrice = num(tickerData[0].last);
-    const instrumentsRaw = runOkxCmd('market instruments --instType SWAP');
-    let contractInfo = null;
-    if (instrumentsRaw && Array.isArray(instrumentsRaw)) {
-      contractInfo = instrumentsRaw.find(i => i.instId === INST_ID);
+  // ── C. 第三步：查询剩余仓位，设新止盈止损 ──
+  const posAfter = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`, { retries: 3, isCritical: true });
+  const remainingSz = posAfter?.[0] ? num(posAfter[0].pos) : currentSz - reduceSz;
+
+  if (remainingSz > 0) {
+    // 三个阶段二传入参数 / 兜底复用旧OCO价格
+    let slOffset, tp1Offset, tp2Offset;
+    const useFallback = !stopLoss || !tp1;
+
+    if (!useFallback) {
+      // 模式A：阶段二传入的参数 → 用原始入场价计算偏移
+      slOffset = calcPnlOffset(avgPx, stopLoss, 'sl', direction, tickSz);
+      tp1Offset = calcPnlOffset(avgPx, tp1, 'tp', direction, tickSz);
+      tp2Offset = tp2 ? calcPnlOffset(avgPx, tp2, 'tp', direction, tickSz) : null;
+      log(`TP/SL 来源: 阶段二传入参数 | SL=${stopLoss}→${slOffset}, TP1=${tp1}→${tp1Offset}${tp2 ? `, TP2=${tp2}→${tp2Offset}` : ''}`);
+    } else if (oldOcoPrices.slPrice && oldOcoPrices.tp1Price) {
+      // 模式B：兜底——复用旧 OCO 价格（已经是偏移后的价格，不再二次偏移）
+      slOffset = oldOcoPrices.slPrice;
+      tp1Offset = oldOcoPrices.tp1Price;
+      tp2Offset = oldOcoPrices.tp2Price;
+      log(`⚠️ TP/SL 来源: 兜底复用旧OCO（阶段二未传入参数）| SL=${slOffset}, TP1=${tp1Offset}, TP2=${tp2Offset}`, 'WARN');
+    } else {
+      log(`⚠️ WARN: 无可用的TP/SL参数，跳过止盈止损设置`, 'WARN');
+      logOp(`💰 REDUCE: 减仓完成（无TP/SL）| 剩余 ${remainingSz}张`);
+      return;
     }
-    const tickSz = contractInfo ? num(contractInfo.tickSz) || 0.00001 : 0.00001;
-    const minSz = contractInfo ? num(contractInfo.minSz) : 0;
 
-    const slOffset = calcPnlOffset(lastPrice, stopLoss, 'sl', direction, tickSz);
-    const tp1Offset = calcPnlOffset(lastPrice, tp1, 'tp', direction, tickSz);
-    const tp2Offset = tp2 ? calcPnlOffset(lastPrice, tp2, 'tp', direction, tickSz) : null;
+    const finalSide = direction === "long" ? "sell" : "buy";
 
-    const remainingSz = currentSz - reduceSz;
-    if (remainingSz > 0) {
-      const finalSide = direction === "long" ? "sell" : "buy";
+    // 拆分剩余仓位
+    const ratio1 = 50;
+    const szTp1 = Math.max(minSz, alignToLot(remainingSz * ratio1 / 100));
+    const szTp2 = tp2 || oldOcoPrices.tp2Price ? Math.max(minSz, alignToLot(remainingSz - szTp1)) : 0;
 
-      // 拆分剩余仓位
-      const ratio1 = 50;  // 默认 50%
-      const szTp1 = Math.max(minSz, Math.round(remainingSz * 0.5 * 10000) / 10000);
-      const szTp2 = tp2 ? Math.max(minSz, Math.round((remainingSz - szTp1) * 10000) / 10000) : 0;
+    logOp(`💰 REDUCE: 新止盈止损（剩余 ${remainingSz}张，入场均价=${avgPx}）| SL→${slOffset} | TP1→${tp1Offset}${tp2Offset ? ` | TP2→${tp2Offset}` : ''} | 拆分: ${szTp1}张+${szTp2}张`);
 
-      logOp(`💰 REDUCE: 更新止盈止损（剩余 ${remainingSz}张）| SL→${slOffset} | TP1→${tp1Offset}${tp2 ? ` | TP2→${tp2Offset}` : ''} | 拆分: ${szTp1}张+${szTp2}张`);
+    // OCO 1: TP1 + SL
+    if (szTp1 >= minSz) {
+      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp1} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
+    }
 
-      // OCO 1: TP1 + SL
-      if (szTp1 >= minSz) {
-        runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp1} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`);
-      }
-
-      // OCO 2: TP2 + SL
-      if (szTp2 >= minSz && tp2 && tp2Offset) {
-        runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp2} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp2Offset} --tpOrdPx=-1 --reduceOnly true`);
-      } else if (!tp2 && remainingSz >= minSz) {
-        // 无 TP2：整单
-        runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${remainingSz} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`);
-      }
+    // OCO 2: TP2 + SL
+    if (szTp2 >= minSz && tp2Offset) {
+      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp2} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp2Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
+    } else if (!tp2Offset && remainingSz >= minSz) {
+      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${remainingSz} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
     }
   }
 
-  logOp(`💰 REDUCE: 减仓完成`);
+  logOp(`💰 REDUCE: 减仓完成 | 剩余 ${remainingSz}张`);
 }
 
 // ─── 7.4 平仓 ───
@@ -763,7 +888,7 @@ async function executeClose() {
   if (algoOrders && algoOrders.length > 0) {
     for (const order of algoOrders) {
       logOp(`💰 CLOSE: 取消算法单 → algoId=${order.algoId}`);
-      runOkxCmd(`swap algo cancel --instId ${INST_ID} --algoId ${order.algoId}`);
+      runOkxCmd(`swap algo cancel --instId ${INST_ID} --algoId ${order.algoId}`, { retries: 3, isCritical: true });
     }
   }
 
@@ -779,13 +904,13 @@ async function executeClose() {
 
       const side = direction === 'long' ? 'sell' : 'buy';
       logOp(`💰 CLOSE: 反向市价单 → ${side} ${sz}张 (${direction})`);
-      runOkxCmd(`swap place --instId ${INST_ID} --side ${side} --ordType market --sz ${sz} --tdMode cross --posSide ${direction} --reduceOnly true`);
+      runOkxCmd(`swap place --instId ${INST_ID} --side ${side} --ordType market --sz ${sz} --tdMode cross --posSide ${direction} --reduceOnly true`, { retries: 3, isCritical: true });
     }
   }
 
   // 7.4.3 确认
   await new Promise(r => setTimeout(r, 2000));
-  const posCheck = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`);
+  const posCheck = runOkxCmd(`account positions --instId ${INST_ID} --tdMode cross`, { retries: 3, isCritical: true });
   const stillHasPos = posCheck && posCheck.some(p => num(p.pos) > 0);
   logOp(`💰 CLOSE: 平仓确认 | ${stillHasPos ? '仍有仓位' : '已全部平仓'}`);
 }
@@ -810,7 +935,7 @@ async function executeAdjust(stopLoss, tp1, tp2, tp1Ratio) {
   if (algoOrders && algoOrders.length > 0) {
     for (const order of algoOrders) {
       logOp(`💰 ADJUST: 取消旧算法单 → algoId=${order.algoId}`);
-      runOkxCmd(`swap algo cancel --instId ${INST_ID} --algoId ${order.algoId}`);
+      runOkxCmd(`swap algo cancel --instId ${INST_ID} --algoId ${order.algoId}`, { retries: 3, isCritical: true });
     }
   }
 
@@ -841,15 +966,15 @@ async function executeAdjust(stopLoss, tp1, tp2, tp1Ratio) {
 
     // OCO 1: TP1 + SL
     if (szTp1 >= minSz) {
-      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp1} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`);
+      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp1} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
     }
 
     // OCO 2: TP2 + SL
     if (szTp2 >= minSz && tp2 && tp2Offset) {
-      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp2} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp2Offset} --tpOrdPx=-1 --reduceOnly true`);
+      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${szTp2} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp2Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
     } else if (!tp2 && sz >= minSz) {
       // 无 TP2：整单
-      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${sz} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`);
+      runOkxCmd(`swap algo place --instId ${INST_ID} --side ${finalSide} --ordType oco --posSide ${direction} --sz ${sz} --slTriggerPx ${slOffset} --slOrdPx=-1 --tpTriggerPx ${tp1Offset} --tpOrdPx=-1 --reduceOnly true`, { retries: 3, isCritical: true });
     }
   }
 

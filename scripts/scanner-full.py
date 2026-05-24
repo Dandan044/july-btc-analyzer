@@ -29,7 +29,18 @@ SCREENING_SCRIPT = os.path.join(WORKSPACE, "scripts", "alt-scanner-screening.py"
 OI_FILTER_SCRIPT = os.path.join(WORKSPACE, "scripts", "alt-scanner-oi-filter.py")
 LOG_PATH = os.path.join(WORKSPACE, "logs", "alt-scanner.log")
 
-MAX_ALT_COINS = 30
+def get_max_alt_coins():
+    """从 dashboard-settings.json 读取上限，缺省 45"""
+    try:
+        import json
+        settings_path = os.path.join(WORKSPACE, "data", "dashboard-settings.json")
+        if os.path.exists(settings_path):
+            with open(settings_path, 'r') as f:
+                return json.load(f).get('scannerLimit', 45)
+    except: pass
+    return 45
+
+MAX_ALT_COINS = get_max_alt_coins()
 
 # 窗口策略：(start_idx, end_idx) 0-based inclusive
 WINDOW_ROUNDS = [

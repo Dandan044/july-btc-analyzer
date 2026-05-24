@@ -11,7 +11,7 @@
 | # | 约束 | 模板中如何满足 |
 |---|------|---------------|
 | C1 | catch 块必须 `throw`，禁止 `return false` | 模板中所有 catch 块最后一行为 `throw error` |
-| C2 | 必须用 K 线区间数据，禁止瞬时价格 | `check()` 调 `getOKXKlines(COIN, '1m', 3, 'SWAP')` 取 3 根 1m K 线 |
+| C2 | 必须用 K 线区间数据，禁止瞬时价格 | `check()` 调 `getOKXKlines(COIN, BAR, limit, 'SWAP')`，BAR='5m'，limit 由 `this.interval` 动态计算，默认 10min → 2 根 5m K 线 |
 | C3 | 必须传 `'SWAP'`，禁止默认 SPOT | 所有 API 调用显式传 `instType='SWAP'` |
 | C4 | 禁止 `execSync` / 同步 curl | `trigger()` 用 `spawn`，数据获取用 `api` 模块 |
 | C5 | 禁止 FGI 触发 | 模板不含 FGI 调用 |
@@ -102,6 +102,12 @@ const PRICE_LEVELS = [
 ];
 
 // ============================================================
+// K 线参数（间隔翻倍时 limit 自动缩放）
+// ============================================================
+const BAR = '5m';
+const BAR_MS = 5 * 60 * 1000;
+
+// ============================================================
 // 稳定性检查参数
 // ============================================================
 const STABILITY = {
@@ -147,7 +153,7 @@ module.exports = {
   archiveReason: null,                        // 归档原因自由文本（归档时写入）
   // ⭐ C19 END ⭐
 
-  interval: 3 * 60 * 1000,
+  interval: 10 * 60 * 1000,
   lastTriggered: 0,
   levelStates: {},
   currentTriggeredLevels: [],
@@ -160,8 +166,9 @@ module.exports = {
     if (Date.now() - this.lastTriggered < COOLDOWN_MS) return false;
 
     try {
-      // C2: 用 K 线区间数据（非瞬时价格）
-      const klines = await api.getOKXKlines(COIN, '1m', 3, 'SWAP');
+      // C2: 用 K 线区间数据（非瞬时价格），limit 随间隔翻倍自动缩放
+      const limit = Math.max(2, Math.round(this.interval / BAR_MS));
+      const klines = await api.getOKXKlines(COIN, BAR, limit, 'SWAP');
       if (!klines || klines.length === 0) return false;
 
       const periodHigh = Math.max(...klines.map(k => k.high));

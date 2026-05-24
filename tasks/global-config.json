@@ -1,14 +1,13 @@
 {
   "_schema": "全局参数配置。修改任何参数后，必须按 _refs 列表联动更新所有 📝 引用位置。",
   "_convention": "🔧=运行时require读取(自动跟随) | 📝=静态硬编码值(需手动同步)",
-  "maxAltcoinCycles": 30,
+  "maxAltcoinCycles": 45,
   "_maxAltcoinCycles_note": "山寨币同时活跃周期上限",
   "_maxAltcoinCycles_refs": [
-    "📝 tasks/alt-scanner.md L61 → ACTIVE_COUNT < 30",
-    "📝 tasks/alt-scanner.md L63 → ACTIVE_COUNT >= 30",
-    "📝 tasks/alt-scanner.md L68 → 日志 ${ACTIVE_COUNT}/30",
-    "📝 tasks/alt-scanner.md L70 → 上限值: 30",
-    "📝 tasks/alt-scanner.md L284 → 核心要求: 活跃周期 ≥ 30"
+    "📝 tasks/alt-scanner.md L62 → ACTIVE_COUNT < 45",
+    "📝 tasks/alt-scanner.md L63 → ACTIVE_COUNT >= 45",
+    "📝 tasks/alt-scanner.md L68 → 日志 ${ACTIVE_COUNT}/45",
+    "📝 tasks/alt-scanner.md L70 → 上限值: 45"
   ],
   "trigger": {
     "btc": {
