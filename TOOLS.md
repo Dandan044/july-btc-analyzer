@@ -77,6 +77,42 @@ getOKXKlines({ symbol: 'CRV-USDT-SWAP', bar: '1H' })
 
 `handleRuleSuccess()` 仅在完整链路（check→collect→trigger）成功时调用。`check()` 返回 `false` 不归零 `consecutiveErrors`。
 
+### 块作用域变量在延迟确认闭包中的陷阱
+
+延迟确认的 `setTimeout` 回调是闭包，引用外层 `let`/`const` 变量时要注意：
+- 如果外层变量在 `setTimeout` 调度后被重新赋值，闭包读到的是最新值而非调度时的值
+- 解决：在调度时用临时常量捕获当前值，闭包内引用该常量
+
+```javascript
+// ❌ 错误：retracePct 在 setTimeout 回调执行时可能已被覆盖
+for (const level of levels) {
+  let retracePct = calcRetrace(level);
+  setTimeout(() => { if (retracePct > threshold) reset(); }, delay);
+}
+
+// ✅ 正确：用 const 捕获当前值
+for (const level of levels) {
+  const retracePct = calcRetrace(level);  // 块作用域 const
+  setTimeout(() => { if (retracePct > threshold) reset(); }, delay);
+}
+```
+
+---
+
+## 🖼️ 图片处理优先级
+
+> 收到图片分析请求时，**先检查当前模型是否支持多模态**（查看 system prompt 中 Runtime 行的模型名，或检查模型定义中 input 是否包含 "image"）。
+>
+> **若当前模型支持多模态（输入含 image）：**
+> 1. 用 `read` 读取图片 → 图片进入自身上下文 → 原生视觉处理（零损耗，优先）
+> 2. 失败或需特殊处理时 → fallback 到 `image` 工具
+>
+> **若当前模型不支持多模态（输入仅 text）：**
+> 1. 用 `image` 工具（外包给外部视觉模型）→ 获取文字描述 → 基于描述回答
+> 2. 注意：此时 `image` 工具的模型可能有配额限制
+>
+> **优先级：原生视觉（read）> 外包视觉（image）> 拒绝**
+
 ---
 
 ## 📡 数据获取
@@ -134,6 +170,8 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 | `scripts/generate_kline_chart.py` | K线图生成 | 报告可视化 |
 | `scripts/sync_positions.js` | BTC 仓位同步 | `tasks/sync-positions.md` |
 | `scripts/sync-alt-positions.js` | 山寨币仓位同步 | 阶段一/三调用 |
+| `scripts/dispatch.js` | ⚠️ 调度器客户端（所有 cron add 必经） | `--priority --source --name --at --message` |
+| `scripts/cron-dispatcher.js` | Cron Add 调度器（PM2 常驻，端口 3102） | 见「基础设施速查 → Cron Add 调度器」 |
 
 ---
 
@@ -173,6 +211,46 @@ node server.js --port=3200
 ```
 
 访问 `http://localhost:3100`。详细 API 和功能说明见 `dashboard/README.md`。
+
+### Cron Add 调度器
+
+**⚠️ 所有 `openclaw cron add` 调用必须经过调度器，禁止直接调 CLI。**
+
+调度器提供模型负载感知的任务派发，防止模型超载。
+
+```bash
+# 提交任务到调度器（通过 dispatch.js 客户端）
+node scripts/dispatch.js \
+  --priority "med-2" \     # high-3/2/1 | med-2/1 | low-2/1
+  --source "scanner" \     # 调用方标识（自由字符串）
+  --coin "INJ" \           # 可选，用于去重和日志
+  --name "alt-sentiment-INJ-123" \
+  --at "10s" \             # now | 5s | 1m | ISO时间戳
+  --message "多行消息..."
+
+# 或直接 HTTP POST
+curl -X POST http://127.0.0.1:3102/submit \
+  -H 'Content-Type: application/json' \
+  -d '{"priority":"med-2","source":"scanner","name":"...","at":"10s","message":"..."}'
+```
+
+**优先级：** 后缀数字只影响队列排位，HIGH/MED/LOW 决定进哪个模型池。
+
+**PM2 管理：**
+```bash
+pm2 list | grep cron-dispatcher   # 查看状态
+pm2 restart cron-dispatcher        # 重启
+```
+
+**配置：** `data/cron-dispatcher-config.json`，可通过 Dashboard 设置页修改池子和模型。
+
+**架构：**
+- 调度器 (3102) — 优先级队列 + 载荷感知派发
+- Dashboard (3100) — 前端状态面板 + 配置管理
+- `scripts/dispatch.js` — 命令行客户端
+- 缓存文件 `data/cron-list-cache.json` — 30s 刷新，Dashboard 读缓存不调 gateway
+
+**相关代码：** `scripts/cron-dispatcher.js` `scripts/dispatch.js`
 
 ### GitHub SSH
 

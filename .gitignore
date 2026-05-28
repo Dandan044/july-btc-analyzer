@@ -41,3 +41,13 @@ node_modules/
 .cache/.env
 scripts/__pycache__/
 tmp_gen_manifest.py
+
+# 不需要版本控制的目录
+.trash/
+market-brief/
+images/
+dashboard/public/images/
+
+# stray files from misinvoked CLI args
+1:
+--cycle

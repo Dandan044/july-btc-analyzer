@@ -228,12 +228,13 @@ async function main() {
 
     // ── 3. 原始止损检查 ──
     if (rawStopPct > MAX_STOP_PCT) {
-      return JSON.stringify({
+      console.log(JSON.stringify({
         status: 'REJECT',
         reason: `原始止损幅度 ${rawStopPct.toFixed(2)}% 超过 ${MAX_STOP_PCT}% 上限`,
         btc: { price: btcPrice, atr: btcATR, atr_pct: roundPct(btcATRPct), baseline_pct: roundPct(btcBaselinePct) },
         altcoin: { price: altPrice, atr: altATR, atr_pct: roundPct(altATRPct), x, raw_stop_pct: roundPct(rawStopPct) },
-      }, null, 2);
+      }, null, 2));
+      return;
     }
 
     // ── 4. 原始止损价格 ──
@@ -260,14 +261,15 @@ async function main() {
 
     // ── 6. 最终止损检查 ──
     if (finalStopPct > MAX_STOP_PCT) {
-      return JSON.stringify({
+      console.log(JSON.stringify({
         status: 'REJECT',
         reason: `偏移后止损幅度 ${finalStopPct.toFixed(2)}% 超过 ${MAX_STOP_PCT}% 上限`,
         btc: { price: btcPrice, atr: btcATR, atr_pct: roundPct(btcATRPct), baseline_pct: roundPct(btcBaselinePct) },
         altcoin: { price: altPrice, atr: altATR, atr_pct: roundPct(altATRPct), x, raw_stop_pct: roundPct(rawStopPct) },
         offset: { raw_stop_price: rawStopPrice, final_stop_price: finalStopPrice, final_stop_pct: roundPct(finalStopPct), note: offsetNote },
         position: null,
-      }, null, 2);
+      }, null, 2));
+      return;
     }
 
     // ── 7. 仓位计算 ──

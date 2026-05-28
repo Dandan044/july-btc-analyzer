@@ -89,8 +89,8 @@ if (!decisionFile) {
     }
     decisionFile = path.join(reportsDir, files[0].name);
   } catch (err) {
-    log(`决策文件定位失败: err.message`, 'ERROR');
-    output({ status: 'error', reason: e.message });
+    log(`决策文件定位失败: ${err.message}`, 'ERROR');
+    output({ status: 'error', reason: err.message });
     process.exit(1);
   }
 }
@@ -99,7 +99,7 @@ try {
   decision = JSON.parse(fs.readFileSync(decisionFile, 'utf8'));
   log(`决策文件读取: ${path.basename(decisionFile)}`);
 } catch (err) {
-  log(`决策文件解析失败: err.message`, 'ERROR');
+  log(`决策文件解析失败: ${err.message}`, 'ERROR');
   output({ status: 'error', reason: 'decision parse error' });
   process.exit(1);
 }
@@ -127,7 +127,7 @@ for (const ruleName of archiveRules) {
     archivedNames.push(ruleName);
     log(`归档规则: ${ruleName} | 原因: ${decision.archive_reason || '阶段四正常清理'}`);
   } catch (err) {
-    log(`归档失败: ${ruleName} → err.message`, 'ERROR');
+    log(`归档失败: ${ruleName} → ${err.message}`, 'ERROR');
   }
 }
 
@@ -155,7 +155,7 @@ for (const rule of createRules) {
     createdNames.push(filename);
     log(`创建规则: ${filename} | 类型: ${rule.type}`);
   } catch (err) {
-    log(`创建规则失败: ${rule.filename} → err.message`, 'ERROR');
+    log(`创建规则失败: ${rule.filename} → ${err.message}`, 'ERROR');
   }
 }
 
@@ -466,7 +466,10 @@ module.exports = {
 };
 `;
 
-  fs.writeFileSync(filePath, content, 'utf8');
+  // 原子写入：写 tmp 再 rename，防止警报引擎读取到不完整文件
+  const tmpPath = filePath + '.tmp';
+  fs.writeFileSync(tmpPath, content, 'utf8');
+  fs.renameSync(tmpPath, filePath);
   log(`规则文件已写入: ${path.basename(filePath)} (${levels.length}个价位)`);
 }
 
@@ -779,6 +782,9 @@ ${collectLogic}
 };
 `;
 
-  fs.writeFileSync(filePath, content, 'utf8');
+  // 原子写入：写 tmp 再 rename，防止警报引擎读取到不完整文件
+  const tmpPath = filePath + '.tmp';
+  fs.writeFileSync(tmpPath, content, 'utf8');
+  fs.renameSync(tmpPath, filePath);
   log(`规则文件已写入: ${path.basename(filePath)} (${ruleTypeLabel})`);
 }

@@ -32,26 +32,12 @@ if (!COIN || !CYCLE_DIR) {
 CYCLE_DIR = CYCLE_DIR.replace(/^active\//, '');
 
 const WORKSPACE = path.resolve(__dirname, '..');
-const LOG_FILE = path.join(WORKSPACE, 'logs', `alt-${COIN}-process.log`);
+const LOG_FILE = path.join(WORKSPACE, 'logs', `zhuang-${COIN}-process.log`);
 const CYCLE_PATH = path.join(WORKSPACE, 'active', CYCLE_DIR);
 const POSITIONS_FILE = path.join(CYCLE_PATH, 'positions.json');
 const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
 const INST_ID = `${COIN}-USDT-SWAP`;
-const MARKET_BRIEF_DIR = path.join(WORKSPACE, 'market-brief', 'data');
-const COIN_SECTOR_MAP_PATH = path.join(WORKSPACE, 'data', 'coin-sector-map.json');
-const PROXY_URL = 'http://127.0.0.1:7890';
-
-// ─── 读取杠杆设置 ───
-function readLeverageSetting() {
-  try {
-    const settingsPath = path.join(WORKSPACE, 'data', 'dashboard-settings.json');
-    if (fs.existsSync(settingsPath)) {
-      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      return parseInt(settings.leverage) || 10;
-    }
-  } catch (e) {}
-  return 10;
-}
+const HEDGE_SCRIPT = path.join(WORKSPACE, 'scripts', 'calc-alt-hedge-y.sh');
 const SYNC_SCRIPT = path.join(WORKSPACE, 'scripts', 'sync-alt-positions.js');
 const ARCHIVE_SCRIPT = path.join(WORKSPACE, 'scripts', 'archive-cycle.js');
 
@@ -146,9 +132,7 @@ function num(v) {
 }
 
 function round(v, d = 2) {
-  // Number#toFixed 比 Math.round(v * 10^d)/10^d 更可靠，能消除浮点精度残留
-  // 如 round(5.3100000000000005, 4) → 5.31
-  return Number(Number(v).toFixed(d));
+  return Math.round(v * Math.pow(10, d)) / Math.pow(10, d);
 }
 
 // ─── 从旧 OCO 算法单中提取 SL/TP 价格（兜底用） ───
@@ -218,83 +202,56 @@ function calcPnlOffset(entry, target, type, direction, tickSz) {
   return round(newPrice, 8);
 }
 
-// ═══ 板块映射 ═══
-let coinSectorMap = null;
-
-function loadSectorMap() {
-  if (coinSectorMap) return coinSectorMap;
+// ─── BTC 趋势识别（正则提取） ───
+function extractBtcTrend() {
   try {
-    coinSectorMap = JSON.parse(fs.readFileSync(COIN_SECTOR_MAP_PATH, 'utf8'));
-    return coinSectorMap;
-  } catch (e) {
-    log(`板块映射文件加载失败: ${e.message}`, 'WARN');
-    return {};
-  }
-}
-
-function lookupSector(coin) {
-  return loadSectorMap()[coin] || null;
-}
-
-// ═══ 市场快报读取 ═══
-function readMarketBrief() {
-  try {
-    if (!fs.existsSync(MARKET_BRIEF_DIR)) {
-      log('市场快报目录不存在，回退 y=1.0', 'WARN');
-      return null;
-    }
-    const files = fs.readdirSync(MARKET_BRIEF_DIR)
-      .filter(f => f.endsWith('.json'))
+    const activeDir = path.join(WORKSPACE, 'active');
+    const btcCycles = fs.readdirSync(activeDir)
+      .filter(d => d.startsWith('cycle-'))
       .sort()
       .reverse();
-    if (files.length === 0) {
-      log('市场快报数据为空，回退 y=1.0', 'WARN');
-      return null;
+
+    if (btcCycles.length === 0) {
+      log('无法定位 BTC 周期，视为 sideways', 'WARN');
+      return 'sideways';
     }
-    const raw = fs.readFileSync(path.join(MARKET_BRIEF_DIR, files[0]), 'utf8');
-    const brief = JSON.parse(raw);
-    log(`市场快报读取: ${files[0]} | 评分=${brief.market_state?.score} | 板块数=${(brief.sectors || []).length}`);
-    return brief;
+
+    const btcCycle = btcCycles[0];
+    const reportsDir = path.join(activeDir, btcCycle, 'reports');
+    const reports = fs.readdirSync(reportsDir)
+      .filter(f => f.startsWith('btc-report-') && f.endsWith('.md'))
+      .sort()
+      .reverse();
+
+    if (reports.length === 0) {
+      log('BTC 报告不存在，视为 sideways', 'WARN');
+      return 'sideways';
+    }
+
+    const reportContent = fs.readFileSync(path.join(reportsDir, reports[0]), 'utf8');
+
+    // 从方向判断部分提取趋势
+    const bearish = /偏空|做空|下行|利空|空头主导|bearish/i;
+    const bullish = /偏多|做多|上行|利多|多头主导|bullish/i;
+    const sideways = /震荡|观望|方向不明|信号矛盾|sideways/i;
+
+    // 优先找明确的"方向判断"段落
+    const dirMatch = reportContent.match(/(?:方向判断|方向判断[:：]|趋势判断)[:：\s]*([^\n]{5,50})/);
+    if (dirMatch) {
+      const text = dirMatch[1];
+      if (bearish.test(text)) return 'bearish';
+      if (bullish.test(text)) return 'bullish';
+      if (sideways.test(text)) return 'sideways';
+    }
+
+    // 全文扫描
+    if (bearish.test(reportContent) && !bullish.test(reportContent)) return 'bearish';
+    if (bullish.test(reportContent) && !bearish.test(reportContent)) return 'bullish';
+    return 'sideways';
   } catch (e) {
-    log(`市场快报读取失败: ${e.message}，回退 y=1.0`, 'WARN');
-    return null;
+    log(`BTC 趋势识别失败: ${e.message}`, 'WARN');
+    return 'sideways';
   }
-}
-
-// ═══ BTC 跟踪度计算（Pearson 相关系数） ═══
-function getKlineCloses(coinSymbol) {
-  const instId = `${coinSymbol}-USDT-SWAP`;
-  const url = `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=1H&limit=72`;
-  try {
-    const raw = execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`,
-      { encoding: 'utf8', timeout: 20000 });
-    const data = JSON.parse(raw);
-    if (!data.data || data.data.length === 0) return null;
-    return data.data.map(c => parseFloat(c[4])).reverse();
-  } catch (e) {
-    return null;
-  }
-}
-
-function pearsonR(xs, ys) {
-  const n = Math.min(xs.length, ys.length);
-  if (n < 10) return null;
-  const sliceX = xs.slice(-n), sliceY = ys.slice(-n);
-  const meanX = sliceX.reduce((a, b) => a + b, 0) / n;
-  const meanY = sliceY.reduce((a, b) => a + b, 0) / n;
-  let cov = 0, varX = 0, varY = 0;
-  for (let i = 0; i < n; i++) {
-    const dx = sliceX[i] - meanX, dy = sliceY[i] - meanY;
-    cov += dx * dy; varX += dx * dx; varY += dy * dy;
-  }
-  return varX === 0 || varY === 0 ? 0 : cov / Math.sqrt(varX * varY);
-}
-
-function computeBtcCorrelation(coinSymbol) {
-  const btcCloses = getKlineCloses('BTC');
-  const altCloses = getKlineCloses(coinSymbol);
-  if (!btcCloses || !altCloses) return null;
-  return pearsonR(btcCloses, altCloses);
 }
 
 // ════════════════════════════════════════════
@@ -395,7 +352,7 @@ if (reject_reason) {
 } else if (hasPosition && action === 'open' && direction === positionDirection) {
   adjustedAction = 'add';
   log('已有同方向仓位且建议开仓 → 视为加仓', 'WARN');
-} else if (action === 'hold' || action === '观望' || action === 'watch' || action === 'wait' || action === 'skip') {
+} else if (action === 'hold' || action === '观望' || action === 'watch' || action === 'wait') {
   skipExecution = true;
   skipReason = action === 'wait' ? '等待条件' : '观望';
   log(`${skipReason}，跳过执行`);
@@ -412,81 +369,32 @@ if (!skipExecution && adjustedAction !== 'adjust' && entry_condition && entry_co
 }
 
 // ════════════════════════════════════════════
-// 步骤 6.X: 市场环境对冲（仅开仓/加仓）
-// 公式: y = 1.0 + 市场分 × 跟踪度 × 0.5 + 板块分 × 0.15
-//   y 钳制到 [0.5, 1.5]
-//   市场分 = 方向 × 评分 / 10  （方向: long=+1, short=-1）
-//   板块分 = 方向 × (评分 - 板块评分) / 10
+// 步骤 6.X: BTC 趋势对冲（仅开仓/加仓）
 // ════════════════════════════════════════════
 let nominalFinal = cappedNominalBase;
 
-// 检查对冲开关
-let hedgeEnabled = true;
-try {
-  const settingsPath = path.join(WORKSPACE, 'data', 'dashboard-settings.json');
-  if (fs.existsSync(settingsPath)) {
-    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-    if (settings.hedgeEnabled !== undefined) {
-      hedgeEnabled = !!settings.hedgeEnabled;
+if (!skipExecution && (adjustedAction === 'open' || adjustedAction === 'add')) {
+  const btcTrend = extractBtcTrend();
+
+  if (btcTrend !== 'sideways') {
+    log(`BTC趋势识别: ${btcTrend}`);
+
+    try {
+      const hedgeCmd = `bash "${HEDGE_SCRIPT}" ${COIN} ${direction} ${btcTrend}`;
+      const hedgeOut = execSync(hedgeCmd, { encoding: 'utf8', timeout: 15000 });
+      const hedgeJson = JSON.parse(hedgeOut);
+      const y = hedgeJson.y;
+      const isCounter = hedgeJson.is_counter;
+      const corr = hedgeJson.corr;
+
+      nominalFinal = Math.round(nominalFinal * y);
+
+      log(`BTC对冲 | ${COIN} dir=${direction} | BTC=${btcTrend} | 逆势=${isCounter ? 'YES' : 'NO'} | corr=${corr} | y=${y} | ${cappedNominalBase}u→${nominalFinal}u`);
+    } catch (e) {
+      log(`对冲计算失败: ${e.message}，不调整仓位`, 'WARN');
     }
-  }
-} catch (e) {
-  log(`对冲开关读取失败: ${e.message}，默认开启`, 'WARN');
-}
-
-if (!hedgeEnabled) {
-  log('市场对冲已关闭 (hedgeEnabled=false)，跳过');
-} else if (!skipExecution && (adjustedAction === 'open' || adjustedAction === 'add')) {
-  try {
-    const brief = readMarketBrief();
-
-    if (brief) {
-      const score = brief.market_state?.score;
-      const sectorName = lookupSector(COIN);
-      let sectorScore = null;
-
-      if (sectorName) {
-        const sector = (brief.sectors || []).find(s => s.name === sectorName);
-        sectorScore = sector ? sector.score : null;
-      }
-
-      if (score !== undefined && score !== null) {
-        const dirSign = direction === 'long' ? 1 : -1;
-
-        // 跟踪度
-        const corr = computeBtcCorrelation(COIN);
-        const corrFinal = corr !== null ? Math.max(0, corr) : 0.5;
-
-        // 市场分
-        const marketScore = dirSign * score / 10;
-
-        // 板块分（无板块数据时为 0）
-        const sectorScoreNorm = (sectorScore !== null)
-          ? dirSign * (score - sectorScore) / 10
-          : 0;
-
-        // 统一公式
-        let y = 1.0 + marketScore * corrFinal * 0.5 + sectorScoreNorm * 0.15;
-
-        // 钳制
-        const yRaw = y;
-        if (y < 0.5) y = 0.5;
-        if (y > 1.5) y = 1.5;
-        const clamped = y !== yRaw;
-
-        const beforeNominal = nominalFinal;
-        nominalFinal = Math.round(nominalFinal * y);
-
-        log(`市场对冲计算 | 评分=${score} | 板块=${sectorName || '未知'}(${sectorScore !== null ? sectorScore : '-'}) | corr=${round(corrFinal,3)} | 市场分=${round(marketScore,3)} | 板块分=${round(sectorScoreNorm,3)} | y_原始=${round(yRaw,3)} → y=${round(y,3)}${clamped ? ' (钳制)' : ''}`);
-        log(`市场对冲结果 | ${beforeNominal}u × ${round(y,3)} = ${nominalFinal}u`);
-      } else {
-        log('市场评分缺失，y=1.0', 'WARN');
-      }
-    } else {
-      log('市场快报不可用，y=1.0', 'WARN');
-    }
-  } catch (e) {
-    log(`对冲计算失败: ${e.message}，y=1.0`, 'WARN');
+  } else {
+    log('BTC趋势: sideways，顺势处理，y=1.0');
   }
 }
 
@@ -498,7 +406,7 @@ if (!skipExecution && (adjustedAction === 'open' || adjustedAction === 'add')) {
     const settingsPath = path.join(WORKSPACE, 'data', 'dashboard-settings.json');
     if (fs.existsSync(settingsPath)) {
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
-      const multiplier = parseFloat(settings.positionMultiplier) || 1;
+      const multiplier = parseFloat(settings.zhuangPositionMultiplier || settings.positionMultiplier) || 1;
       if (multiplier >= 0.8 && multiplier <= 20) {
         const beforeNominal = nominalFinal;
         nominalFinal = Math.round(nominalFinal * multiplier);
@@ -580,25 +488,11 @@ try {
 
       const reviewMsg = `周期路径: archived/${CYCLE_DIR}\n币种: ${COIN}\n归档时间: ${nowIso}\n请读取 tasks/trade-review.md 对该周期执行独立深度复盘。`;
 
-      // 通过调度器提交复盘任务（低优先级）
-      const reviewMsgFile = `/tmp/dispatch-review-${CYCLE_DIR}.txt`;
-      fs.writeFileSync(reviewMsgFile, reviewMsg, 'utf8');
-
-      try {
-        execSync(
-          `node "${path.join(WORKSPACE, 'scripts', 'dispatch.js')}" --priority "low-2" --source review --coin "${COIN}" --name "review-${CYCLE_DIR}" --at "${reviewAt}" --message-file "${reviewMsgFile}"`,
-          { encoding: 'utf8', timeout: 15000 }
-        );
-        log(`📋 复盘已提交调度器 | 任务: review-${CYCLE_DIR} | 触发时间: ${reviewAt} | 输出: learnings/review-${COIN}-${reviewDate}-${reviewTime}.md`);
-      } catch (dispatchErr) {
-        log(`调度器提交失败，降级直连: ${dispatchErr.message}`, 'WARN');
-        execSync(
-          `openclaw cron add --name "review-${CYCLE_DIR}" --agent july --at "${reviewAt}" --message '${reviewMsg.replace(/'/g, "'\\''")}' --session isolated --delete-after-run --no-deliver`,
-          { encoding: 'utf8', timeout: 10000 }
-        );
-        log(`📋 复盘cron已直连创建 | 任务: review-${CYCLE_DIR} | 触发时间: ${reviewAt}`);
-      }
-      try { fs.unlinkSync(reviewMsgFile); } catch (_) {}
+      execSync(
+        `openclaw cron add --name "review-${CYCLE_DIR}" --agent july --at "${reviewAt}" --message '${reviewMsg.replace(/'/g, "'\\''")}' --session isolated --delete-after-run --no-deliver`,
+        { encoding: 'utf8', timeout: 10000 }
+      );
+      log(`📋 复盘cron已创建 | 任务: review-${CYCLE_DIR} | 触发时间: ${reviewAt} | 输出: learnings/review-${COIN}-${reviewDate}-${reviewTime}.md`);
     } catch (e) {
       log(`📦 ARCHIVE 失败: ${e.message}`, 'ERROR');
     }
@@ -674,10 +568,9 @@ async function executeOpen(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio
   const lotSz = num(contractInfo.lotSz);
   const maxLever = num(contractInfo.lever);
   const tickSz = num(contractInfo.tickSz) || 0.00001;
-  const leverConfigured = readLeverageSetting();
-  const leverActual = Math.min(leverConfigured, maxLever);
+  const leverActual = Math.min(10, maxLever);
 
-  log(`合约信息: ctVal=${ctVal}, minSz=${minSz}, lotSz=${lotSz}, maxLever=${maxLever}, 设置杠杆=${leverConfigured}→实际=${leverActual}, tickSz=${tickSz}`);
+  log(`合约信息: ctVal=${ctVal}, minSz=${minSz}, lotSz=${lotSz}, maxLever=${maxLever}, tickSz=${tickSz}`);
 
   // 7.1.3 计算张数
   const rawSz = nominalFinal / (lastPrice * ctVal);
@@ -818,8 +711,7 @@ async function executeAdd(direction, nominalFinal, stopLoss, tp1, tp2, tp1Ratio)
   const lotSz = num(contractInfo.lotSz);
   const maxLever = num(contractInfo.lever);
   const tickSz = num(contractInfo.tickSz) || 0.00001;
-  const leverConfigured = readLeverageSetting();
-  const leverActual = Math.min(leverConfigured, maxLever);
+  const leverActual = Math.min(10, maxLever);
   const alignToLot = (v) => lotSz > 0 ? Math.floor(v / lotSz) * lotSz : round(v, 4);
 
   const rawSz = nominalFinal / (lastPrice * ctVal);

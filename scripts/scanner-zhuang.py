@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-scanner-full.py — 山寨币扫描引擎全流程（生产版）
+scanner-zhuang.py — 庄币扫描引擎
 
-运行方式：python3 scripts/scanner-full.py
+与 scanner-full.py 的核心差异：
+- 使用 4h K 线涨跌幅（绝对值）替代 24h ticker 涨跌幅
+- 两步法：tickers 粗筛 → 4h candles 精算
+- 其余筛A/B/C/OI 逻辑与普通山寨扫描一致
 
-完整跑通：获取 tickers → 筛A(黑名单) → 筛B(活跃周期) → 筛C(非山寨名单) → OI筛选 → 输出结果
-输出 JSON 供 bash wrapper 解析，决定是否 openclaw cron add。
+运行方式：python3 scripts/scanner-zhuang.py
 
-日志格式（追加到 logs/alt-scanner.log）：
-  正常: [时间] [扫描] 内容
-  警告: [时间] [扫描] ⚠️ WARN: 内容
-  错误: [时间] [扫描] ⛔ ERROR: 内容
+日志格式（追加到 logs/zhuang-scanner.log）：
+  正常: [时间] [庄币扫描] 内容
+  警告: [时间] [庄币扫描] ⚠️ WARN: 内容
+  错误: [时间] [庄币扫描] ⛔ ERROR: 内容
 """
 
 import json
@@ -18,6 +20,7 @@ import subprocess
 import sys
 import os
 import glob
+import time
 from datetime import datetime
 
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -28,27 +31,34 @@ NON_ALT_PATH = os.path.join(WORKSPACE, "data", "non-alt-list.json")
 ACTIVE_DIR = os.path.join(WORKSPACE, "active")
 SCREENING_SCRIPT = os.path.join(WORKSPACE, "scripts", "alt-scanner-screening.py")
 OI_FILTER_SCRIPT = os.path.join(WORKSPACE, "scripts", "alt-scanner-oi-filter.py")
-LOG_PATH = os.path.join(WORKSPACE, "logs", "alt-scanner.log")
+LOG_PATH = os.path.join(WORKSPACE, "logs", "zhuang-scanner.log")
 
-def get_max_alt_coins():
-    """从 dashboard-settings.json 读取上限，缺省 45"""
+# ═══ 配置 ═══
+MAX_CANDIDATES_FOR_CANDLES = 80   # 最多为多少个候选币取 4h candle
+CANDLE_REQ_DELAY_MS = 200          # 每次 candle 请求间隔（5 req/s）
+CANDLE_MAX_RETRIES = 3             # 单个 candle 请求重试次数
+MIN_24H_VOL_USD = 50000            # 最小 24h 成交量（美元），筛死币
+CANDLE_BAR = "4H"                  # K 线粒度
+
+# ─── Dashboard 配置 ───
+def get_max_zhuang_coins():
+    """从 dashboard-settings.json 读取上限，缺省 20"""
     try:
-        import json
         settings_path = os.path.join(WORKSPACE, "data", "dashboard-settings.json")
         if os.path.exists(settings_path):
             with open(settings_path, 'r') as f:
-                return json.load(f).get('scannerLimit', 45)
-    except: pass
-    return 45
+                return json.load(f).get('zhuangScannerLimit', 20)
+    except:
+        pass
+    return 20
 
-MAX_ALT_COINS = get_max_alt_coins()
+MAX_ZHUANG_COINS = get_max_zhuang_coins()
 
-# 窗口策略：(start_idx, end_idx) 0-based inclusive
+# 窗口策略：从头部开始，逐轮扩展
 WINDOW_ROUNDS = [
-    (25, 29),   # 第1轮: 26-30, 5个
-    (20, 34),   # 第2轮: 21-35, 15个
-    (10, 49),   # 第3轮: 11-50, 40个
-    (0, 59),    # 第4轮: 1-60, 60个
+    (0, 4),     # 第1轮: 前5个
+    (0, 14),    # 第2轮: 前15个
+    (0, 24),    # 第3轮: 全部25个
 ]
 
 
@@ -57,13 +67,12 @@ def now_ts():
 
 
 def log(msg, level="INFO"):
-    """写入日志文件 + stdout"""
     if level == "WARN":
-        line = f"[{now_ts()}] [扫描] ⚠️ WARN: {msg}"
+        line = f"[{now_ts()}] [庄币扫描] ⚠️ WARN: {msg}"
     elif level == "ERROR":
-        line = f"[{now_ts()}] [扫描] ⛔ ERROR: {msg}"
+        line = f"[{now_ts()}] [庄币扫描] ⛔ ERROR: {msg}"
     else:
-        line = f"[{now_ts()}] [扫描] {msg}"
+        line = f"[{now_ts()}] [庄币扫描] {msg}"
     print(line)
     with open(LOG_PATH, "a", encoding="utf-8") as f:
         f.write(line + "\n")
@@ -77,34 +86,79 @@ def load_json(path):
         return None
 
 
+def fetch_candle_4h(coin, retries=CANDLE_MAX_RETRIES):
+    """
+    获取单币种最新 4H K 线，返回 (open, close, high, low) 或 None
+    带退避重试
+    """
+    inst_id = f"{coin}-USDT-SWAP"
+    url = f"https://www.okx.com/api/v5/market/candles?instId={inst_id}&bar={CANDLE_BAR}&limit=1"
+
+    for attempt in range(retries):
+        try:
+            result = subprocess.run(
+                ["curl", "-s", "--max-time", "10", "--proxy", PROXY_URL, url],
+                capture_output=True, text=True, timeout=15
+            )
+            data = json.loads(result.stdout)
+
+            if data.get("code") != "0" or not data.get("data"):
+                if attempt < retries - 1:
+                    delay = (attempt + 1) * 2
+                    time.sleep(delay)
+                    continue
+                return None
+
+            candle = data["data"][0]  # [ts, open, high, low, close, vol, volCcy, ...]
+            open_px = float(candle[1])
+            high_px = float(candle[2])
+            low_px = float(candle[3])
+            close_px = float(candle[4])
+
+            if open_px == 0:
+                return None
+
+            return (open_px, close_px, high_px, low_px)
+
+        except Exception as e:
+            if attempt < retries - 1:
+                delay = (attempt + 1) * 2
+                # print(f"   {coin} candle 获取重试 ({attempt+1}/{retries}): {e}")
+                time.sleep(delay)
+                continue
+            return None
+
+    return None
+
+
 # ════════════════════════════════════════════
 # 步骤 1: 扫描开始
 # ════════════════════════════════════════════
 log("=" * 50)
-log("扫描引擎启动")
+log("庄币扫描引擎启动")
 
 
 # ════════════════════════════════════════════
 # 步骤 2: 检查活跃周期数量
 # ════════════════════════════════════════════
-active_dirs = glob.glob(os.path.join(ACTIVE_DIR, "alt-*"))
+active_dirs = glob.glob(os.path.join(ACTIVE_DIR, "zhuang-*"))
 active_count = len(active_dirs)
-log(f"活跃周期: {active_count}/{MAX_ALT_COINS}")
+log(f"活跃庄币周期: {active_count}/{MAX_ZHUANG_COINS}")
 
-if active_count >= MAX_ALT_COINS:
-    log("活跃周期已达上限，跳过本轮")
+if active_count >= MAX_ZHUANG_COINS:
+    log("活跃庄币周期已达上限，跳过本轮")
     log("=" * 50 + " 扫描结束（上限跳过）")
     print(json.dumps({"result": "skipped_max_coins", "active_count": active_count}))
     sys.exit(0)
 
 
 # ════════════════════════════════════════════
-# 步骤 3: 获取 OKX SWAP 全量行情（带重试）
+# 步骤 3: 获取 OKX SWAP 全量 tickers（带重试）
 # ════════════════════════════════════════════
-log("获取 OKX SWAP tickers...")
+log("获取 OKX SWAP tickers（用于初筛）...")
 
 MAX_RETRIES = 3
-RETRY_DELAYS = [2, 4, 8]  # 指数退避
+RETRY_DELAYS = [2, 4, 8]
 
 data = None
 fetch_error = None
@@ -118,13 +172,12 @@ for attempt in range(MAX_RETRIES):
         )
         data = json.loads(result.stdout)
         fetch_error = None
-        break  # 成功，退出重试
+        break
     except Exception as e:
         fetch_error = str(e)
         if attempt < MAX_RETRIES - 1:
             delay = RETRY_DELAYS[attempt]
             log(f"OKX API 获取失败 (第{attempt+1}次): {e}，{delay}s 后重试...", "WARN")
-            import time
             time.sleep(delay)
 
 if fetch_error or data is None:
@@ -148,38 +201,87 @@ if not tickers:
 
 log(f"原始 tickers: {len(tickers)} 个")
 
-
-# ─── 3.1 过滤 -USDT-SWAP ───
-usdt_swaps = [t for t in tickers if t.get("instId", "").endswith("-USDT-SWAP")]
-log(f"USDT-SWAP 合约: {len(usdt_swaps)} 个")
-
-
-# ─── 3.2 计算涨跌幅 ───
-with_change = []
-for t in usdt_swaps:
-    last = float(t.get("last", 0))
-    open24h = float(t.get("open24h", 0))
-    if open24h == 0:
+# ─── 3.1 过滤 -USDT-SWAP，计算 24h 成交量 ───
+usdt_swaps = []
+for t in tickers:
+    if not t.get("instId", "").endswith("-USDT-SWAP"):
         continue
-    change_pct = (last - open24h) / open24h * 100
+    vol24h = float(t.get("volCcy24h", 0))
+    if vol24h < MIN_24H_VOL_USD:
+        continue
     coin = t["instId"].replace("-USDT-SWAP", "")
+    usdt_swaps.append({
+        "coin": coin,
+        "instId": t["instId"],
+        "last": float(t.get("last", 0)),
+        "vol24h": vol24h,
+    })
+
+log(f"成交量 > ${MIN_24H_VOL_USD:,}: {len(usdt_swaps)} 个")
+
+if not usdt_swaps:
+    log("无符合条件的币种", "WARN")
+    log("=" * 50 + " 扫描结束")
+    print(json.dumps({"result": "no_coins"}))
+    sys.exit(0)
+
+# ─── 3.2 按 24h 成交量排序，取前 MAX_CANDIDATES_FOR_CANDLES ───
+usdt_swaps.sort(key=lambda x: x["vol24h"], reverse=True)
+candle_targets = usdt_swaps[:MAX_CANDIDATES_FOR_CANDLES]
+
+log(f"成交量前 {len(candle_targets)} 个币种 → 获取 4H candles")
+
+# ─── 3.3 并行获取 4H candles，计算涨跌幅 ───
+log(f"获取 4H K 线 ({CANDLE_BAR})，间隔 {CANDLE_REQ_DELAY_MS}ms...")
+
+with_change = []
+fetch_count = 0
+fetch_fail = 0
+
+for t in candle_targets:
+    coin = t["coin"]
+    fetch_count += 1
+
+    candle = fetch_candle_4h(coin)
+
+    if candle is None:
+        fetch_fail += 1
+        continue
+
+    open_px, close_px, high_px, low_px = candle
+    change_pct = (close_px - open_px) / open_px * 100
+
     with_change.append({
         "instId": t["instId"],
         "coin": coin,
-        "last": last,
-        "open24h": open24h,
+        "last": t["last"],
+        "open24h": open_px,  # 实际上是 4h open，沿用以兼容后续
         "change_pct": round(change_pct, 2),
-        "vol24h": t.get("volCcy24h", "0"),
+        "vol24h": str(t["vol24h"]),
     })
 
+    # 限流：间隔 200ms
+    time.sleep(CANDLE_REQ_DELAY_MS / 1000)
 
-# ─── 3.3 按 |涨跌幅| 排序，取前 60 ───
+log(f"4H candle 获取完成: 成功 {len(with_change)} 个, 失败 {fetch_fail} 个")
+
+# ─── 3.4 按 |涨跌幅| 排序，取前 25 ───
 with_change.sort(key=lambda x: abs(x["change_pct"]), reverse=True)
-candidates = with_change[:60]
+candidates = with_change[:25]
 
-log(f"候选池: 前 60 个（|涨跌幅| 降序）")
-log(f"  #1: {candidates[0]['coin']} ({candidates[0]['change_pct']:+.2f}%)")
-log(f"  #60: {candidates[-1]['coin']} ({candidates[-1]['change_pct']:+.2f}%)")
+# 庄币最低 |4h涨跌幅| 阈值：低于此值的币种价格根本没动，不可能是强庄控盘
+MIN_ZHUANG_ABS_PCT = 2.0
+candidates = [c for c in candidates if abs(c["change_pct"]) >= MIN_ZHUANG_ABS_PCT]
+
+if not candidates:
+    log("无有效 4h 涨跌幅数据", "ERROR")
+    log("=" * 50 + " 扫描结束")
+    print(json.dumps({"result": "no_candles"}))
+    sys.exit(0)
+
+log(f"候选池: 前 {len(candidates)} 个（|4h涨跌幅| 降序）")
+log(f"  #1: {candidates[0]['coin']} ({candidates[0]['change_pct']:+.2f}% | 4h)")
+log(f"  #{len(candidates)}: {candidates[-1]['coin']} ({candidates[-1]['change_pct']:+.2f}% | 4h)")
 
 
 # ════════════════════════════════════════════
@@ -191,7 +293,6 @@ if bl_data:
     blacklist = set(bl_data.get("blacklist", []))
     log(f"系统黑名单加载: {len(blacklist)} 个")
 
-# 合并用户自定义黑名单
 user_bl_data = load_json(USER_BLACKLIST_PATH)
 user_blacklist = set()
 if user_bl_data:
@@ -207,21 +308,29 @@ if na_data:
 
 
 # ════════════════════════════════════════════
-# 步骤 4-8: 窗口扫描
+# 步骤 4-8: 窗口扫描（复用以筛A/B/C/OI）
 # ════════════════════════════════════════════
 checked_coins = set()
 selected_coin = None
 stats = {"blacklisted": 0, "active_cycle": 0, "non_alt": 0, "oi_failed": 0}
 
 for round_idx, (start, end) in enumerate(WINDOW_ROUNDS):
+    # 窗口越界保护
+    actual_end = min(end, len(candidates) - 1)
+    if start >= len(candidates):
+        break
+
     round_num = round_idx + 1
-    window_coins = [candidates[i] for i in range(start, end + 1)]
+    window_coins = [candidates[i] for i in range(start, actual_end + 1)]
     new_coins = [c for c in window_coins if c["coin"] not in checked_coins]
     checked_coins.update(c["coin"] for c in window_coins)
 
-    log(f"窗口: 第{round_num}轮（索引 {start+1}-{end+1}，共 {len(new_coins)} 个新增）")
+    log(f"窗口: 第{round_num}轮（索引 {start+1}-{actual_end+1}，共 {len(new_coins)} 个新增）")
 
-    # ─── 步骤 5: 筛A + 筛B (用现有 Python 脚本) ───
+    if not new_coins:
+        continue
+
+    # ─── 筛A + 筛B ───
     window_json = json.dumps(new_coins)
     screen_result = subprocess.run(
         ["python3", SCREENING_SCRIPT],
@@ -252,7 +361,7 @@ for round_idx, (start, end) in enumerate(WINDOW_ROUNDS):
 
     log(f"筛A+B通过: {len(passed_a_b)} 个: {[c['coin'] for c in passed_a_b]}")
 
-    # ─── 步骤 5C: 非山寨币筛 (替代 LLM) ───
+    # ─── 筛C: 非山寨币 ───
     passed_c = []
     for c in passed_a_b:
         coin = c["coin"]
@@ -270,7 +379,7 @@ for round_idx, (start, end) in enumerate(WINDOW_ROUNDS):
 
     log(f"筛C通过: {len(passed_c)} 个: {[c['coin'] for c in passed_c]}")
 
-    # ─── 步骤 6: OI 筛选 ───
+    # ─── OI 筛选 ───
     log("OI 筛选中...")
     oi_input = json.dumps(passed_c)
     oi_result = subprocess.run(
@@ -327,12 +436,11 @@ log("=" * 50)
 
 if selected_coin:
     log(f"✅ 命中: {selected_coin['coin']}")
-    log(f"   涨跌幅: {selected_coin['change_pct']:+.2f}%")
+    log(f"   4h涨跌幅: {selected_coin['change_pct']:+.2f}%")
     log(f"   OI变化: {selected_coin['oi_change_pct']:+.2f}%")
     log(f"   筛选统计: 黑名单 {stats['blacklisted']} | 活跃周期 {stats['active_cycle']} | 非山寨 {stats['non_alt']} | OI失败 {stats['oi_failed']}")
     log("=" * 50 + " 扫描结束")
 
-    # 输出 JSON 供 bash wrapper 解析
     output = {
         "result": "hit",
         "coin": selected_coin["coin"],
@@ -350,6 +458,5 @@ else:
         "stats": stats,
     }
 
-# stdout 的最后一行必须是纯 JSON（bash 取最后一行解析）
 print("__JSON_OUTPUT__")
 print(json.dumps(output))

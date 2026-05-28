@@ -17,7 +17,7 @@
 | C5 | 禁止 FGI 触发 | 模板不含 FGI 调用 |
 | C6 | API 参数只能传 string/number | 模板中所有参数均为基本类型 |
 | C7 | 数据非空检查后再访问子属性 | 模板对 API 返回值做 `if (!data) return false` |
-| C8 | `trigger()` 必须异步 spawn | 模板使用 `spawn('openclaw', ['cron', 'add', ...])` |
+| C8 | `trigger()` 必须异步 spawn | 模板使用 `spawn(process.execPath, [dispatchJs, ...])` 经调度器派发 |
 | C9 | 每个价位必须有 `confirmPolicy` + `confirmMs` | 模板 `PRICE_LEVELS` 每项均含两个字段 |
 | C10 | SL 用 `instant`，入场用 `hold`，TP 用 `touch` | 模板注释标注每种价位的推荐策略 |
 | C11 | 价格价位 ≤6 个 | 模板示例含 6 个价位，修改时勿超 |
@@ -61,6 +61,7 @@
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
+const path = require('path');
 
 const COIN = 'BTC';  // [山寨] 改为具体币种，如 'DOGE'、'MOVE'
 const COOLDOWN_MS = 60 * 60 * 1000;  // 冷却 ≥1小时
@@ -357,18 +358,14 @@ module.exports = {
 3. 读取 tasks/daily-report-stage3.md 执行仓位管理
 4. 读取 tasks/daily-report-stage4.md 执行警报管理`;
 
-    // ⚠️ CLI 参数名 ≠ Tool API 参数名！
-    // ✅ --agent --session --at --message --name --delete-after-run --no-deliver
-    // ❌ --sessionTarget --kind --deleteAfterRun（这些 CLI 全都不认识）
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
+    spawn(process.execPath, [
+      path.join(__dirname, '../../../..', 'scripts', 'dispatch.js'),
+      '--priority', 'high-2',
+      '--source', 'btc-alert',
+      '--coin', COIN,
       '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
+      '--at', 'now',
+      '--message', message,
     ], { detached: true, stdio: 'ignore' });
 
     this.lastTriggered = Date.now();
@@ -425,6 +422,7 @@ module.exports = {
 
 const api = require('../../btc-market-lite/scripts/api');
 const { spawn } = require('child_process');
+const path = require('path');
 
 const COIN = 'BTC';  // [山寨] 改为具体币种
 const COOLDOWN_MS = 60 * 60 * 1000;
@@ -548,18 +546,14 @@ module.exports = {
 3. 读取 tasks/daily-report-stage3.md 执行仓位管理
 4. 读取 tasks/daily-report-stage4.md 执行警报管理`;
 
-    // ⚠️ CLI 参数名 ≠ Tool API 参数名！
-    // ✅ --agent --session --at --message --name --delete-after-run --no-deliver
-    // ❌ --sessionTarget --kind --deleteAfterRun（这些 CLI 全都不认识）
-    spawn('openclaw', [
-      'cron', 'add',
-      '--agent', 'july',
-      '--session', 'isolated',
-      '--at', now,
-      '--message', message,
+    spawn(process.execPath, [
+      path.join(__dirname, '../../../..', 'scripts', 'dispatch.js'),
+      '--priority', 'high-2',
+      '--source', 'btc-alert',
+      '--coin', COIN,
       '--name', jobName,
-      '--delete-after-run',
-      '--no-deliver'
+      '--at', 'now',
+      '--message', message,
     ], { detached: true, stdio: 'ignore' });
 
     this.lastTriggered = Date.now();

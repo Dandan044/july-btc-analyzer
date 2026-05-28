@@ -21,12 +21,13 @@ import glob
 
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BLACKLIST_PATH = os.path.join(WORKSPACE, 'data/altcoin-blacklist.json')
+USER_BLACKLIST_PATH = os.path.join(WORKSPACE, 'data/user-blacklist.json')
 
 
 def main():
     candidates = json.load(sys.stdin)
 
-    # 加载黑名单
+    # 加载系统黑名单
     try:
         with open(BLACKLIST_PATH) as f:
             blacklist_data = json.load(f)
@@ -34,6 +35,14 @@ def main():
         blacklist_data = {"blacklist": [], "reason": ""}
 
     blacklist = set(blacklist_data.get("blacklist", []))
+
+    # 合并用户自定义黑名单
+    try:
+        with open(USER_BLACKLIST_PATH) as f:
+            user_bl_data = json.load(f)
+        blacklist |= set(user_bl_data.get("blacklist", []))
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
 
     screening = []
 

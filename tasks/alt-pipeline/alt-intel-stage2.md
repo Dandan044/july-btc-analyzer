@@ -611,7 +611,7 @@ node scripts/calc-position.js \
 |------|------|------|
 | `coin` | string | 币种代码 |
 | `report_file` | string | 对应的报告文件名 |
-| `action` | string | `open` / `add` / `reduce` / `close` / `adjust` / `hold` |
+| `action` | string | `open` / `add` / `reduce` / `close` / `adjust` / `hold` / `wait` |
 | `direction` | string | `long` / `short`（开仓/加仓时必填） |
 | `entry_condition` | string | `immediate`（立即执行）或描述等待触发的条件 |
 | `nominal_base` | number | 建议名义仓位（USDT），未指定则默认 30 |
@@ -630,7 +630,8 @@ node scripts/calc-position.js \
 - `action = reduce` → `reduce_ratio` 必填，**同时传入 `stop_loss`、`take_profit1`**（给剩余仓位用）
 - `action = adjust` → `stop_loss`、`take_profit1` 填新价位
 - `action = close` → 只需 `action: "close"`
-- `action = hold` → `observation_conditions` 必填
+- `action = hold` → 持仓中观望，`observation_conditions` 必填
+- `action = wait` → 无持仓等待条件，`observation_conditions` 必填，**observation_conditions 中的价位必须同步写入 alert-candidates 的 `create_rules`**
 - `reject_reason` 非 null 时，阶段三会跳过执行
 
 **加仓/减仓 TP/SL 语义（阶段三脚本行为）：**
@@ -942,7 +943,7 @@ echo "[$NOW] [阶段二] ========== 阶段二结束 ==========" >> logs/alt-${CO
 node scripts/stage3-executor.js {COIN} {CYCLE_DIR}
 ```
 
-脚本自动完成：读取 `trade-decision.json` → 验证合理性 → BTC 对冲 → 下单/调仓 → 同步持仓 → 归档判断。
+脚本自动完成：读取 `trade-decision.json` → 验证合理性 → BTC 对冲 → 下单/调盈损 → 同步持仓 → 归档判断。
 
 **阶段三输出会标记 `pipeline_end`：**
 - `pipeline_end: true` → 阶段三已归档周期（规则清零 + 复盘 cron 已创建），**流程结束，不再进入阶段四**

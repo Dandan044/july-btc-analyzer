@@ -2,7 +2,7 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v13 更新**：Dashboard 2.0 + 阶段三阻拦逻辑移除 + 警报引擎并发控制 + 合约数据退避重试 + OCO 管理修复。
+> **v14 更新**：Cron 调度器重构 + 装庄管道上线 + 市场简报系统 + Dashboard 事故修复 + OOM 诊断 + TRADE_LESSONS 自动注入撤销 + 阶段三加仓减仓修复 + 沉默监控 + 复盘报告 18 篇。
 
 ## 🚀 快速开启
 
@@ -328,6 +328,71 @@ env: {
 ---
 
 ## 更新日志
+
+### 2026-05-28
+> 🔧 v14 — Cron 调度器重构 + 装庄管道上线 + 市场简报系统 + Dashboard 事故修复 + OOM 诊断 + TRADE_LESSONS 自动注入撤销 + 沉默监控 + 复盘报告 18 篇
+
+**① 🔄 Cron 调度器完整重构（`scripts/cron-dispatcher.js` +953行，`scripts/dispatch.js` +150行）：**
+- **异步缓存架构**：载荷采集从 `execSync(openclaw cron list)` 阻塞 4-5s → `spawn detached` 每 30s 写缓存文件 + `readFileSync` 8ms
+- **动态窗口载荷模型**：固定 5min 窗口 → 基于任务执行时间的窗口重叠检测，运行态精确识别
+- **并发控制修复**：修复 `importCronJobs()` 删除 internal 条目导致 6 个 high-1 任务同时涌入 deepseek 池
+- **负载跟踪简化**：去重 internal/cron 双条目、修复陈旧 `now` 变量导致已完成任务显示 0m/0m
+- **缓存共享**：`data/cron-list-cache.json` 30s 刷新，Dashboard 也从缓存读取（4-5s → 毫秒级）
+
+**② 🎭 装庄管道上线（`tasks/zhuang-pipeline/` + `scripts/scanner-zhuang.py` + `scripts/stage3-executor-zhuang.js`）：**
+- 新增独立分析管道：专门追踪疑似庄家控盘币种
+- `scanner-zhuang-runner.sh` → `scanner-zhuang.py`（控盘识别筛选）→ `stage1-prep` → `zhuang-intel-stage1-v2.md` → `zhuang-intel-stage2.md` → `stage3-executor-zhuang.js`
+- 装庄阶段二独立提示词，侧重庄家成本/动机/计划分析
+- 阶段三执行器独立版本，适配装庄策略的仓位管理
+
+**③ 📻 市场简报系统（`tasks/market-brief.md` + `scripts/market-brief-collect.sh` + `scripts/market-brief-process.py`）：**
+- 新增定时市场简报收集与处理流程
+- 数据采集 → Python 处理 → 报告输出
+
+**④ 🔴 Dashboard 严重事故修复（`changelog/2026-05-24-Dashboard严重事故复盘.md`）：**
+- 三层事故链修复：
+  1. Dashboard 崩溃循环 — `openclaw cron list` 超时导致 3 分钟 130 次重启
+  2. WSL2 网络隔离 — Windows 浏览器无法连接 WSL 服务
+  3. `uploadBackground()` 缺少 `async` 关键字 → SyntaxError 导致主脚本全部失效
+- 加固 `server.js`：熔断器、全局异常保护、请求超时、`safeExec` 替换裸 `execSync`
+
+**⑤ 🔴 Gateway OOM 诊断与修复（`changelog/2026-05-27-GatewayOOM诊断与修复.md`）：**
+- 根因：Dashboard `/api/analysis/jobs` 每 5s 调 `openclaw cron list` + 调度器 30s + 名字缓存 60s = 5-6 次/min
+- 每次 JSON.parse 分配大对象，GC 跟不上 → 堆冲到 4GB → OOM 崩溃
+- 修复：Dashboard 改读缓存文件，去除高频 CLI 轮询
+- 新增系统监控（`scripts/silence-monitor.js` +406行）：检测 Gateway 无响应并自动重启
+
+**⑥ 🚫 撤销 TRADE_LESSONS 自动注入（`changelog/2026-05-27-撤销TRADE_LESSONS自动注入.md`）：**
+- 撤销 OpenClaw 源码中 4 处 patch，不再在 agent 唤醒时自动加载 `TRADE_LESSONS.md` 到上下文
+- 原因：TRADE_LESSONS 体积持续膨胀，每次唤醒占用大量 token
+- 文件本身保留，需手动 `memory_search` 查询
+
+**⑦ 🔧 阶段三执行器持续修复（`scripts/stage3-executor.js` +316行）：**
+- OCO 拆分张数对齐 `lotSz`（新增 `alignToLot()` 函数）
+- 加仓 `executeAdd()` 修复：取消旧 OCO → 加仓 → 加权均价算偏移 → 总仓位设新 OCO
+- 减仓 `executeReduce()` 修复：取消旧 OCO → 减仓 → 原始均价算偏移 → 剩余仓位设新 OCO
+- 新增 `extractOcoPrices()` 兜底函数：从旧 OCO 算法单提取 SL/TP
+- OKX 命令退避重试（`retries=2`, `baseDelayMs=2000`）
+
+**⑧ 🔇 沉默监控（`scripts/silence-monitor.js` +406行）：**
+- PM2 常驻进程，检测 Gateway 无响应并自动重启
+- 健康检查 + 超时重启 + 通知机制
+
+**⑨ 📋 复盘报告 18 篇（`learnings/review-*.md`）：**
+- BTC: 3 篇（5/25、5/27、5/28）
+- 山寨币: 15 篇（ARKM、AVNT、AZTEC、BABY、EDGE、JTO、LIT、MERL、MORPHO、MUBARAK、PNUT、SAHARA、STRK、TON、VIRTUAL、WLFI、XPL）
+- `learnings/PENDING_TRADE_LESSONS.json` 持续积累待审核行为模式
+
+**⑩ 📝 其他变更：**
+- `TRADE_LESSONS.md` 新增/更新多条行为模式
+- `TOOLS.md` 新增 Cron 调度器、Dashboard、GitHub SSH 等速查
+- `ecosystem.config.js` 新增 `cron-dispatcher` 和 `silence-monitor` PM2 进程
+- `tasks/cycle-health-check.md` 优化健康检查逻辑
+- `tasks/set-alert.md` 更新警报模板
+- `changelog/` 新增 7 篇变更记录
+- `.gitignore` 排除 `.trash/`、`market-brief/`、`images/`、`dashboard/public/images/`
+
+---
 
 ### 2026-05-24
 > 🔧 v13 — Dashboard 2.0 + 阶段三阻拦逻辑移除 + 警报引擎并发控制 + 合约数据退避重试 + OCO 管理修复

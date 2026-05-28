@@ -136,15 +136,14 @@ target: qqbot:c2c:3264012CFFDCF2666417B4D4ABACEFFF
 ---消息内容---
 ${message}`;
 
-  spawn('openclaw', [
-    'cron', 'add',
-    '--agent', 'shisiyue',
-    '--session', 'isolated',
-    '--at', now,
-    '--message', spawnMessage,
+  const dispatchJs = path.join(WORKSPACE_DIR, 'scripts', 'dispatch.js');
+  spawn(process.execPath, [
+    dispatchJs,
+    '--priority', 'low-1',
+    '--source', 'notify-shisiyue',
     '--name', jobName,
-    '--delete-after-run',
-    '--no-deliver'
+    '--at', 'now',
+    '--message', spawnMessage,
   ], {
     detached: true,
     stdio: 'ignore'
@@ -379,13 +378,11 @@ function adjustIntervalForNetworkError(filename, ruleName, errorMessage) {
  * 通过 cron add 创建一次性 isolated session
  */
 function spawnSelfHeal(filename, ruleName, errorMessage, errorStack) {
-  const { spawn } = require('child_process');
-  const now = new Date().toISOString();
+  const { spawn, execSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
   const safeName = ruleName.replace(/[^a-zA-Z0-9\u4e00-\u9fff]/g, '-').substring(0, 40);
   const jobName = `selfheal-${safeName}-${Date.now()}`;
-  
-  // 模型从 global-config.json 读取
-  const model = CONFIG.selfHeal?.model || 'deepseek/deepseek-v4-pro';
   
   const message = `[SELF_HEAL] 警报器自愈诊断任务
 
@@ -396,20 +393,58 @@ function spawnSelfHeal(filename, ruleName, errorMessage, errorStack) {
 
 请读取 tasks/alert-self-heal.md 执行自愈诊断流程。`;
 
-  spawn('openclaw', [
-    'cron', 'add',
-    '--agent', 'july',
-    '--model', model,
-    '--session', 'isolated',
-    '--at', now,
-    '--message', message,
+  const WORKSPACE = path.resolve(__dirname, '../..');
+  const DISPATCHER_FALLBACK = process.env.DISPATCHER_FALLBACK === '1';
+  const dispatchJs = path.join(WORKSPACE, 'scripts', 'dispatch.js');
+
+  // 通过调度器提交（fire-and-forget，spawn 不等待结果）
+  spawn(process.execPath, [
+    dispatchJs,
+    '--priority', 'low-1',
+    '--source', 'selfheal',
     '--name', jobName,
-    '--delete-after-run',
-    '--no-deliver'
-  ], { detached: true, stdio: 'ignore' });
+    '--at', 'now',
+    '--message', message,
+  ], {
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env },
+  }).unref();
   
-  logRuleEvent(ruleName, 'SELF_HEAL_SPAWNED', { jobName, model });
-  console.log(`[🔧警报引擎] 已派发自愈诊断任务: ${jobName} (model: ${model})`);
+  logRuleEvent(ruleName, 'SELF_HEAL_DISPATCHED', { jobName });
+  console.log(`[🔧警报引擎] 已提交自愈诊断到调度器: ${jobName}`);
+
+  // 降级超时检测：如果 30s 后调度器没响应，直连
+  if (DISPATCHER_FALLBACK) {
+    setTimeout(() => {
+      // 检查 dispatcher 是否可达
+      try {
+        const http = require('http');
+        const url = new URL(process.env.DISPATCHER_URL || 'http://127.0.0.1:3102');
+        const req = http.request({ hostname: url.hostname, port: url.port, path: '/status', method: 'GET', timeout: 3000 }, (res) => {
+          if (res.statusCode !== 200) throw new Error('not ok');
+        });
+        req.on('error', () => { throw new Error('unreachable'); });
+        req.end();
+      } catch (_) {
+        const now = new Date().toISOString();
+        const model = CONFIG.selfHeal?.model || 'deepseek/deepseek-v4-pro';
+        spawn('openclaw', [
+          'cron', 'add',
+          '--agent', 'july',
+          '--model', model,
+          '--session', 'isolated',
+          '--at', now,
+          '--message', message,
+          '--name', jobName + '-direct',
+          '--delete-after-run',
+          '--no-deliver'
+        ], { detached: true, stdio: 'ignore' }).unref();
+        logRuleEvent(ruleName, 'SELF_HEAL_FALLBACK_DIRECT', { jobName: jobName + '-direct', model });
+        console.log(`[🔧警报引擎] 调度器超时，已降级直连: ${jobName}-direct`);
+      }
+    }, 30000);
+  }
 }
 
 /**
@@ -1083,6 +1118,187 @@ function scanRuleFiles() {
 }
 
 /**
+ * 静默监控（合并自 silence-monitor.js，原独立 PM2 进程）
+ * 每 30 分钟扫描活跃山寨币周期，检测警报静默超时，自动发起即时分析
+ */
+
+const WORKSPACE_DIR = path.resolve(__dirname, '..', '..');
+const ACTIVE_DIR = path.join(WORKSPACE_DIR, 'active');
+const SILENCE_STATE_FILE = path.join(WORKSPACE_DIR, 'data', 'silence-monitor-state.json');
+const STAGE1_SCRIPT = path.join(WORKSPACE_DIR, 'scripts', 'stage1-instant.js');
+
+const SILENCE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+const SILENCE_DEDUP_MS = 6 * 60 * 60 * 1000;
+const SILENCE_THRESHOLD_POSITION_H = 12;
+const SILENCE_THRESHOLD_NO_POSITION_H = 8;
+const SILENCE_STAGGER_MS = 30 * 1000;
+const SILENCE_STAGE1_TIMEOUT_MS = 360 * 1000;
+
+function loadSilenceState() {
+  try {
+    if (fs.existsSync(SILENCE_STATE_FILE)) return JSON.parse(fs.readFileSync(SILENCE_STATE_FILE, 'utf8'));
+  } catch (e) { logEngine('WARN', '静默监控', '状态文件损坏'); }
+  return {};
+}
+
+function saveSilenceState(state) {
+  try {
+    if (!fs.existsSync(path.dirname(SILENCE_STATE_FILE))) fs.mkdirSync(path.dirname(SILENCE_STATE_FILE), { recursive: true });
+    fs.writeFileSync(SILENCE_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+  } catch (e) { logEngine('ERROR', '静默监控', '状态写入失败', { error: e.message }); }
+}
+
+function extractCoinFromDir(dirName) {
+  const parts = dirName.split('-');
+  return parts[1] || null;
+}
+
+function getLastReportTime(cycleDir) {
+  const reportsDir = path.join(cycleDir, 'reports');
+  if (!fs.existsSync(reportsDir)) return null;
+  let latest = 0;
+  try {
+    for (const f of fs.readdirSync(reportsDir)) {
+      const stat = fs.statSync(path.join(reportsDir, f));
+      if (stat.mtimeMs > latest) latest = stat.mtimeMs;
+    }
+  } catch (_) { return null; }
+  return latest > 0 ? latest : null;
+}
+
+function getPositionCount(cycleDir) {
+  const posFile = path.join(cycleDir, 'positions.json');
+  if (!fs.existsSync(posFile)) return 0;
+  try {
+    const data = JSON.parse(fs.readFileSync(posFile, 'utf8'));
+    const positions = data['当前持仓'] || data['positions'] || [];
+    return data['汇总']?.['当前持仓数'] || positions.length || 0;
+  } catch (_) { return 0; }
+}
+
+function silenceHasActiveRules(coin) {
+  if (!fs.existsSync(RULES_DIR)) return false;
+  try {
+    const prefix = coin.toUpperCase();
+    return fs.readdirSync(RULES_DIR).some(f => {
+      if (!f.endsWith('.js')) return false;
+      const upper = f.toUpperCase();
+      return upper.startsWith(prefix + '-') || upper.startsWith(prefix + '_');
+    });
+  } catch (_) { return false; }
+}
+
+function silenceIsInCooldown(state, cycleId) {
+  const entry = state[cycleId];
+  if (!entry || !entry.lastTriggeredAt) return false;
+  return Date.now() - new Date(entry.lastTriggeredAt).getTime() < SILENCE_DEDUP_MS;
+}
+
+async function runSilenceCheck() {
+  const startTime = Date.now();
+  logEngine('INFO', '静默监控', '检查开始');
+
+  const state = loadSilenceState();
+  let totalCycles = 0, triggeredCycles = 0, skippedCycles = 0;
+
+  if (!fs.existsSync(ACTIVE_DIR)) {
+    logEngine('WARN', '静默监控', 'active/ 目录不存在');
+    return;
+  }
+
+  let cycleDirs = [];
+  try {
+    cycleDirs = fs.readdirSync(ACTIVE_DIR).filter(d => d.startsWith('alt-')).sort();
+  } catch (e) {
+    logEngine('ERROR', '静默监控', '扫描目录失败', { error: e.message });
+    return;
+  }
+
+  totalCycles = cycleDirs.length;
+  const silentList = [];
+
+  for (const dirName of cycleDirs) {
+    const cycleDir = path.join(ACTIVE_DIR, dirName);
+    const coin = extractCoinFromDir(dirName);
+    if (!coin) continue;
+    if (!silenceHasActiveRules(coin)) continue;
+
+    const lastReportMs = getLastReportTime(cycleDir);
+    let silenceHours;
+    if (lastReportMs === null) {
+      try { silenceHours = (Date.now() - fs.statSync(cycleDir).mtimeMs) / 3600000; }
+      catch (_) { silenceHours = Infinity; }
+    } else {
+      silenceHours = (Date.now() - lastReportMs) / 3600000;
+    }
+
+    const posCount = getPositionCount(cycleDir);
+    const threshold = posCount > 0 ? SILENCE_THRESHOLD_POSITION_H : SILENCE_THRESHOLD_NO_POSITION_H;
+    if (silenceHours < threshold) continue;
+    if (silenceIsInCooldown(state, dirName)) { skippedCycles++; continue; }
+
+    silentList.push({ dirName, coin, cycleDir, silenceHours, posCount, threshold });
+  }
+
+  logEngine('INFO', '静默监控', `扫描 ${totalCycles} 周期 | 静默 ${silentList.length} | 冷却跳过 ${skippedCycles}`);
+
+  for (let i = 0; i < silentList.length; i++) {
+    const { dirName, coin, silenceHours, posCount, threshold } = silentList[i];
+    logEngine('INFO', '静默监控', `触发: ${coin} | 静默 ${silenceHours.toFixed(1)}h | 持仓 ${posCount}`);
+
+    const alertData = {
+      coin, alertName: 'silence-check', alertType: 'silence',
+      triggerPrice: null, currentPrice: null,
+      silenceHours: Math.round(silenceHours * 10) / 10,
+      reason: `警报静默超${threshold}h（${silenceHours.toFixed(1)}h），持仓${posCount}个，自动重评估`,
+    };
+
+    const cmd = `node "${STAGE1_SCRIPT}" '${JSON.stringify(alertData).replace(/'/g, "'\\''")}'`;
+
+    try {
+      const { execSync } = require('child_process');
+      const output = execSync(cmd, {
+        encoding: 'utf8', timeout: SILENCE_STAGE1_TIMEOUT_MS,
+        cwd: WORKSPACE_DIR,
+        env: { ...process.env, REQUIRE_CONTRACT: '1' },
+      });
+
+      let ok = false;
+      for (const line of output.trim().split('\n').reverse()) {
+        if (line.startsWith('{') && line.includes('"status"')) {
+          try { if (JSON.parse(line).status === 'success') ok = true; } catch (_) {}
+          break;
+        }
+      }
+
+      if (ok) {
+        state[dirName] = { coin, lastTriggeredAt: new Date().toISOString(), silenceHours: Math.round(silenceHours * 10) / 10, posCount };
+        triggeredCycles++;
+        logEngine('INFO', '静默监控', `✅ ${coin} 阶段一完成`);
+      } else {
+        logEngine('WARN', '静默监控', `❌ ${coin} stage1 失败`);
+      }
+    } catch (e) {
+      logEngine('ERROR', '静默监控', `${coin} stage1 异常`, { error: e.message });
+    }
+
+    saveSilenceState(state);
+    if (i < silentList.length - 1) await new Promise(r => setTimeout(r, SILENCE_STAGGER_MS));
+  }
+
+  // 清理 30 天前状态
+  const cutoff = Date.now() - 30 * 86400000;
+  let cleaned = 0;
+  for (const [key, entry] of Object.entries(state)) {
+    if (entry.lastTriggeredAt && new Date(entry.lastTriggeredAt).getTime() < cutoff) { delete state[key]; cleaned++; }
+  }
+  if (cleaned > 0) saveSilenceState(state);
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  logEngine('INFO', '静默监控', `完成 | ${totalCycles}周期 | 触发${triggeredCycles} | 跳过${skippedCycles} | ${elapsed}s`);
+}
+
+/**
  * 启动规则的定时器
  */
 const STAGGER_DELAY_MS = 500; // 每条规则启动延迟（毫秒）
@@ -1209,23 +1425,34 @@ async function main() {
   // 启动网络事件缓冲池汇总定时器（每4小时发送一次报告）
   scheduleNetworkSummary();
   console.log(`[🔧警报引擎] 已启动网络缓冲汇总 (周期: 4小时)`);
+
+  // 启动静默监控（每30分钟扫描一次，合并自 silence-monitor）
+  const silenceDataDir = path.dirname(SILENCE_STATE_FILE);
+  if (!fs.existsSync(silenceDataDir)) fs.mkdirSync(silenceDataDir, { recursive: true });
+  runSilenceCheck(); // 立即执行一次
+  const silenceTimer = setInterval(() => {
+    runSilenceCheck().catch(e => logEngine('ERROR', '静默监控', '定时异常', { error: e.message }));
+  }, SILENCE_CHECK_INTERVAL_MS);
+  console.log(`[🔧警报引擎] 已启动静默监控 (检查间隔: ${SILENCE_CHECK_INTERVAL_MS / 60000}min)`);
   
   // 监听进程信号
   process.on('SIGINT', () => {
     logEngine('INFO', 'Engine', '引擎关闭 (SIGINT)');
     console.log('\n[🔧警报引擎] 正在关闭...');
-    flushNetworkSummary(); // 关闭前发送缓冲中的网络事件
+    flushNetworkSummary();
     stopAllTimers();
     clearInterval(scanTimer);
+    clearInterval(silenceTimer);
     process.exit(0);
   });
   
   process.on('SIGTERM', () => {
     logEngine('INFO', 'Engine', '引擎关闭 (SIGTERM)');
     console.log('\n[🔧警报引擎] 正在关闭...');
-    flushNetworkSummary(); // 关闭前发送缓冲中的网络事件
+    flushNetworkSummary();
     stopAllTimers();
     clearInterval(scanTimer);
+    clearInterval(silenceTimer);
     process.exit(0);
   });
   

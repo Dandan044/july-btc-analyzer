@@ -48,6 +48,28 @@ module.exports = {
       TZ: 'Asia/Shanghai'
     }
   }, {
+    name: 'cron-dispatcher',
+    script: './scripts/cron-dispatcher.js',
+    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+    autorestart: true,
+    watch: false,
+    max_restarts: 5,
+    restart_delay: 3000,
+    max_memory_restart: '200M',
+    error_file: './logs/cron-dispatcher.log',
+    out_file: '/dev/null',
+    time: false,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      DISPATCHER_FALLBACK: '0',
+      http_proxy: '',
+      https_proxy: '',
+      all_proxy: '',
+      NO_PROXY: '*',
+      PATH: '/home/administrator/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+    }
+  }, {
     name: 'july-dashboard',
     script: './dashboard/server.js',
     args: '--port 3100',

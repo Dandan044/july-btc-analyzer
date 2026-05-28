@@ -21,12 +21,18 @@ const path = require('path');
 
 const COIN = process.argv[2];
 if (!COIN) {
-  console.error('用法: node stage1-prep.js <COIN>');
+  console.error('用法: node stage1-prep.js <COIN> [--mode zhuang]');
   process.exit(1);
 }
 
+// --mode zhuang: 强庄模式，使用 zhuang- 前缀
+const MODE = (process.argv.includes('--mode') && process.argv[process.argv.indexOf('--mode') + 1]) || 'alt';
+const PREFIX = MODE === 'zhuang' ? 'zhuang-' : 'alt-';
+const LOG_PREFIX = MODE === 'zhuang' ? 'zhuang-' : 'alt-';
+const REPORT_PREFIX = MODE === 'zhuang' ? 'zhuang-report-' : 'alt-report-';
+
 const WORKSPACE = path.resolve(__dirname, '..');
-const LOG_FILE = path.join(WORKSPACE, 'logs', `alt-${COIN}-process.log`);
+const LOG_FILE = path.join(WORKSPACE, 'logs', `${LOG_PREFIX}${COIN}-process.log`);
 const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
 const INST_ID = `${COIN}-USDT-SWAP`;
 const BLACKLIST_PATH = path.join(WORKSPACE, 'data', 'altcoin-blacklist.json');
@@ -147,7 +153,7 @@ let cycleAction = null;
 
 try {
   const existing = fs.readdirSync(activeDir)
-    .filter(d => d.startsWith(`alt-${COIN}-`))
+    .filter(d => d.startsWith(`${PREFIX}${COIN}-`))
     .sort()
     .reverse();
 
@@ -155,7 +161,7 @@ try {
     cycleDir = existing[0];
     cycleAction = 'reused';
   } else {
-    cycleDir = `alt-${COIN}-${dateStr}-${timeStr}`;
+    cycleDir = `${PREFIX}${COIN}-${dateStr}-${timeStr}`;
     cycleAction = 'created';
     fs.mkdirSync(path.join(activeDir, cycleDir, 'reports'), { recursive: true });
     fs.mkdirSync(path.join(activeDir, cycleDir, 'data-context'), { recursive: true });
@@ -214,7 +220,7 @@ try {
   // 直接搜当前周期 reports/ 下的历史报告（此时本篇报告尚未生成，目录内均为历史）
   if (fs.existsSync(reportsDir)) {
     const reports = fs.readdirSync(reportsDir)
-      .filter(f => f.startsWith(`alt-report-${COIN}-`) && f.endsWith('.md'))
+      .filter(f => f.startsWith(`${REPORT_PREFIX}${COIN}-`) && f.endsWith('.md'))
       .sort()
       .reverse()
       .slice(0, 5);
@@ -283,6 +289,7 @@ output({
   status: 'success',
   coin: COIN,
   cycle_dir: cycleDir,
+  mode: MODE,
   cycle_action: cycleAction,
   online_days: onlineDays,
   positions_count: positionsCount,

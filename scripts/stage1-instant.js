@@ -139,9 +139,11 @@ const dateFormatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.s
 const instantDataFile = `${COIN}-instant-${dateStr}-${timeStr}.json`;
 
 // ─── 合约数据获取（带退避重试） ───
-const CONTRACT_MAX_RETRIES = 3;       // 最多重试 3 次（共 4 次尝试）
-const CONTRACT_TIMEOUT_MS = 30000;    // 单次超时 30s
-const CONTRACT_RETRY_DELAYS = [10000, 20000, 60000]; // 退避：10s → 20s → 60s（最长 1min）
+// REQUIRE_CONTRACT=1 时失败即退出，不派发 stage2（静默检查等场景用）
+const REQUIRE_CONTRACT = process.env.REQUIRE_CONTRACT === '1';
+const CONTRACT_MAX_RETRIES = 1;       // 最多重试 1 次（共 2 次尝试）
+const CONTRACT_TIMEOUT_MS = 120000;   // 单次超时 120s（脚本需 9+ 次 OKX API 调用）
+const CONTRACT_RETRY_DELAYS = [30000]; // 退避：30s
 
 let contractOk = false;
 const contractCmd = `node "${GET_SCRIPT}" --coin ${COIN} --json --save --proxy http://127.0.0.1:7890`;
@@ -302,9 +304,17 @@ output({
 });
 
 // ════════════════════════════════════════════
-// 步骤 8: 派发阶段二分析任务
+// 步骤 7.5: 合约数据必须性检查
 // ════════════════════════════════════════════
-const { spawn } = require('child_process');
+if (REQUIRE_CONTRACT && !contractOk) {
+  log('⛔ ERROR: REQUIRE_CONTRACT=1 且合约数据获取失败，终止流程，不派发阶段二', 'ERROR');
+  output({ status: 'error', coin: COIN, reason: '合约数据获取失败（强制模式）', contract_ok: false });
+  process.exit(1);
+}
+
+// ════════════════════════════════════════════
+// 步骤 8: 通过调度器派发阶段二分析任务
+// ════════════════════════════════════════════
 
 const stage2Message = `[警报触发即时分析]
 币种: ${COIN}
@@ -320,14 +330,41 @@ ${JSON.stringify(alertData, null, 2)}
 
 const jobName = `alt-instant-${COIN}-${Date.now()}`;
 
+// 从警报数据中读取优先级，默认 high-1（后续警报引擎补充 priority 字段后自动分流）
+const instantPriority = alertData.priority || 'high-1';
+
+// 写消息到临时文件
+const msgFile = `/tmp/dispatch-msg-${jobName}.txt`;
+fs.writeFileSync(msgFile, stage2Message, 'utf8');
+
+const dispatchScript = path.join(WORKSPACE, 'scripts', 'dispatch.js');
+
+let dispatched = false;
 try {
   execSync(
-    `openclaw cron add --name "${jobName}" --agent july --at "1m" --message '${stage2Message.replace(/'/g, "'\\''")}' --session isolated --delete-after-run --no-deliver`,
-    { encoding: 'utf8', timeout: 10000 }
+    `node "${dispatchScript}" --priority "${instantPriority}" --source instant --coin "${COIN}" --name "${jobName}" --at "1m" --message-file "${msgFile}"`,
+    { encoding: 'utf8', timeout: 15000 }
   );
-  log(`阶段二分析任务已派发: ${jobName}`);
+  log(`阶段二分析任务已提交调度器: ${jobName} (priority=${instantPriority})`);
+  dispatched = true;
 } catch (e) {
-  log(`阶段二任务派发失败: ${e.message}`, 'ERROR');
+  log(`调度器提交失败: ${e.message}`, 'WARN');
+}
+
+// 清理临时文件
+try { fs.unlinkSync(msgFile); } catch (_) {}
+
+// 降级直连
+if (!dispatched && process.env.DISPATCHER_FALLBACK === '1') {
+  try {
+    execSync(
+      `openclaw cron add --name "${jobName}" --agent july --at "1m" --message '${stage2Message.replace(/'/g, "'\\''")}' --session isolated --delete-after-run --no-deliver`,
+      { encoding: 'utf8', timeout: 10000 }
+    );
+    log(`阶段二分析任务已降级直连: ${jobName}`);
+  } catch (e2) {
+    log(`阶段二任务派发失败（直连也失败）: ${e2.message}`, 'ERROR');
+  }
 }
 
 log(`========== 即时分析启动完成 ==========`);

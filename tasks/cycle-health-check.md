@@ -12,6 +12,29 @@
 - 无持仓静默周期 → 自动归档
 - 有持仓静默周期 → 查实时状态后报警（不做自动平仓操作）
 
+### ⛔ 铁律：禁止截断 OKX 持仓输出
+
+**永远不要在 OKX 查询命令后使用 `head`、`tail`、`wc -l` 等截断操作符。**
+
+- `okx account positions` 输出所有活跃持仓，当前约 18 个币种。
+- 输出行数 = stderr 噪声行(2-5) + 表头(1) + 分隔线(1) + 持仓行(N)。
+- 使用 `head -20` 等固定行数截断会在持仓 > 13 时丢失尾部持仓 → 误判为「幽灵持仓」→ 错误归档。
+
+✅ 正确做法：
+```bash
+# 方式一：用脚本提取币种列表（不截断）
+proxychains4 -q okx --profile live account positions 2>/dev/null | grep -oP '^\S+' | grep 'USDT-SWAP$
+
+# 方式二：逐币种确认（最安全，但需串行避免限流）
+for coin in BCH LINEA VIRTUAL; do
+  proxychains4 -q okx --profile live account positions --instId ${coin}-USDT-SWAP 2>/dev/null | python3 -c "..."
+  sleep 1
+done
+```
+
+**历史事故**: 2026-05-25 健康检查用 `head -20` 截断，实际 18 个持仓只显示 13 个，BCH/LINEA/VIRTUAL 被截断导致误归档。需手动恢复。
+
+
 ---
 
 ## 决策树
@@ -196,48 +219,43 @@ const state = rule.lifetime(); // 必须是 'active'
 
 #### 4.1 查询实盘持仓（带重试）
 
+⛔ **永远不要用 `head`、`tail` 或任何行数截断！** 当前实盘 ~18 个持仓，截断会丢失尾部币种。
+
 ```bash
-# 带重试的持仓查询（最多 3 次，每次间隔 2 秒）
+# ⚠️ okx account positions 输出的是表格，不是 JSON。
+# 正确做法：输出全部持仓列表（不截断），然后过滤特定币种。
 COIN="{COIN}"
-MAX_RETRIES=3
-RETRY_DELAY=2
 
-get_positions() {
-  for i in $(seq 1 $MAX_RETRIES); do
-    result=$(scripts/okx-proxy.sh --profile live account positions 2>/dev/null | python3 -c "
-import sys,json
-try:
-    data = json.load(sys.stdin)
-    items = data.get('data', data) if isinstance(data, dict) else data
-    if not isinstance(items, list):
-        sys.exit(1)
-    for p in items:
-        if '${COIN}' in p.get('instId', '') and float(p.get('pos', 0)) > 0:
-            print(json.dumps({'found': True, 'posId': p.get('posId'), 'pos': p.get('pos'), 'avgPx': p.get('avgPx'), 'posSide': p.get('posSide'), 'upl': p.get('upl')}))
-            sys.exit(0)
-    print(json.dumps({'found': False}))
-except:
-    sys.exit(1)
-" 2>/dev/null)
-    
-    if [ $? -eq 0 ] && [ -n "$result" ]; then
-      echo "$result"
-      return 0
-    fi
-    
-    if [ $i -lt $MAX_RETRIES ]; then
-      echo "[重试 $i/$MAX_RETRIES] OKX 持仓查询失败，${RETRY_DELAY}s 后重试..." >&2
-      sleep $RETRY_DELAY
-    fi
-  done
-  
-  # 全部重试失败 → 返回 UNKNOWN
-  echo '{"found": null, "error": "api_failure_after_retries"}'
-  return 1
-}
-
-result=$(get_positions)
+# 方式：直接查询完整持仓表，用 grep 过滤币种
+proxychains4 -q okx --profile live account positions 2>/dev/null | grep "${COIN}-USDT-SWAP"
 ```
+
+判断逻辑：
+- `grep` 有输出 → 实盘有该币种活跃持仓 → `found: true`
+- `grep` 无输出 → 实盘无该币种持仓 → `found: false`（但需确认 `okx` 命令本身成功）
+- `okx` 命令完全失败（超时/限流/API异常） → `found: null` → 禁止覆写
+
+**安全的批量查询方法**：
+
+```bash
+# 一次性获取所有活跃持仓（不截断），存入临时文件
+proxychains4 -q okx --profile live account positions 2>/dev/null > /tmp/okx-all-positions.txt
+
+# 检查文件是否有效（非空且包含表头）
+if ! grep -q 'instId' /tmp/okx-all-positions.txt 2>/dev/null; then
+  echo "{\"found\": null, \"error\": \"api_failure\"}"
+  exit 1
+fi
+
+# 搜索特定币种
+if grep -q "${COIN}-USDT-SWAP" /tmp/okx-all-positions.txt; then
+  echo "{\"found\": true}"
+else
+  echo "{\"found\": false}"
+fi
+```
+
+**关键原则**：对所有需要验证的币种，先一次性 dump 完整持仓到文件，再逐个 grep。不要为每个币种单独调 API（容易限流），也不要截断输出。
 
 #### 4.2 按查询结果同步
 
