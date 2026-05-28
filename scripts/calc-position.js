@@ -26,7 +26,7 @@ const http = require('http');
 const url = require('url');
 
 // ── 配置 ────────────────────────────────────────────
-const PROXY_URL = 'http://127.0.0.1:7890';
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const OKX_BASE = 'https://www.okx.com';
 const TIMEOUT_MS = 15000;
 

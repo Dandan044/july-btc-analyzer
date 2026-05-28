@@ -2,16 +2,18 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v14 更新**：Cron 调度器重构 + 装庄管道上线 + 市场简报系统 + Dashboard 事故修复 + OOM 诊断 + TRADE_LESSONS 自动注入撤销 + 阶段三加仓减仓修复 + 沉默监控 + 复盘报告 18 篇。
+> **v15 更新**：开源兼容性全面优化 — 路径动态化、代理统一化、依赖清理、部署文档重写、Dashboard 冲突检测。
+> 详见 `changelog/2026-05-28-兼容性审计-开源迁移问题全量汇总.md`
 
 ## 🚀 快速开启
 
-**首次部署请务必阅读 `deployment.md`**，包含完整的：
+**首次部署请务必阅读 `deployment.md`**，包含完整的 18 步部署清单：
 - 智能体注册流程
-- 代理配置说明
-- PM2 警报器引擎启动
-- OKX CLI 配置
-- 定时任务创建
+- 代理配置说明（统一 `PROXY_URL` 环境变量）
+- PM2 四大进程（btc-alert / cron-dispatcher / cron-name-cache / july-dashboard）
+- OKX CLI + OnchainOS CLI 配置
+- OpenClaw 技能安装（`npx skills add okx/agent-skills`）
+- 定时任务 + 山寨币扫描 crontab + 市场快报
 
 ```bash
 # 克隆仓库

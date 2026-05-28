@@ -384,7 +384,8 @@ def main():
     }
     
     # 保存结果
-    output_file = "/home/administrator/.openclaw/july-btc-analyzer/data/fibonacci_analysis.json"
+    workspace = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    output_file = os.path.join(workspace, "data", "fibonacci_analysis.json")
     with open(output_file, "w") as f:
         json.dump(result, f, indent=2, default=str)
     print(f"\n📁 分析结果已保存到: {output_file}")

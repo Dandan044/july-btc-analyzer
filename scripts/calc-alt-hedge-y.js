@@ -30,7 +30,7 @@ const CORR_MIN = 0.15;
 const CORR_MAX = 0.85;
 
 // ---- 配置 ----
-const PROXY_URL = 'http://127.0.0.1:7890';
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const BAR = '1H';
 const LIMIT = 72;
 

@@ -13,25 +13,34 @@ scripts/test_with_proxy.py
 gost-config.yaml
 vpnurl.txt
 
-# 日志和数据（体积大）
-logs/
-data/
+# 日志 — 保留目录结构（.gitkeep）
+logs/*
+!logs/.gitkeep
 *.log
+
+# 数据 — 保留 SCHEMA.md，其余排除
+data/*
+!data/SCHEMA.md
+data/kline_chart.png
+data/kline_charts/
+
+# 警报规则 — 保留目录结构（.gitkeep）
+skills/btc-alert/rules/*
+!skills/btc-alert/rules/.gitkeep
+skills/btc-alert/rules-archive/*
+!skills/btc-alert/rules-archive/.gitkeep
+skills/btc-alert/rules-state.json
 
 # 动态运行时数据（不需要版本控制）
 active/
 archived/
-skills/btc-alert/rules-archive/
-skills/btc-alert/rules/
-skills/btc-alert/rules-state.json
 .openclaw/workspace-state.json
 .openclaw/workspace-state-backup.json
 cycle-health/
 memory/
 
-# 生成图表
-data/kline_chart.png
-data/kline_charts/
+# 代理配置（用户本地配置，不提交）
+config/proxy.env
 
 # 临时文件
 *.tmp

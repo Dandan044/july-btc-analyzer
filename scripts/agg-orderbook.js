@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 const { execSync } = require('child_process');
+const path = require('path');
 const instId = process.argv[2] || 'BTC-USDT';
 const step = parseFloat(process.argv[3]) || 100;
 const layers = parseInt(process.argv[4]) || 10;
 
 // Get full order book
 const raw = execSync(
-  `~/.openclaw/july-btc-analyzer/scripts/okx-proxy.sh market orderbook ${instId} --sz 400 --json 2>/dev/null`,
+  `${path.join(__dirname, 'okx-proxy.sh')} market orderbook ${instId} --sz 400 --json 2>/dev/null`,
   { encoding: 'utf8', timeout: 20000 }
 );
 

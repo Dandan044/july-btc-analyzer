@@ -39,7 +39,7 @@ const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
 const INST_ID = `${COIN}-USDT-SWAP`;
 const MARKET_BRIEF_DIR = path.join(WORKSPACE, 'market-brief', 'data');
 const COIN_SECTOR_MAP_PATH = path.join(WORKSPACE, 'data', 'coin-sector-map.json');
-const PROXY_URL = 'http://127.0.0.1:7890';
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 
 // ─── 读取杠杆设置 ───
 function readLeverageSetting() {

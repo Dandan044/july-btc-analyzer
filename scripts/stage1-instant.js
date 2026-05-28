@@ -47,6 +47,7 @@ const WORKSPACE = path.resolve(__dirname, '..');
 const LOG_FILE = path.join(WORKSPACE, 'logs', `alt-${COIN}-process.log`);
 const SYNC_SCRIPT = path.join(WORKSPACE, 'scripts', 'sync-alt-positions.js');
 const GET_SCRIPT = path.join(WORKSPACE, 'skills', 'btc-market-lite', 'scripts', 'get_altcoin_analysis.js');
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 
 // ─── 工具函数 ───
 function nowTs() {
@@ -146,7 +147,7 @@ const CONTRACT_TIMEOUT_MS = 120000;   // 单次超时 120s（脚本需 9+ 次 OK
 const CONTRACT_RETRY_DELAYS = [30000]; // 退避：30s
 
 let contractOk = false;
-const contractCmd = `node "${GET_SCRIPT}" --coin ${COIN} --json --save --proxy http://127.0.0.1:7890`;
+const contractCmd = `node "${GET_SCRIPT}" --coin ${COIN} --json --save --proxy ${PROXY_URL}`;
 
 for (let attempt = 0; attempt <= CONTRACT_MAX_RETRIES; attempt++) {
   try {

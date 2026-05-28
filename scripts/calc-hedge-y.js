@@ -27,7 +27,7 @@ const path = require('path');
 // ---- 配置 ----
 const PROXY_SCRIPT = path.join(__dirname, 'okx-proxy.sh');
 const PROFILE = 'live';
-const PROXY_URL = 'http://127.0.0.1:7890';
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const EXCLUDE_INST_ID = 'BTC-USDT-SWAP';
 
 // ---- 参数 ----

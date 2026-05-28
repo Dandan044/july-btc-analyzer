@@ -6,11 +6,49 @@
 
 ## 前置条件
 
-已安装 OpenClaw 框架，具备以下环境：
-- Node.js >= 18
-- PM2 进程管理器
-- Python 环境
-- proxychains4（系统自带或已安装）
+已安装 OpenClaw 框架。
+
+### 系统环境依赖
+
+| 工具 | 用途 | 安装命令 | 必需 |
+|------|------|---------|------|
+| Node.js >= 18 | JS 运行时 | `apt install nodejs` / `nvm install 18` | ✅ |
+| npm | 包管理器 | Node.js 自带 | ✅ |
+| PM2 | 进程守护（4 个后台进程） | `npm install -g pm2` | ✅ |
+| Python 3 | 扫描脚本 / 数据处理 | `apt install python3`（系统通常自带） | ✅ |
+
+### Python 依赖包
+
+```bash
+pip install -r config/requirements.txt
+```
+
+> 必需：`requests`（斐波那契分析）。可选：`pandas`/`mplfinance`/`matplotlib`/`numpy`（K线图表生成，缺失则图表功能跳过）。
+| bash >= 4 | Shell 脚本执行 | Linux 默认已安装 | ✅ |
+| curl | HTTP 请求（API 数据获取） | 系统通常自带 | ✅ |
+
+### 外部 CLI 工具
+
+| 工具 | 用途 | 安装命令 | 必需 |
+|------|------|---------|------|
+| OpenClaw CLI | cron 任务管理 / 智能体调度 | 随 OpenClaw 框架安装，需确保在 PATH 中 | ✅ |
+| `okx` CLI | OKX 交易执行 + 市场数据 | `npm install -g @okx_ai/okx-trade-cli` | ⚠️ 交易功能必需 |
+| `onchainos` CLI | 链上数据（持币分布/交易/集群） | 见「链上数据配置」章节 | ⚠️ 山寨币分析必需 |
+| `proxychains4` | OKX CLI 代理包装（国内网络） | `apt install proxychains4` | ⚠️ 国内网络必需 |
+
+> ⚠️ = 可选但功能受限：不装 OKX CLI 则无法交易和获取精确数据；不装 onchainos 则山寨币分析缺少链上维度；不装 proxychains4 则国内网络无法访问 OKX API。
+
+### 代理服务（国内网络必需）
+
+七月框架所有 OKX API 请求需要通过代理。请自行准备代理方案（机场/VPS 自建/企业代理），确保：
+- 本地代理程序已运行
+- 代理端口已确认（常见：7890、1080）
+- `curl --proxy http://127.0.0.1:<端口> https://www.okx.com` 可正常返回
+
+代理端口需配置到以下位置：
+- Shell 环境变量（`http_proxy` / `https_proxy`）
+- `ecosystem.config.js`（PM2 进程的 env 块）
+- OKX CLI 配置（`~/.okx/config.toml`）
 
 ---
 
@@ -77,119 +115,137 @@ mkdir -p <workspace>/skills/btc-alert/rules-archive
 
 ## 二、代理配置
 
-### 前置：代理服务准备
+### 统一代理入口
 
-国内网络访问 OKX API 需要代理服务。请自行准备代理方案：
+七月框架所有脚本的代理地址统一通过 `PROXY_URL` 环境变量控制：
 
-| 方案 | 说明 |
-|------|------|
-| 机场订阅 | 购买机场服务，获取订阅链接或配置文件 |
-| 自建代理 | 自建 VPS + 代理服务（如 V2Ray、Shadowsocks） |
-| 其他方案 | 企业代理、云服务商代理等 |
+- **已设置 `PROXY_URL`** → 所有脚本使用该值
+- **未设置** → 自动 fallback 到 `http://127.0.0.1:7890`（国内默认端口）
+- **设为空字符串** → 不使用代理（国外用户直连）
 
-**确保以下几点：**
-- 本地代理程序已运行（如 mihomo/Clash、V2Ray 等）
-- 本地代理端口已开启（常见端口：`7890`、`1080` 等）
-- 代理可访问 `https://www.okx.com`（测试：`curl --proxy http://127.0.0.1:<端口> https://www.okx.com`）
+### 初始化代理配置
 
-**⚠️ 注意**：代理端口需配置到以下位置：
-- Shell 环境变量（`~/.bashrc`）
-- PM2 环境变量（`ecosystem.config.js`）
-- OKX CLI 配置（`~/.okx/config.toml`）
+**方式一：配置文件（推荐）**
 
----
-
-### 代理环境变量配置
-
-七月采用**环境变量统一配置**方式：
-
-| 环境变量 | 说明 | 示例 |
-|---------|------|------|
-| `http_proxy` | HTTP 代理地址 | `http://127.0.0.1:7890` |
-| `https_proxy` | HTTPS 代理地址 | `http://127.0.0.1:7890` |
-| `HTTP_PROXY_PORT` | 代理端口（okx-proxy.sh 使用） | `7890` |
-
-### 配置方式
-
-**方式一：Shell 环境变量（临时）**
 ```bash
-export http_proxy="http://127.0.0.1:<端口>"
-export https_proxy="http://127.0.0.1:<端口>"
-export HTTP_PROXY_PORT="<端口>"
+cp config/proxy.env.example config/proxy.env
+# 编辑 config/proxy.env，修改 PROXY_URL 为你的代理地址
+vim config/proxy.env
+# 加载配置
+source config/proxy.env
 ```
 
-**方式二：写入 ~/.bashrc（永久）**
+> `config/proxy.env` 已在 `.gitignore` 中排除，不会被提交到 Git。
+
+**方式二：Shell 环境变量（临时）**
+
 ```bash
-echo 'export http_proxy="http://127.0.0.1:<端口>"' >> ~/.bashrc
-echo 'export https_proxy="http://127.0.0.1:<端口>"' >> ~/.bashrc
-echo 'export HTTP_PROXY_PORT="<端口>"' >> ~/.bashrc
+export PROXY_URL="http://127.0.0.1:7890"    # 国内用户：替换为你的代理端口
+```
+
+**方式三：写入 ~/.bashrc（永久）**
+
+```bash
+echo 'export PROXY_URL="http://127.0.0.1:7890"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-**方式三：PM2 ecosystem.config.js（警报器专用）**
+### 国外用户（无需代理）
 
-见下一章节。
+```bash
+export PROXY_URL=""    # 空字符串 = 直连
+```
+
+### 代理覆盖范围
+
+设置 `PROXY_URL` 后，以下组件自动使用该代理：
+
+| 组件 | 读取方式 |
+|------|----------|
+| PM2 进程（btc-alert、july-dashboard） | `ecosystem.config.js` 启动时读取，自动设置 `http_proxy`/`https_proxy`/`all_proxy` |
+| Shell 脚本（market-brief 等） | `${PROXY_URL:-fallback}` |
+| Python 脚本（scanner-full 等） | `os.environ.get('PROXY_URL', fallback)` |
+| Node.js 脚本（stage1/stage3/calc-* 等） | `process.env.PROXY_URL || fallback` |
+
+### 需要单独配置的组件
+
+以下组件有独立的代理配置，**不受 `PROXY_URL` 控制**：
+
+| 组件 | 配置方式 |
+|------|----------|
+| OKX CLI | `~/.okx/config.toml` 中的 `proxy` 字段 |
+| proxychains4 | `/etc/proxychains4.conf`（`okx-proxy.sh` 依赖） |
+
+### 验证代理
+
+```bash
+# 测试代理是否可用
+curl --proxy "$PROXY_URL" https://www.okx.com
+
+# 测试 OKX CLI（需先配置 ~/.okx/config.toml）
+./scripts/okx-proxy.sh --profile live account balance
+```
 
 ---
 
 ## 三、PM2 进程配置
 
-### btc-alert - 警报器引擎
+### 前置要求
 
-警报器引擎通过 PM2 运行，负责监控市场并在触发条件时创建即时分析任务。
+安装 PM2 进程管理器：
 
-#### ecosystem.config.js
-
-```javascript
-module.exports = {
-  apps: [{
-    name: 'btc-alert',
-    script: './skills/btc-alert/engine.js',
-    cwd: '<克隆路径>',  // ⚠️ 替换为实际绝对路径
-    
-    autorestart: true,
-    watch: false,
-    max_restarts: 10,
-    restart_delay: 3000,
-    max_memory_restart: '500M',
-    
-    // 日志
-    error_file: './logs/btc-alert.log',
-    out_file: './logs/btc-alert.log',
-    merge_logs: true,
-    time: true,
-    
-    // 环境（代理配置）
-    env: {
-      NODE_ENV: 'production',
-      TZ: 'Asia/Shanghai',
-      http_proxy: 'http://127.0.0.1:<代理端口>',   // ⚠️ 替换
-      https_proxy: 'http://127.0.0.1:<代理端口>',
-      HTTP_PROXY_PORT: '<代理端口>'
-    }
-  }]
-};
+```bash
+npm install -g pm2
+pm2 startup    # 配置开机自启（按提示执行输出的命令）
 ```
 
-**⚠️ 必填项**：
-| 字段 | 说明 |
-|------|------|
-| `cwd` | 克隆目录的绝对路径 |
-| `http_proxy` 端口 | 代理端口，与系统代理一致 |
+> **为什么需要 PM2**：七月框架包含 4 个常驻后台进程（警报引擎、任务调度器、缓存服务、监控面板），需要进程守护和自动重启能力。PM2 是 Node.js 生态的标准方案。
 
-#### 启动命令
+七月通过 `ecosystem.config.js` 管理所有后台进程。配置文件已自包含——使用 `__dirname` 动态解析路径，**无需修改 `cwd`**，克隆后可启动。
+
+### 四个进程一览
+
+| 进程名 | 脚本 | 角色 | 端口 |
+|--------|------|------|------|
+| `btc-alert` | `skills/btc-alert/engine.js` | 警报引擎：监控价格/持仓/OI 等指标，触发条件时创建即时分析任务 | - |
+| `cron-dispatcher` | `scripts/cron-dispatcher.js` | 任务调度器：优先级队列 + 模型负载感知派发，统一管理 cron 任务的创建和路由 | 3102 |
+| `cron-name-cache` | `scripts/cron-name-cache.js` | 缓存服务：每 60s 将活跃 cron job 名称写入缓存文件供 Dashboard 读取 | - |
+| `july-dashboard` | `dashboard/server.js` | Web 监控面板：周期状态、仓位管理、警报规则、系统状态可视化 | 3100 |
+
+### 环境配置说明
+
+`ecosystem.config.js` 中的代理端口当前为 `7890`。如果你的代理端口不同，需要修改文件中所有 `http_proxy`、`https_proxy`、`all_proxy` 的值。
+
+> 后续计划：代理端口统一为环境变量，届时无需修改配置文件。
+
+### 启动命令
 
 ```bash
 cd <克隆路径>
-npm install
-pm2 start ecosystem.config.js
-pm2 save
+npm install                     # 安装 Node.js 依赖
+pm2 start ecosystem.config.js   # 启动全部四个进程
+pm2 save                        # 保存进程列表（重启后自动恢复）
 ```
 
-**验证运行**：
+### 验证运行
+
 ```bash
-pm2 list
-pm2 logs btc-alert
+pm2 list                        # 应显示 4 个进程均为 online
+pm2 logs btc-alert              # 警报引擎日志
+pm2 logs cron-dispatcher        # 调度器日志
+pm2 logs july-dashboard         # 面板日志
+```
+
+访问 `http://<服务器IP>:3100` 打开监控面板。
+
+### 常用管理命令
+
+```bash
+pm2 restart btc-alert           # 重启单个进程
+pm2 restart all                 # 重启全部
+pm2 stop july-dashboard         # 停止面板（不影响核心功能）
+pm2 flush                       # 清空日志
+pm2 monit                       # 实时 CPU/内存监控
 ```
 
 ---
@@ -244,7 +300,88 @@ okx --profile live account balance
 
 ---
 
-## 五、定时任务配置
+## 五、链上数据配置（OnchainOS）
+
+> ⚠️ 可选：山寨币分析需要在阶段一收集链上数据（持币分布、交易记录、集群分析）。
+> 不配置此项，山寨币分析仍可运行，但缺少链上维度数据。
+
+### 安装 OnchainOS CLI
+
+```bash
+npm install -g onchainos
+```
+
+### 配置 API 认证
+
+在用户目录创建 `~/.onchainos/.env`，写入你的 API 凭证：
+
+```bash
+mkdir -p ~/.onchainos
+cat > ~/.onchainos/.env << 'EOF'
+ONCHAINOS_API_KEY=<你的API Key>
+ONCHAINOS_API_SECRET=<你的API Secret>
+EOF
+```
+
+> 获取 API Key：访问 OnchainOS 平台注册并创建 API 凭证。
+
+### 加载环境变量
+
+每次使用前（或写入 `~/.bashrc` 自动加载）：
+
+```bash
+export $(cat ~/.onchainos/.env | grep -v '^#' | xargs)
+```
+
+### 验证
+
+```bash
+onchainos token search --query BTC --chains "1"
+```
+
+应返回代币搜索结果。
+
+---
+
+## 六、OpenClaw 技能安装
+
+七月依赖多个 OKX 官方技能来执行交易、获取市场数据和链上数据。
+
+### 安装 OKX 交易技能
+
+```bash
+npx skills add okx/agent-skills
+```
+
+> 此命令从 `https://github.com/okx/agent-skills.git` 克隆并安装全部 OKX CEX + DEX 技能。
+
+| 技能 | 用途 |
+|------|------|
+| `okx-cex-trade` | 下单/撤单/改单、止盈止损、期权交易 |
+| `okx-cex-market` | 行情数据：K线、深度、资金费率、技术指标 |
+| `okx-cex-portfolio` | 账户余额、持仓查询、资金划转 |
+| `okx-cex-bot` | 网格/DCA 马丁格尔机器人管理 |
+| `okx-cex-earn` | 赚币/质押/双币赢理财 |
+
+### 安装链上数据技能
+
+```bash
+npx skills add okx/onchainos-skills
+```
+
+> 此命令从 `https://github.com/okx/onchainos-skills.git` 安装 `okx-dex-token` 等链上数据技能，
+> 为 `onchainos` CLI 提供命令参考。第五章已覆盖 `onchainos` CLI 安装和认证配置。
+
+### 验证
+
+```bash
+ls ~/.agents/skills/okx-cex-*          # 应看到 OKX CEX 技能目录
+ls ~/.agents/skills/onchainos-skills/  # 应看到链上数据技能目录
+```
+
+---
+
+## 七、定时任务配置
 
 ### 日报任务（Cron Jobs）
 
@@ -312,7 +449,77 @@ openclaw cron add --job "$(cat morning.json)"
 
 ---
 
-## 六、飞书通知配置
+## 八、山寨币扫描链路配置
+
+每小时自动运行的山寨币扫描引擎需要 Linux crontab 支持。
+
+### 添加 crontab 定时任务
+
+```bash
+crontab -e
+```
+
+添加以下两行：
+
+```cron
+# 山寨币扫描 — 每小时整点
+0 * * * * <克隆路径>/scripts/scanner-runner.sh >> <克隆路径>/logs/alt-scanner.log 2>&1
+
+# 庄币扫描 — 每小时整点后 5 分钟（错峰）
+5 * * * * <克隆路径>/scripts/scanner-zhuang-runner.sh >> <克隆路径>/logs/alt-scanner.log 2>&1
+```
+
+> 替换 `<克隆路径>` 为实际的仓库绝对路径。
+
+### 验证
+
+```bash
+# 手动触发一次扫描
+bash scripts/scanner-runner.sh
+# 查看扫描日志
+tail -20 logs/alt-scanner.log
+```
+
+---
+
+## 九、市场快报配置（可选）
+
+市场快报系统每 8 小时生成一份加密市场环境摘要，纯数据描述不做交易建议。
+
+### 创建 cron 任务
+
+```json
+{
+  "name": "july-market-brief",
+  "schedule": {
+    "kind": "cron",
+    "expr": "30 22,6,14 * * *",
+    "tz": "Asia/Shanghai"
+  },
+  "sessionTarget": "isolated",
+  "payload": {
+    "kind": "agentTurn",
+    "agentId": "july",
+    "message": "执行市场快报任务：读取 tasks/market-brief.md，生成加密市场环境快报",
+    "timeoutSeconds": 0
+  },
+  "delivery": {
+    "mode": "none"
+  }
+}
+```
+
+> 时间点：22:30 / 06:30 / 14:30 (GMT+8)——覆盖亚盘、欧盘、美盘收盘时段。
+
+### 验证
+
+```bash
+openclaw cron list | grep market-brief
+```
+
+---
+
+## 十、飞书通知配置
 
 日报发送到飞书需要配置飞书机器人凭证。
 
@@ -341,7 +548,7 @@ openclaw cron add --job "$(cat morning.json)"
 
 ---
 
-## 七、完整部署步骤
+## 十一、完整部署步骤
 
 ### 步骤清单
 
@@ -349,42 +556,88 @@ openclaw cron add --job "$(cat morning.json)"
 |------|------|---------|
 | 1 | 克隆仓库 | `ls ~/.openclaw/july-btc-analyzer` |
 | 2 | 注册智能体 | 检查 `openclaw.json` 中 `agents` 数组 |
-| 3 | 创建目录结构 | `ls logs/ skills/btc-alert/rules/` |
-| 4 | 配置代理环境变量 | `echo $http_proxy` |
-| 5 | 编辑 ecosystem.config.js | 填写 cwd 和代理端口 |
-| 6 | 安装依赖 | `npm install` |
-| 7 | 安装 OKX CLI | `okx --version` |
-| 8 | 配置 OKX API | 创建 `~/.okx/config.toml` |
-| 9 | 启动警报器 | `pm2 list` 显示 btc-alert online |
-| 10 | 创建定时任务 | `openclaw cron list` 显示两个任务 |
-| 11 | 配置飞书通知 | 创建 `credentials.json` |
+| 3 | 验证目录结构 | `ls logs/.gitkeep skills/btc-alert/rules/.gitkeep`（clone 自带） |
+| 4 | 安装 PM2 | `npm install -g pm2 && pm2 startup` |
+| 5 | 配置代理 | `cp config/proxy.env.example config/proxy.env && source config/proxy.env` |
+| 6 | 验证代理 | `curl --proxy "$PROXY_URL" https://www.okx.com` 返回正常 |
+| 7 | 安装 Node.js 依赖 | `npm install` |
+| 8 | 安装 Python 依赖 | `pip install -r config/requirements.txt` |
+| 9 | 安装 OKX CLI | `okx --version` |
+| 10 | 配置 OKX API | 创建 `~/.okx/config.toml` |
+| 11 | 安装 OnchainOS（可选） | `onchainos token search --query BTC --chains "1"` |
+| 12 | 安装 OpenClaw 技能 | `ls ~/.agents/skills/okx-cex-*` 存在 |
+| 13 | 启动全部进程 | `pm2 start ecosystem.config.js && pm2 save` |
+| 14 | 创建日报定时任务 | `openclaw cron list` 显示两个日报任务 |
+| 15 | 配置山寨币扫描 crontab | `crontab -l` 含 scanner-runner 行 |
+| 16 | 创建市场快报任务（可选） | `openclaw cron list` 含 market-brief |
+| 17 | 配置飞书通知 | 创建 `.openclaw/credentials.json` |
+| 18 | 配置 Web Search | 确保 `openclaw.json` 中 `webSearch` 已配置（见下方） |
+
+### Web Search 配置
+
+> ⚠️ 重要：山寨币分析阶段一需要通过 `web_search` 获取项目消息面数据。
+> 未配置则媒体搜索返回空，阶段二交叉验证缺少媒体维度。
+
+OpenClaw 的 web search 能力在 `~/.openclaw/openclaw.json` 中配置：
+
+```json
+{
+  "webSearch": {
+    "provider": "minimax",
+    "fallback": "duckduckgo",
+    "duckduckgo": {
+      "proxy": "http://127.0.0.1:7890"
+    }
+  }
+}
+```
+
+> 主力 MiniMax 直连即可；备用 DuckDuckGo 需要代理。
+> 切换配置后需要重启 Gateway：`systemctl --user restart openclaw-gateway.service`（或 `openclaw gateway restart`）
+
+### 工作区外配置文件汇总
+
+以下配置文件在七月工作区之外，需单独创建：
+
+| 文件 | 用途 | 章节 |
+|------|------|------|
+| `~/.okx/config.toml` | OKX CLI API 凭证 + 代理配置 | 四、OKX CLI 配置 |
+| `~/.onchainos/.env` | 链上数据 API 认证 | 五、链上数据配置 |
+| `~/.openclaw/openclaw.json` | 智能体注册 + Web Search 提供者 | 一、注册智能体 + 上述 |
+| `.openclaw/credentials.json` | 飞书通知凭证 | 七、飞书通知配置 |
 
 ### 验证检查清单
 
 | 检查项 | 命令 | 预期结果 |
 |--------|------|---------|
-| PM2 运行 | `pm2 list` | `btc-alert` 状态 online |
+| 目录结构 | `ls logs/.gitkeep skills/btc-alert/rules/.gitkeep` | 两个文件存在 |
+| PM2 运行 | `pm2 list` | 4 个进程均为 online |
 | 警报器日志 | `pm2 logs btc-alert --lines 20` | 有心跳日志输出 |
+| 调度器运行 | `pm2 logs cron-dispatcher --lines 5` | 监听 3102 端口 |
+| 监控面板 | `curl http://localhost:3100/api/system` | 返回 JSON |
+| 代理可用 | `curl --proxy "$PROXY_URL" https://www.okx.com` | 返回正常 |
+| OKX CLI | `./scripts/okx-proxy.sh --profile live account balance` | 显示账户余额 |
+| OnchainOS | `onchainos token search --query BTC --chains "1"` | 返回搜索结果 |
+| OpenClaw 技能 | `ls ~/.agents/skills/okx-cex-trade/` | 目录存在 |
+| Web Search | 在智能体对话中测试 `web_search` | 正常返回搜索结果 |
 | Cron 任务 | `openclaw cron list` | 两个日报任务已注册 |
-| OKX CLI | `okx --version` | 显示版本号 |
-| 代理可用 | `curl --proxy $http_proxy https://www.okx.com` | 返回正常 |
 | 智能体注册 | `openclaw agent list` | 显示 july |
 
 ---
 
-## 八、常见问题
+## 十二、常见问题
 
 ### Q: PM2 启动失败 "script not found"
 
-检查 `cwd` 是否为克隆目录的绝对路径。
+确保在项目根目录执行 `pm2 start ecosystem.config.js`。配置文件已使用 `__dirname` 动态解析路径，无需手动修改 `cwd`。
 
 ### Q: 警报器无法获取数据（ETIMEDOUT）
 
 检查代理配置：
 - 确认代理服务运行中
-- 确认 `http_proxy` 环境变量端口正确
-- 确认 ecosystem.config.js 中 `env.http_proxy` 端口正确
-- 测试：`curl --proxy http://127.0.0.1:<端口> https://www.okx.com`
+- 确认 `PROXY_URL` 已正确设置：`echo $PROXY_URL`
+- 测试代理：`curl --proxy "$PROXY_URL" https://www.okx.com`
+- 如需单独配置 proxychains4，编辑 `/etc/proxychains4.conf`
 
 ### Q: Cron 任务不触发
 

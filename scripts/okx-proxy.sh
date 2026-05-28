@@ -8,7 +8,9 @@ OKX_BIN=$(which okx || echo "/usr/local/bin/okx")
 
 # 代理端口（从环境变量或默认值）
 PROXY_HOST="127.0.0.1"
-PROXY_PORT="${HTTP_PROXY_PORT:-7890}"
+# 代理端口从 PROXY_URL 提取，或默认 7890
+PROXY_PORT="${PROXY_URL##*:}"
+PROXY_PORT="${PROXY_PORT:-7890}"
 
 # 使用 proxychains4 强制通过代理
 proxychains4 -q "$OKX_BIN" "$@"

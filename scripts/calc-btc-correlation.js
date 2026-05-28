@@ -18,7 +18,7 @@
 
 const { execSync } = require('child_process');
 
-const PROXY_URL = 'http://127.0.0.1:7890';
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const BAR = '1H';
 const LIMIT = 72;  // 3 天
 

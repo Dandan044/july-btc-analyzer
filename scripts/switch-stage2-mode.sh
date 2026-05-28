@@ -3,7 +3,7 @@
 # 用法: bash switch-stage2-mode.sh [normal|aggressive]
 
 MODE=${1:-status}
-LINK="$HOME/.openclaw/july-btc-analyzer/tasks/alt-pipeline/alt-intel-stage2.live.md"
+LINK="$(cd "$(dirname "$0")/.." && pwd)/tasks/alt-pipeline/alt-intel-stage2.live.md"
 
 case "$MODE" in
   normal)

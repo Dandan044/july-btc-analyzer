@@ -24,7 +24,7 @@ import time
 from datetime import datetime
 
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROXY_URL = "http://127.0.0.1:7890"
+PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:7890")
 BLACKLIST_PATH = os.path.join(WORKSPACE, "data", "altcoin-blacklist.json")
 USER_BLACKLIST_PATH = os.path.join(WORKSPACE, "data", "user-blacklist.json")
 NON_ALT_PATH = os.path.join(WORKSPACE, "data", "non-alt-list.json")

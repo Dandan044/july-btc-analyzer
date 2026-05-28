@@ -9,7 +9,7 @@ const path = require('path');
 
 // 配置
 const CYCLE_ID = process.argv[2] || 'cycle-20260419-001';
-const WORKSPACE = '/home/administrator/.openclaw/july-btc-analyzer';
+const WORKSPACE = path.resolve(__dirname, '..');
 const POSITIONS_FILE = path.join(WORKSPACE, 'active', CYCLE_ID, 'positions.json');
 
 // 当前时间

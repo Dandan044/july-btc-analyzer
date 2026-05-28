@@ -31,7 +31,7 @@ import mplfinance as mpf
 import matplotlib.pyplot as plt
 import numpy as np
 
-PROXY_URL = "http://127.0.0.1:7890"
+PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:7890")
 OKX_BASE = "https://www.okx.com"
 
 DEFAULT_TIMEFRAMES = {

@@ -14,10 +14,11 @@ OI 变化时间窗口：24h
 
 import json
 import sys
+import os
 import subprocess
 
 # 代理配置
-PROXY_URL = "http://127.0.0.1:7890"
+PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:7890")
 
 # OKX OI API
 OI_API_URL = "https://www.okx.com/api/v5/rubik/stat/contracts/open-interest-volume"

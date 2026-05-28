@@ -1,8 +1,12 @@
+// 代理地址：优先读 PROXY_URL 环境变量，未设则用默认值
+const proxyUrl = process.env.PROXY_URL || 'http://127.0.0.1:7890';
+const socksProxy = proxyUrl.replace(/^http/, 'socks5');
+
 module.exports = {
   apps: [{
     name: 'btc-alert',
     script: './skills/btc-alert/engine.js',
-    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+    cwd: __dirname,
     
     // 自动重启配置
     autorestart: true,
@@ -27,14 +31,15 @@ module.exports = {
       NODE_ENV: 'production',
       TZ: 'Asia/Shanghai',
       LOG_LEVEL: 'INFO',
-      http_proxy: 'http://127.0.0.1:7890',
-      https_proxy: 'http://127.0.0.1:7890',
-      all_proxy: 'socks5://127.0.0.1:7890'
+      PROXY_URL: proxyUrl,
+      http_proxy: proxyUrl,
+      https_proxy: proxyUrl,
+      all_proxy: socksProxy
     }
   }, {
     name: 'cron-name-cache',
     script: './scripts/cron-name-cache.js',
-    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+    cwd: __dirname,
     autorestart: true,
     watch: false,
     max_restarts: 5,
@@ -50,7 +55,7 @@ module.exports = {
   }, {
     name: 'cron-dispatcher',
     script: './scripts/cron-dispatcher.js',
-    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+    cwd: __dirname,
     autorestart: true,
     watch: false,
     max_restarts: 5,
@@ -67,13 +72,13 @@ module.exports = {
       https_proxy: '',
       all_proxy: '',
       NO_PROXY: '*',
-      PATH: '/home/administrator/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+      PATH: [process.env.HOME, '.npm-global', 'bin'].join('/') + ':/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     }
   }, {
     name: 'july-dashboard',
     script: './dashboard/server.js',
     args: '--port 3100',
-    cwd: '/home/administrator/.openclaw/july-btc-analyzer',
+    cwd: __dirname,
     autorestart: true,
     watch: false,
     max_restarts: 5,
@@ -86,9 +91,10 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       TZ: 'Asia/Shanghai',
-      http_proxy: 'http://127.0.0.1:7890',
-      https_proxy: 'http://127.0.0.1:7890',
-      all_proxy: 'socks5://127.0.0.1:7890'
+      PROXY_URL: proxyUrl,
+      http_proxy: proxyUrl,
+      https_proxy: proxyUrl,
+      all_proxy: socksProxy
     }
   }]
 };

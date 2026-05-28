@@ -1,6 +1,9 @@
 const fs = require('fs');
+const path = require('path');
 const { execSync } = require('child_process');
 
+const WORKSPACE = path.resolve(__dirname, '..');
+const PROXY_SH = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
 const CYCLE_DIR = 'active/cycle-20260425-001';
 const POS_FILE = `${CYCLE_DIR}/positions.json`;
 const NOW = new Date().toISOString();
@@ -8,7 +11,7 @@ const NOW = new Date().toISOString();
 // Get positions
 let posData;
 try {
-  posData = JSON.parse(execSync('/home/administrator/.openclaw/july-btc-analyzer/scripts/okx-proxy.sh --profile live account positions --instType SWAP --instId BTC-USDT-SWAP --tdMode isolated --json 2>/dev/null', { timeout: 20000 }));
+  posData = JSON.parse(execSync(`${PROXY_SH} --profile live account positions --instType SWAP --instId BTC-USDT-SWAP --tdMode isolated --json 2>/dev/null`, { timeout: 20000 }));
 } catch(e) {
   console.log('Error getting positions:', e.message);
   process.exit(1);
@@ -21,7 +24,7 @@ console.log('Isolated positions count:', isolatedPos.length);
 // Get algo orders
 let algoData;
 try {
-  algoData = JSON.parse(execSync('/home/administrator/.openclaw/july-btc-analyzer/scripts/okx-proxy.sh --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated --json 2>/dev/null', { timeout: 20000 }));
+  algoData = JSON.parse(execSync(`${PROXY_SH} --profile live swap algo orders --instId BTC-USDT-SWAP --tdMode isolated --json 2>/dev/null`, { timeout: 20000 }));
 } catch(e) {
   console.log('Error getting algo orders:', e.message);
 }
@@ -29,7 +32,7 @@ try {
 // Get bills
 let billsData;
 try {
-  billsData = JSON.parse(execSync('/home/administrator/.openclaw/july-btc-analyzer/scripts/okx-proxy.sh --profile live account bills --instType SWAP --ccy USDT --limit 50 --tdMode isolated --json 2>/dev/null', { timeout: 20000 }));
+  billsData = JSON.parse(execSync(`${PROXY_SH} --profile live account bills --instType SWAP --ccy USDT --limit 50 --tdMode isolated --json 2>/dev/null`, { timeout: 20000 }));
 } catch(e) {
   console.log('Error getting bills:', e.message);
 }

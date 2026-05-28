@@ -16,11 +16,11 @@
 set -euo pipefail
 
 # 环境变量（crontab 环境缺少 PATH）
-export PATH="/home/administrator/.npm-global/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:$PATH"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-OPENCLAW="/home/administrator/.npm-global/bin/openclaw"
+OPENCLAW="$(which openclaw 2>/dev/null || echo "$HOME/.npm-global/bin/openclaw")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="$(dirname "$SCRIPT_DIR")"
 

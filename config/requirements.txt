@@ -1,0 +1,11 @@
+# 七月框架 Python 依赖
+# 安装: pip install -r config/requirements.txt
+
+# K线图表生成 (generate_kline_chart.py)
+pandas>=2.0.0
+mplfinance>=0.12.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+
+# 斐波那契多时间框架分析 (multi_timeframe_fib.py)
+requests>=2.28.0

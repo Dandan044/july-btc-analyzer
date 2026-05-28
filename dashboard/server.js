@@ -2291,7 +2291,7 @@ app.get('/api/system', (req, res) => {
 
     // 磁盘使用
     let disk = {};
-    const df = safeExec('df -h /home/administrator/.openclaw/july-btc-analyzer', { timeout: 5000 });
+    const df = safeExec(`df -h ${__dirname}`, { timeout: 5000 });
     if (df) {
       const parts = df.split('\n')[1]?.split(/\s+/);
       if (parts) disk = { size: parts[1], used: parts[2], avail: parts[3], usePct: parts[4] };
@@ -3420,11 +3420,19 @@ function updateCronNameCache() {
 }
 
 // ── 启动 ──────────────────────────────────────────────
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`📈 七月 BTC 监控面板已启动: http://0.0.0.0:${PORT}`);
   console.log(`   工作目录: ${BASE_DIR}`);
 
   // 后台定时更新 cron 名字缓存（每 60s），确保即时分析 job 在删除前被缓存
   updateCronNameCache();
   setInterval(updateCronNameCache, 60000);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`⛔ 端口 ${PORT} 已被占用！尝试更换端口：node dashboard/server.js --port=<新端口>`);
+    process.exit(1);
+  }
+  throw err;
 });

@@ -34,6 +34,7 @@ const REPORT_PREFIX = MODE === 'zhuang' ? 'zhuang-report-' : 'alt-report-';
 const WORKSPACE = path.resolve(__dirname, '..');
 const LOG_FILE = path.join(WORKSPACE, 'logs', `${LOG_PREFIX}${COIN}-process.log`);
 const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
+const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const INST_ID = `${COIN}-USDT-SWAP`;
 const BLACKLIST_PATH = path.join(WORKSPACE, 'data', 'altcoin-blacklist.json');
 const SYNC_SCRIPT = path.join(WORKSPACE, 'scripts', 'sync-alt-positions.js');
@@ -91,7 +92,7 @@ log(`上线时间检查: 查询 ${INST_ID} 上线时间...`);
 let onlineDays = null;
 try {
   const instrumentsRaw = runCmd(
-    `curl -s --max-time 10 --proxy http://127.0.0.1:7890 "https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=${INST_ID}"`
+    `curl -s --max-time 10 --proxy ${PROXY_URL} "https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=${INST_ID}"`
   );
 
   if (instrumentsRaw === null || !Array.isArray(instrumentsRaw) || instrumentsRaw.length === 0) {
@@ -250,7 +251,7 @@ let contractOk = false;
 
 // 日期格式化：YYYYMMDD → YYYY-MM-DD
 const dateFormatted = `${dateStr.slice(0, 4)}-${dateStr.slice(4, 6)}-${dateStr.slice(6, 8)}`;
-const contractCmd = `node "${getScript}" --coin ${COIN} --json --save --proxy http://127.0.0.1:7890`;
+const contractCmd = `node "${getScript}" --coin ${COIN} --json --save --proxy ${PROXY_URL}`;
 
 for (let attempt = 0; attempt <= CONTRACT_MAX_RETRIES; attempt++) {
   try {

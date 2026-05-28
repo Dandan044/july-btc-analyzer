@@ -117,9 +117,24 @@ for (const level of levels) {
 
 ## 📡 数据获取
 
-### OKX API
+### 代理配置
 
-**代理**：国内必须通过 `http://127.0.0.1:7890`。使用 wrapper 脚本：
+**统一入口**：所有脚本从 `PROXY_URL` 环境变量读取代理地址。
+
+```bash
+# 初始化（写入 ~/.bashrc 持久化）
+export PROXY_URL="http://127.0.0.1:7890"   # 国内用户：替换为你的代理端口
+# export PROXY_URL=""                       # 国外用户：不需要代理
+
+# 或使用配置文件
+source config/proxy.env
+```
+
+> 未设置 `PROXY_URL` 时，所有脚本自动 fallback 到 `http://127.0.0.1:7890`。
+> 所有 `curl`/`subprocess` 调用、`ecosystem.config.js` 的 PM2 环境变量均由此统一管理。
+> `proxychains4` 有独立的配置文件（`/etc/proxychains4.conf`），需单独配置。
+
+### OKX API
 ```bash
 ~/.openclaw/july-btc-analyzer/scripts/okx-proxy.sh --profile live <command>
 ```
@@ -254,9 +269,9 @@ pm2 restart cron-dispatcher        # 重启
 
 ### GitHub SSH
 
-密钥：`~/.openclaw/workspace-july/.ssh/id_ed25519`
 ```bash
-GIT_SSH_COMMAND="ssh -i ~/.openclaw/workspace-july/.ssh/id_ed25519" git push
+# 使用指定 SSH 密钥推送（替换为你的密钥路径）
+GIT_SSH_COMMAND="ssh -i <你的SSH私钥路径>" git push
 ```
 
 ---

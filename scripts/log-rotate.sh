@@ -340,7 +340,7 @@ echo "===================="
 
 # 检查 openclaw CLI 是否可用
 # openclaw CLI 路径（cron 环境 PATH 不含 npm-global，需硬编码）
-OPENCLAW_CLI="/home/administrator/.npm-global/bin/openclaw"
+OPENCLAW_CLI="$(which openclaw 2>/dev/null || echo "$HOME/.npm-global/bin/openclaw")"
 if [ -x "$OPENCLAW_CLI" ]; then
     echo ""
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] 发送通知..."

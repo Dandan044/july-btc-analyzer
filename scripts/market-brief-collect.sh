@@ -4,8 +4,8 @@
 # Usage: bash scripts/market-brief-collect.sh
 
 set -e
-PROXY="http://127.0.0.1:7890"
-WORKDIR="/home/administrator/.openclaw/july-btc-analyzer"
+PROXY="${PROXY_URL:-http://127.0.0.1:7890}"
+WORKDIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 mkdir -p /tmp/market-brief
 
