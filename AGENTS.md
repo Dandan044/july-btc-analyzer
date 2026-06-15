@@ -34,9 +34,9 @@ scanner-runner.sh（纯脚本）
   └── cron add (1min)     → 派发 LLM 会话
         │
         └── LLM 会话:
-             ├── 读 tasks/alt-pipeline/alt-intel-stage1-v2.md → sentiment 收集
+             ├── 读 tasks/pipeline/stage1.md → sentiment 收集
              ├── node scripts/gen-stage1-manifest.js           → 数据清单
-             ├── 读 tasks/alt-pipeline/alt-intel-stage2.md     → 交叉验证 + 报告
+             ├── 读 tasks/pipeline/stage2-*.md → 交叉验证 + 报告
              │                                                   + trade-decision.json
              │                                                   + alert-candidates.json
              ├── node scripts/stage3-executor.js               → 仓位执行（纯脚本）
@@ -206,8 +206,8 @@ july-btc-analyzer/
 
 | 任务 | 入口 | 后续阶段 | 触发方式 |
 |------|------|---------|---------|
-| Scanner 扫描分析 | `scripts/scanner-runner.sh` → `tasks/alt-pipeline/alt-intel-stage1-v2.md` | stage2(脚本内含交接) | Linux cron（每小时） |
-| 警报触发即时分析 | `scripts/stage1-instant.js` → `tasks/alt-pipeline/alt-intel-stage2.md` | stage3/stage4(脚本) | 警报引擎 trigger() |
+| Scanner 扫描分析 | `scripts/scanner-runner.sh` → `tasks/pipeline/stage1.md` | stage2(脚本内含交接) | Linux cron（每30分钟） |
+| 警报触发即时分析 | `scripts/stage1-instant.js` → `tasks/pipeline/stage2-{profile}.md` | stage3/stage4(脚本) | 警报引擎 trigger() |
 
 ### 系统维护任务
 

@@ -97,6 +97,24 @@ const mediaFile = `${cycleDir}/data-context/sentiment-media.md`;
 // 链上数据文件
 const onchainFile = `${cycleDir}/data-context/sentiment-onchain.md`;
 
+// 链上 JSON 数据文件（最新）
+let onchainJsonFile = null;
+let onchainJsonUpdatedAt = null;
+try {
+  const dataDir = path.join(WORKSPACE, 'data');
+  if (fs.existsSync(dataDir)) {
+    const jsonFiles = fs.readdirSync(dataDir)
+      .filter(f => f.startsWith(`onchain-${COIN}-`) && f.endsWith('.json'))
+      .sort().reverse();
+    if (jsonFiles.length > 0) {
+      onchainJsonFile = `data/${jsonFiles[0]}`;
+      const jsonPath = path.join(dataDir, jsonFiles[0]);
+      const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+      onchainJsonUpdatedAt = jsonData['元数据(meta)']?.['采集时间(collected_at)'] || null;
+    }
+  }
+} catch (e) {}
+
 // 持仓文件
 const positionsFile = `${cycleDir}/positions.json`;
 
@@ -156,6 +174,9 @@ const manifest = {
     },
     sentiment_onchain: {
       file: onchainFile,
+      json_file: onchainJsonFile,
+      json_updated_at: onchainJsonUpdatedAt,
+      json_ttl_minutes: onchainJsonFile ? 240 : null,
       status: onchainOk ? 'success' : 'failed',
     },
     contract: {

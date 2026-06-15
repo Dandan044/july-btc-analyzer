@@ -91,7 +91,7 @@ LIST_TIME_MS=$(curl -s --max-time 10 --proxy http://127.0.0.1:7890 \
 |------|------|
 | API 调用失败 / listTime 为空 | `⚠️ WARN`，无法验证上线时间，跳过检查继续 |
 | 币种不存在（ERROR） | `⛔ ERROR`，币种在 OKX 合约市场不存在，终止流程 |
-| 上线 < 30 天 | 🔴 BLACKLIST，加入 `data/altcoin-blacklist.json` 并终止流程 |
+| 上线 < 30 天 | 🔴 BLACKLIST，加入 `config/altcoin-blacklist.json` 并终止流程 |
 | 上线 >= 30 天 | ✅ 通过，继续执行 |
 
 **计算上线天数并执行判断：**
@@ -106,16 +106,16 @@ if [ "$LIST_TIME_MS" != "ERROR" ] && [ -n "$LIST_TIME_MS" ]; then
     # 新上线币种，加入黑名单
     python3 -c "
 import json
-with open('data/altcoin-blacklist.json') as f:
+with open('config/altcoin-blacklist.json') as f:
     bl = json.load(f)
 if '${COIN}' not in bl['blacklist']:
     bl['blacklist'].append('${COIN}')
 bl['reason']['${COIN}'] = '新上线币种，历史数据不足30日（上线${AGE_DAYS}天），缺少足够K线数据支撑技术分析'
 bl['updated'] = '$(date -Iseconds)'
-with open('data/altcoin-blacklist.json', 'w') as f:
+with open('config/altcoin-blacklist.json', 'w') as f:
     json.dump(bl, f, indent=2, ensure_ascii=False)
 "
-    echo "[$NOW] [阶段一] 🔴 BLACKLIST: ${COIN} → data/altcoin-blacklist.json | 原因: 新上线币种 (${AGE_DAYS}天)" >> logs/alt-${COIN}-process.log
+    echo "[$NOW] [阶段一] 🔴 BLACKLIST: ${COIN} → config/altcoin-blacklist.json | 原因: 新上线币种 (${AGE_DAYS}天)" >> logs/alt-${COIN}-process.log
     echo "[$NOW] [阶段一] 流程终止——${COIN} 上线不足30日，不符合趋势交易条件" >> logs/alt-${COIN}-process.log
     exit 0
   else

@@ -557,7 +557,7 @@ node scripts/calc-position.js \
 
 **拉黑操作：**
 
-1. 将币种加入 `data/altcoin-blacklist.json`：
+1. 将币种加入 `config/altcoin-blacklist.json`：
    - 在 `blacklist` 数组中追加币种名
    - 在 `reason` 中添加拉黑原因（一句话概括核心操纵特征）
    - 更新 `updated` 时间戳
@@ -570,7 +570,7 @@ node scripts/calc-position.js \
 
 3. 记录日志并结束流程：
    ```
-   [$NOW] [阶段二] 🔴 BLACKLIST: {COIN} → data/altcoin-blacklist.json | 原因: {一句话}
+   [$NOW] [阶段二] 🔴 BLACKLIST: {COIN} → config/altcoin-blacklist.json | 原因: {一句话}
    [$NOW] [阶段二] 黑名单归档: alt-{COIN}-* → archived/ | 警报: {N}条 → rules-archive/
    [$NOW] [阶段二] 流程终止——该币种不符合趋势交易条件
    ```

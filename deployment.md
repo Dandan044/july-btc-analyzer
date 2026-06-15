@@ -383,69 +383,24 @@ ls ~/.agents/skills/onchainos-skills/  # 应看到链上数据技能目录
 
 ## 七、定时任务配置
 
-### 日报任务（Cron Jobs）
+### 核心循环 Cron 任务（四个初始任务）
 
-使用 OpenClaw cron 系统配置每天 9:00 和 21:00 的日报任务。
-
-#### 早间日报（9:00 GMT+8）
-
-```json
-{
-  "name": "july-btc-morning",
-  "schedule": {
-    "kind": "cron",
-    "expr": "0 9 * * *",
-    "tz": "Asia/Shanghai"
-  },
-  "sessionTarget": "isolated",
-  "payload": {
-    "kind": "agentTurn",
-    "agentId": "july",
-    "message": "[SPAWN_DAILY_REPORT]执行比特币技术分析日报：获取BTC价格、恐惧指数、技术指标数据，进行技术分析，生成报告并发送",
-    "thinking": "high",
-    "timeoutSeconds": 0
-  },
-  "delivery": {
-    "mode": "none"
-  }
-}
-```
-
-#### 晚间日报（21:00 GMT+8）
-
-```json
-{
-  "name": "july-btc-evening",
-  "schedule": {
-    "kind": "cron",
-    "expr": "0 21 * * *",
-    "tz": "Asia/Shanghai"
-  },
-  "sessionTarget": "isolated",
-  "payload": {
-    "kind": "agentTurn",
-    "agentId": "july",
-    "message": "[SPAWN_DAILY_REPORT]执行比特币技术分析日报：获取BTC价格、恐惧指数、技术指标数据，进行技术分析，生成报告并发送",
-    "thinking": "high",
-    "timeoutSeconds": 0
-  },
-  "delivery": {
-    "mode": "none"
-  }
-}
-```
-
-#### 创建任务
-
-使用 OpenClaw cron 工具：
+一键创建四个核心循环 cron 任务（早间日报、晚间日报、周期健康检查、市场快报）：
 
 ```bash
-# 方式一：通过命令行
-openclaw cron add --job "$(cat morning.json)"
-
-# 方式二：在智能体对话中请求
-# "帮我创建一个定时任务，每天9点触发七月执行日报"
+bash scripts/init-cron-tasks.sh
 ```
+
+脚本详情：`scripts/init-cron-tasks.sh`
+
+| 任务名称 | 时间 (GMT+8) | 说明 |
+|---------|-------------|------|
+| `july-btc-morning-v2` | 每日 09:00 | BTC 早间日报（四阶段）|
+| `july-btc-evening-v2` | 每日 21:00 | BTC 晚间日报（四阶段）|
+| `cycle-health-check` | 每日 03:00 | 活跃周期健康检查 |
+| `market-brief` | 22:30 / 06:30 / 14:30 | 市场快报（亚/欧/美盘）|
+
+创建时使用默认模型（不指定 `--model`），参数与当前生产配置一致。
 
 ---
 
@@ -486,35 +441,12 @@ tail -20 logs/alt-scanner.log
 
 市场快报系统每 8 小时生成一份加密市场环境摘要，纯数据描述不做交易建议。
 
-### 创建 cron 任务
-
-```json
-{
-  "name": "july-market-brief",
-  "schedule": {
-    "kind": "cron",
-    "expr": "30 22,6,14 * * *",
-    "tz": "Asia/Shanghai"
-  },
-  "sessionTarget": "isolated",
-  "payload": {
-    "kind": "agentTurn",
-    "agentId": "july",
-    "message": "执行市场快报任务：读取 tasks/market-brief.md，生成加密市场环境快报",
-    "timeoutSeconds": 0
-  },
-  "delivery": {
-    "mode": "none"
-  }
-}
-```
-
-> 时间点：22:30 / 06:30 / 14:30 (GMT+8)——覆盖亚盘、欧盘、美盘收盘时段。
+已包含在 `scripts/init-cron-tasks.sh` 中，无需单独配置。
 
 ### 验证
 
 ```bash
-openclaw cron list | grep market-brief
+openclaw cron list | grep -E "(morning|evening|health|brief)"
 ```
 
 ---

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * stage1-prep.js — 阶段一预处理脚本（步骤 1~5）
+ * stage1-prep.js — 阶段一预处理脚本（步骤 1~9）
  *
  * 用法: node stage1-prep.js <COIN>
  *
@@ -36,7 +36,6 @@ const LOG_FILE = path.join(WORKSPACE, 'logs', `${LOG_PREFIX}${COIN}-process.log`
 const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
 const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
 const INST_ID = `${COIN}-USDT-SWAP`;
-const BLACKLIST_PATH = path.join(WORKSPACE, 'data', 'altcoin-blacklist.json');
 const SYNC_SCRIPT = path.join(WORKSPACE, 'scripts', 'sync-alt-positions.js');
 
 // ─── 工具函数 ───
@@ -78,6 +77,27 @@ function output(data) {
   console.log(JSON.stringify(data));
 }
 
+const COOLDOWN_PATH = path.join(WORKSPACE, 'data', 'coin-cooldown.json');
+
+function writeCooldown(coin, cooldownUntil, reason) {
+  try {
+    let data = { entries: {}, updated: '' };
+    if (fs.existsSync(COOLDOWN_PATH)) {
+      data = JSON.parse(fs.readFileSync(COOLDOWN_PATH, 'utf8'));
+    }
+    data.entries[coin] = {
+      cooldown_until: cooldownUntil,
+      reason: reason,
+      added_at: new Date().toISOString(),
+    };
+    data.updated = new Date().toISOString();
+    fs.writeFileSync(COOLDOWN_PATH, JSON.stringify(data, null, 2), 'utf8');
+    log(`冷却名单已写入: ${coin} → ${cooldownUntil.slice(0, 10)}`);
+  } catch (e) {
+    log(`冷却名单写入失败: ${e.message}`, 'ERROR');
+  }
+}
+
 // ════════════════════════════════════════════
 // 步骤 1: 日志开始
 // ════════════════════════════════════════════
@@ -107,28 +127,18 @@ try {
       onlineDays = Math.floor((nowSec - listTimeSec) / 86400);
 
       if (onlineDays < 30) {
-        // 新上线 → 加入黑名单
-        log(`🔴 BLACKLIST: ${COIN} → 新上线币种（上线 ${onlineDays} 天），不符合趋势交易条件`, 'ERROR');
+        // 新上线 → 写入冷却名单，冷却至 30 天期满
+        const daysUntilMature = 30 - onlineDays;
+        const cooldownUntil = new Date(Date.now() + daysUntilMature * 86400000).toISOString();
 
-        try {
-          let bl = { blacklist: [], reason: {} };
-          if (fs.existsSync(BLACKLIST_PATH)) {
-            bl = JSON.parse(fs.readFileSync(BLACKLIST_PATH, 'utf8'));
-          }
-          if (!bl.blacklist.includes(COIN)) {
-            bl.blacklist.push(COIN);
-          }
-          bl.reason[COIN] = `新上线币种，历史数据不足30日（上线${onlineDays}天），缺少足够K线数据支撑技术分析`;
-          bl.updated = new Date(Date.now() + 8 * 3600000).toISOString();
-          fs.writeFileSync(BLACKLIST_PATH, JSON.stringify(bl, null, 2) + '\n', 'utf8');
-        } catch (e) {
-          log(`黑名单写入失败: ${e.message}`, 'ERROR');
-        }
+        log(`🔴 COOLDOWN: ${COIN} → 上线 ${onlineDays} 天（不足30天），冷却至 ${cooldownUntil.slice(0,10)}（${daysUntilMature}天）`, 'ERROR');
+
+        writeCooldown(COIN, cooldownUntil, `新上线币种，上线 ${onlineDays} 天（不足30天），需 ${daysUntilMature} 天后才能进入扫描`);
 
         output({
           status: 'blacklisted',
           coin: COIN,
-          reason: `上线不足30日（${onlineDays}天）`,
+          reason: `上线不足30日（${onlineDays}天），已写入冷却名单至 ${cooldownUntil.slice(0,10)}`,
         });
         process.exit(0);
       } else {
@@ -153,8 +163,10 @@ let cycleDir = null;
 let cycleAction = null;
 
 try {
+  // ⚠️ 检查所有画像前缀，防止 alt/zhuang 双画像共存同一币种
+  const allPrefixes = ['alt', 'zhuang'].includes(PREFIX) ? ['alt', 'zhuang'] : [PREFIX];
   const existing = fs.readdirSync(activeDir)
-    .filter(d => d.startsWith(`${PREFIX}${COIN}-`))
+    .filter(d => allPrefixes.some(p => d.startsWith(`${p}${COIN}-`)))
     .sort()
     .reverse();
 
@@ -220,12 +232,16 @@ const reportPaths = [];
 try {
   // 直接搜当前周期 reports/ 下的历史报告（此时本篇报告尚未生成，目录内均为历史）
   if (fs.existsSync(reportsDir)) {
-    const reports = fs.readdirSync(reportsDir)
+    const allReports = fs.readdirSync(reportsDir)
       .filter(f => f.startsWith(`${REPORT_PREFIX}${COIN}-`) && f.endsWith('.md'))
-      .sort()
-      .reverse()
-      .slice(0, 5);
-    for (const r of reports) {
+      .sort();  // 按文件名排序（时间升序）
+    const firstReport = allReports[0] || null;
+    const recentReports = allReports.reverse().slice(0, 5);  // 最近 5 篇
+    // 确保第一篇始终在收集列表中（方向承诺在首篇报告）
+    if (firstReport && !recentReports.includes(firstReport)) {
+      recentReports.unshift(firstReport);
+    }
+    for (const r of recentReports) {
       reportPaths.push(`active/${cycleDir}/reports/${r}`);
     }
   }
@@ -246,6 +262,10 @@ const getScript = path.join(WORKSPACE, 'skills', 'btc-market-lite', 'scripts', '
 const CONTRACT_MAX_RETRIES = 3;       // 最多重试 3 次（共 4 次尝试）
 const CONTRACT_TIMEOUT_MS = 30000;    // 单次超时 30s
 const CONTRACT_RETRY_DELAYS = [10000, 20000, 60000]; // 退避：10s → 20s → 60s（最长 1min）
+
+// ─── 链上数据获取（退避重试） ───
+const ONCHAIN_MAX_RETRIES = 2;        // 最多重试 2 次（共 3 次尝试）
+const ONCHAIN_RETRY_DELAYS = [15000, 30000]; // 退避：15s → 30s
 
 let contractOk = false;
 
@@ -281,6 +301,64 @@ for (let attempt = 0; attempt <= CONTRACT_MAX_RETRIES; attempt++) {
 }
 
 // ════════════════════════════════════════════
+// 步骤 8: 链上数据获取（refresh-onchain.js）
+// ════════════════════════════════════════════
+log('链上数据获取: 调用 refresh-onchain.js...');
+
+const ONCHAIN_REFRESH_SCRIPT = path.join(WORKSPACE, 'scripts', 'refresh-onchain.js');
+let onchainOk = false;
+
+for (let attempt = 0; attempt <= ONCHAIN_MAX_RETRIES; attempt++) {
+  try {
+    const onchainCmd = `node "${ONCHAIN_REFRESH_SCRIPT}" ${COIN} --save --cycle-dir ${cycleDir}`;
+    execSync(onchainCmd, { encoding: 'utf8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] });
+    onchainOk = true;
+    log(`链上数据获取: 成功` + (attempt > 0 ? ` (第 ${attempt + 1} 次尝试)` : ''));
+    break;
+  } catch (e) {
+    if (attempt < ONCHAIN_MAX_RETRIES) {
+      const delay = ONCHAIN_RETRY_DELAYS[attempt];
+      log(`链上数据获取失败: ${e.message?.slice(0, 150)} — ${delay / 1000}s 后重试 (${attempt + 1}/${ONCHAIN_MAX_RETRIES})`, 'WARN');
+      execSync(`sleep ${delay / 1000}`, { timeout: delay + 5000 });
+    } else {
+      log(`链上数据获取失败（已重试 ${ONCHAIN_MAX_RETRIES} 次）: ${e.message?.slice(0, 150)}`, 'ERROR');
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+// 步骤 9: BTC 跟踪度计算
+// ════════════════════════════════════════════
+log('BTC 跟踪度: 调用 calc-btc-correlation.js...');
+
+const CORR_SCRIPT = path.join(WORKSPACE, 'scripts', 'calc-btc-correlation.js');
+const trackingFile = path.join(activeDir, cycleDir, 'data-context', 'btc-tracking.json');
+let trackingOk = false;
+
+try {
+  const corrCmd = `node "${CORR_SCRIPT}" --coin ${COIN}`;
+  const corrOutput = execSync(corrCmd, { encoding: 'utf8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] });
+  const jsonStart = corrOutput.indexOf('[');
+  if (jsonStart >= 0) {
+    const parsed = JSON.parse(corrOutput.slice(jsonStart));
+    const coinData = parsed.find(r => r.coin === COIN);
+    if (coinData && coinData.timeframes) {
+      fs.writeFileSync(trackingFile, JSON.stringify(coinData, null, 2), 'utf8');
+      trackingOk = true;
+      const tf1h = coinData.timeframes['1H(3天)'] || {};
+      log(`BTC 跟踪度: corr=${tf1h.correlation} beta=${tf1h.beta} down_corr=${tf1h.downside_corr} -> ${trackingFile}`);
+    } else {
+      log('BTC 跟踪度: 未找到币种数据', 'WARN');
+    }
+  } else {
+    log('BTC 跟踪度: 无法解析 JSON 输出', 'WARN');
+  }
+} catch (e) {
+  log(`BTC 跟踪度计算失败: ${e.message?.slice(0, 150)}`, 'WARN');
+}
+
+
+// ════════════════════════════════════════════
 // 输出结果
 // ════════════════════════════════════════════
 log(`预处理阶段完成`);
@@ -298,4 +376,5 @@ output({
   report_paths: reportPaths.slice(0, 5),
   report_count: reportPaths.slice(0, 5).length,
   contract_ok: contractOk,
+  onchain_ok: onchainOk,
 });

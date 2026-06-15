@@ -15,6 +15,72 @@ const RULES_DIR = path.join(__dirname, 'rules');
 const ARCHIVE_DIR = path.join(__dirname, 'rules-archive');
 const LOGS_DIR = path.join(__dirname, '..', '..', 'logs');
 const RULES_STATE_FILE = path.join(__dirname, 'rules-state.json');
+const CACHE_FILE = path.join(__dirname, '..', '..', 'data', 'alert-event-cache.json');
+
+// ========== 事件缓存（record级触发暂存，notify级触发时一并发送给LLM）==========
+
+function loadCache() {
+  try { return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8')); }
+  catch { return {}; }
+}
+
+function saveCache(cache) {
+  const dir = path.dirname(CACHE_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
+}
+
+function appendToCache(coin, levels, data, ruleName) {
+  const cache = loadCache();
+  if (!cache[coin]) cache[coin] = [];
+  for (const level of levels) {
+    const entry = {
+      time: new Date().toISOString(),
+      ruleName: ruleName,
+      level: { price: level.price, type: level.type, label: level.label },
+      triggerData: {
+        currentPrice: data.currentPrice,
+        openInterest: data.openInterest,
+        fundingRate: data.fundingRate,
+        takerBuyRatio: data.takerBuyRatio,
+        longShortRatio: data.longShortRatio
+      }
+    };
+    cache[coin].push(entry);
+    logEngine('INFO', ruleName, 'CACHE_APPEND', {
+      coin,
+      level: `${level.label}($${level.price})`,
+      cacheSize: cache[coin].length
+    });
+  }
+  saveCache(cache);
+}
+
+function flushCache(coin, ruleName) {
+  const cache = loadCache();
+  const events = cache[coin] || [];
+  if (events.length > 0) {
+    logEngine('INFO', ruleName, 'CACHE_FLUSH', {
+      coin,
+      eventCount: events.length,
+      events: events.map(e => `${e.level.label}($${e.level.price}) @ ${e.time}`)
+    });
+  } else {
+    logEngine('INFO', ruleName, 'CACHE_FLUSH', { coin, eventCount: 0, note: '无缓存事件' });
+  }
+  delete cache[coin];
+  saveCache(cache);
+  return events;
+}
+
+function clearCache(coin) {
+  const cache = loadCache();
+  if (cache[coin]) {
+    logEngine('INFO', 'Engine', 'CACHE_CLEAR', { coin, eventCount: cache[coin].length, reason: '周期归档/手动清理' });
+    delete cache[coin];
+    saveCache(cache);
+  }
+}
 
 // ═══ 运行时状态（与规则定义文件分离，避免引擎自写入触发热重载死循环） ═══
 // 结构: { [filename]: { lastCheckedAt: 'ISO' } }
@@ -532,20 +598,20 @@ function handleRuleError(filename, ruleName, errorMessage, errorStack) {
     selfHealAttempted: healState.attempted
   });
   
-  // 达到5次阈值
-  if (stats.consecutiveErrors === 5) {
-    // 首次达到5次，记录时间
+  // ★ 非网络错误立即触发自愈（网络错误已在前面分流，剩余错误不会自行恢复）
+  if (stats.consecutiveErrors === 1) {
+    // 首次错误，记录时间
     if (stats.threshold5FirstTime === null) {
       stats.threshold5FirstTime = now;
     }
     
     if (!healState.attempted) {
-      // ★ 首次触发阈值 → 派发自愈诊断
+      // ★ 首次错误即派发自愈诊断
       healState.attempted = true;
       healState.spawnTime = now;
       
       // 通知十四月
-      const notifyMsg = `主人～警报器规则「${ruleName}」连续失败5次，已自动派发自愈诊断任务。
+      const notifyMsg = `主人～警报器规则「${ruleName}」触发错误，已自动派发自愈诊断任务。
 
 规则: ${ruleName}
 文件: ${filename}
@@ -586,18 +652,18 @@ function handleRuleError(filename, ruleName, errorMessage, errorStack) {
     return true; // 暂停并归档
   }
   
-  // 达到10次阈值（永不触发自愈的极端情况下的兜底保护）
+  // 兜底保护：极端情况下连续失败（正常情况阈值1已触发自愈，此处理论上不可达）
   if (stats.consecutiveErrors === 10) {
     const pauseMsg = `主人～警报器规则已暂停！
 
 规则: ${ruleName}
-原因: 连续失败10次（未触发自愈阈值）
+原因: 连续失败10次（兜底保护触发）
 错误: ${errorMessage}
 
 请检查后手动重启～`;
     
     notifyShisiyue(pauseMsg);
-    logRuleEvent(ruleName, 'RULE_PAUSED', { reason: '连续失败10次' });
+    logRuleEvent(ruleName, 'RULE_PAUSED', { reason: '连续失败10次(兜底)' });
     return true; // 暂停
   }
   
@@ -877,48 +943,163 @@ async function runRule(ruleInfo) {
       updateLastChecked(filename);
       
       if (shouldTrigger) {
-        logRuleEvent(name, 'TRIGGERED');
-        
-        try {
-          // 收集数据
-          const data = await collect.call(rule);
-          logRuleEvent(name, 'DATA_COLLECTED', { dataKeys: Object.keys(data || {}) });
-          
-          // 触发动作
-          await trigger.call(rule, data);
-          
-          logRuleEvent(name, 'TRIGGER_COMPLETED');
-          
-          // ★ 只有完整链路成功才重置错误统计
-          handleRuleSuccess(filename, name);
-          
-          // ⭐ 触发即归档（引擎层强制执行，规则无法绕过）
-          // 规则文件被移动到 rules-archive/，定时器被清除
-          archiveRule(filename, name, 'triggered');
-          return 'stop';
-        } catch (collectError) {
-          // ★ check() 通过但 collect()/trigger() 崩溃 → 代码逻辑 bug
-          // 重试大概率失败，ReferenceError/TypeError 直接归档终止死循环
-          const isCodeBug = collectError instanceof ReferenceError
-                         || collectError instanceof TypeError
-                         || collectError.message?.includes('is not defined');
-          
-          if (isCodeBug) {
-            logEngine('WARN', name, '触发后执行失败（代码bug，立即归档终止循环）', {
-              error: collectError.message,
-              errorType: collectError.constructor.name
-            });
-            archiveRule(filename, name, 'trigger_collect_error');
+        const policy = rule.triggerPolicy || 'per-rule';  // 默认 per-rule，兼容所有旧规则
+
+        if (policy === 'per-rule') {
+          // ═══ per-rule：单条件规则（OI/Taker/Funding等）════
+          const triggerLevel = rule.triggerLevel || 'notify';  // 默认 notify = 当前行为
+
+          if (triggerLevel === 'record') {
+            // ★ record → 缓存事件 → 归档 → 不拉起 LLM
+            logRuleEvent(name, 'TRIGGERED_RECORD', { ruleType: rule.ruleType || 'unknown' });
+            try {
+              const data = await collect.call(rule);
+              appendToCache(rule.coin, [{
+                price: 0,
+                type: 'indicator',
+                label: name,
+                triggerLevel: 'record'
+              }], data, name);
+              logRuleEvent(name, 'RECORD_ARCHIVED', { note: 'record触发 → 缓存 → 归档，不拉起LLM' });
+            } catch (collectError) {
+              logEngine('ERROR', name, 'record触发数据收集失败', { error: collectError.message });
+            }
+            handleRuleSuccess(filename, name);
+            archiveRule(filename, name, 'recorded');
             return 'stop';
           }
+
+          // ═══ notify（默认）：拉起 LLM → 归档（含缓存事件）════
+          logRuleEvent(name, 'TRIGGERED');
           
-          // 网络错误 → 走正常错误处理（调整间隔）
-          logEngine('WARN', name, '触发后执行失败（非代码bug）', {
-            error: collectError.message
+          try {
+            // ★ flush 该币种的缓存事件，一并传给 LLM
+            const cachedEvents = flushCache(rule.coin, name);
+            const data = await collect.call(rule);
+            data.cachedEvents = cachedEvents;
+            logRuleEvent(name, 'DATA_COLLECTED', { 
+              dataKeys: Object.keys(data || {}),
+              cachedEventsCount: cachedEvents.length 
+            });
+            await trigger.call(rule, data);
+            logRuleEvent(name, 'TRIGGER_COMPLETED', {
+              cachedEventsPassed: cachedEvents.length > 0 ? `${cachedEvents.length}条缓存事件已传入LLM` : '无缓存事件'
+            });
+            handleRuleSuccess(filename, name);
+            archiveRule(filename, name, 'triggered');
+            return 'stop';
+          } catch (collectError) {
+            const isCodeBug = collectError instanceof ReferenceError
+                           || collectError instanceof TypeError
+                           || collectError.message?.includes('is not defined');
+            if (isCodeBug) {
+              logEngine('WARN', name, '触发后执行失败（代码bug，立即归档终止循环）', {
+                error: collectError.message,
+                errorType: collectError.constructor.name
+              });
+              archiveRule(filename, name, 'trigger_collect_error');
+              return 'stop';
+            }
+            logEngine('WARN', name, '触发后执行失败（非代码bug）', { error: collectError.message });
+            const shouldPause = handleRuleError(filename, name, collectError.message, collectError.stack);
+            if (shouldPause) return 'pause';
+            return 'continue';
+          }
+        }
+
+        // ═══ per-level：按价位分级响应（多价位价格规则）════
+        if (policy === 'per-level') {
+          const triggeredLevels = rule.currentTriggeredLevels || [];
+          const notifyLevels = triggeredLevels.filter(l => (l.triggerLevel || 'notify') === 'notify');
+          const recordLevels = triggeredLevels.filter(l => l.triggerLevel === 'record');
+
+          logRuleEvent(name, 'TRIGGERED_PER_LEVEL', {
+            notifyCount: notifyLevels.length,
+            recordCount: recordLevels.length,
+            notifyLevels: notifyLevels.map(l => `${l.label}($${l.price})`),
+            recordLevels: recordLevels.map(l => `${l.label}($${l.price})`)
           });
-          const shouldPause = handleRuleError(filename, name, collectError.message, collectError.stack);
-          if (shouldPause) return 'pause';
-          return 'continue';
+
+          // ── notify 触发：flush 缓存 → 拉起 LLM → 归档 ──
+          if (notifyLevels.length > 0) {
+            const cachedEvents = flushCache(rule.coin, name);
+            rule.cachedEvents = cachedEvents;
+            rule.currentTriggeredLevels = notifyLevels;
+
+            try {
+              const data = await collect.call(rule);
+              data.cachedEvents = cachedEvents;  // ★ 传入缓存事件
+              logRuleEvent(name, 'DATA_COLLECTED', {
+                dataKeys: Object.keys(data || {}),
+                cachedEventsCount: cachedEvents.length
+              });
+
+              await trigger.call(rule, data);
+              logRuleEvent(name, 'TRIGGER_COMPLETED', {
+                notifyLevels: notifyLevels.map(l => `${l.label}($${l.price})`),
+                cachedEventsPassed: cachedEvents.length > 0 ? `${cachedEvents.length}条record事件已传入LLM` : '无缓存事件'
+              });
+
+              handleRuleSuccess(filename, name);
+              archiveRule(filename, name, 'triggered');
+              return 'stop';
+            } catch (collectError) {
+              // 失败但缓存已flush — 事件丢失。记录到引擎日志供排查
+              logEngine('ERROR', name, 'notify触发后执行失败（缓存已清空！）', {
+                error: collectError.message,
+                lostCacheEventCount: cachedEvents.length
+              });
+              const isCodeBug = collectError instanceof ReferenceError
+                             || collectError instanceof TypeError
+                             || collectError.message?.includes('is not defined');
+              if (isCodeBug) {
+                archiveRule(filename, name, 'trigger_collect_error');
+                return 'stop';
+              }
+              const shouldPause = handleRuleError(filename, name, collectError.message, collectError.stack);
+              if (shouldPause) return 'pause';
+              return 'continue';
+            }
+          }
+
+          // ── record 触发：缓存事件 → 删除价位 → 规则继续 ──
+          if (recordLevels.length > 0) {
+            try {
+              const data = await collect.call(rule);
+              appendToCache(rule.coin, recordLevels, data, name);
+            } catch (collectError) {
+              logEngine('ERROR', name, 'record触发数据收集失败', { error: collectError.message });
+              // record 收集失败不阻塞，继续处理价位删除
+            }
+
+            // 从运行时价位数组中删除已触发的 record 价位
+            if (rule.priceLevels) {
+              const recordPrices = new Set(recordLevels.map(l => l.price));
+              const removed = rule.priceLevels.filter(l => recordPrices.has(l.price));
+              rule.priceLevels = rule.priceLevels.filter(l => !recordPrices.has(l.price));
+
+              logRuleEvent(name, 'RECORD_LEVELS_CONSUMED', {
+                removed: removed.map(l => `${l.label}($${l.price})`),
+                remaining: rule.priceLevels.map(l => `${l.label}($${l.price}) triggerLevel=${l.triggerLevel || 'notify'}`)
+              });
+
+              // 全部价位消耗完毕 → 归档
+              if (rule.priceLevels.length === 0) {
+                logRuleEvent(name, 'ALL_LEVELS_CONSUMED', { note: '全部价位已触发，规则归档' });
+                archiveRule(filename, name, 'all-levels-consumed');
+                return 'stop';
+              }
+            }
+
+            // 重置已触发价位的状态，清理 check 中的临时数据
+            for (const level of recordLevels) {
+              const key = String(level.price);
+              if (rule.levelStates) delete rule.levelStates[key];
+            }
+            rule.currentTriggeredLevels = [];
+
+            return 'continue';
+          }
         }
       }
     } finally {
@@ -1032,6 +1213,14 @@ function reloadRule(filename, oldInfo) {
     module: ruleInfo.module  // ★ 用于网络恢复时调整间隔
   });
   
+  // ★ per-level 规则重载时也初始化运行时价位数组
+  if (ruleInfo.module.triggerPolicy === 'per-level' && ruleInfo.module.PRICE_LEVELS) {
+    ruleInfo.module.priceLevels = ruleInfo.module.PRICE_LEVELS.map(l => ({ ...l }));
+    logEngine('DEBUG', newName, 'PRICE_LEVELS_REINIT', {
+      totalLevels: ruleInfo.module.priceLevels.length
+    });
+  }
+  
   // 4. 重置错误统计和自愈状态（新规则重新开始）
   resetErrorStats(filename);
   selfHealState.delete(filename);
@@ -1126,13 +1315,16 @@ const WORKSPACE_DIR = path.resolve(__dirname, '..', '..');
 const ACTIVE_DIR = path.join(WORKSPACE_DIR, 'active');
 const SILENCE_STATE_FILE = path.join(WORKSPACE_DIR, 'data', 'silence-monitor-state.json');
 const STAGE1_SCRIPT = path.join(WORKSPACE_DIR, 'scripts', 'stage1-instant.js');
+const ARCHIVE_CYCLE_SCRIPT = path.join(WORKSPACE_DIR, 'scripts', 'archive-cycle.js');
 
 const SILENCE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 const SILENCE_DEDUP_MS = 6 * 60 * 60 * 1000;
 const SILENCE_THRESHOLD_POSITION_H = 12;
 const SILENCE_THRESHOLD_NO_POSITION_H = 8;
+const SILENCE_THRESHOLD_NO_RULES_NO_POS_H = 4;
 const SILENCE_STAGGER_MS = 30 * 1000;
 const SILENCE_STAGE1_TIMEOUT_MS = 360 * 1000;
+const MIN_VOLUME_USD = 7_500_000;
 
 function loadSilenceState() {
   try {
@@ -1194,6 +1386,26 @@ function silenceIsInCooldown(state, cycleId) {
   return Date.now() - new Date(entry.lastTriggeredAt).getTime() < SILENCE_DEDUP_MS;
 }
 
+function get24hVolume(coin) {
+  try {
+    const url = `https://www.okx.com/api/v5/market/ticker?instId=${coin}-USDT-SWAP`;
+    const proxyUrl = process.env.PROXY_URL || 'http://127.0.0.1:7890';
+    const { execSync } = require('child_process');
+    const raw = execSync(`curl -s --max-time 10 --proxy "${proxyUrl}" "${url}"`, { encoding: 'utf8', timeout: 15000 });
+    const data = JSON.parse(raw);
+    const ticker = data?.data?.[0];
+    if (!ticker) return -1;
+    // volCcy24h 是基础币数量（非 USDT），需乘以价格得到 USDT 交易额
+    const volCcy = parseFloat(ticker.volCcy24h || 0);
+    const last = parseFloat(ticker.last || 0);
+    const volUsd = volCcy * last;
+    return volUsd > 0 ? volUsd : 0;
+  } catch (e) {
+    logEngine('WARN', '静默监控', `查询${coin}成交量失败`, { error: e.message });
+    return -1;
+  }
+}
+
 async function runSilenceCheck() {
   const startTime = Date.now();
   logEngine('INFO', '静默监控', '检查开始');
@@ -1216,12 +1428,54 @@ async function runSilenceCheck() {
 
   totalCycles = cycleDirs.length;
   const silentList = [];
+  const deadCycles = [];
+  const lowVolumeCycles = [];
+  let deadArchived = 0;
 
   for (const dirName of cycleDirs) {
     const cycleDir = path.join(ACTIVE_DIR, dirName);
     const coin = extractCoinFromDir(dirName);
     if (!coin) continue;
-    if (!silenceHasActiveRules(coin)) continue;
+
+    const posCount = getPositionCount(cycleDir);
+    const hasRules = silenceHasActiveRules(coin);
+
+    // ── 前置检测：无持仓 + 24h成交量 < $7.5M → 量能枯竭直接归档（不限静默时长）──
+    if (posCount === 0) {
+      const vol24h = get24hVolume(coin);
+      if (vol24h >= 0 && vol24h < MIN_VOLUME_USD) {
+        if (!silenceIsInCooldown(state, dirName)) {
+          lowVolumeCycles.push({ dirName, coin, cycleDir, vol24h, posCount });
+          logEngine('INFO', '静默监控', `📉 ${coin} 量能枯竭: $${(vol24h/1e6).toFixed(1)}M < $7.5M | 排队归档（前置检测）`);
+        } else {
+          skippedCycles++;
+          logEngine('INFO', '静默监控', `📉 ${coin} 量能枯竭但冷却中，跳过`);
+        }
+        continue;
+      }
+      if (vol24h < 0) {
+        logEngine('WARN', '静默监控', `${coin} 量能查询失败，跳过量能预检`);
+      }
+    }
+
+    // ── 分支：无规则 + 无持仓 → 死周期，满足阈值直接归档 ──
+    if (!hasRules && posCount === 0) {
+      const lastReportMs = getLastReportTime(cycleDir);
+      let silenceHours;
+      if (lastReportMs === null) {
+        try { silenceHours = (Date.now() - fs.statSync(cycleDir).mtimeMs) / 3600000; }
+        catch (_) { silenceHours = Infinity; }
+      } else {
+        silenceHours = (Date.now() - lastReportMs) / 3600000;
+      }
+      if (silenceHours < SILENCE_THRESHOLD_NO_RULES_NO_POS_H) continue;
+      if (silenceIsInCooldown(state, dirName)) { skippedCycles++; continue; }
+      deadCycles.push({ dirName, coin, cycleDir, silenceHours, posCount });
+      continue;
+    }
+
+    // ── 分支：无规则 + 有持仓 → 跳过，需人工/健康检查处理 ──
+    if (!hasRules) continue;
 
     const lastReportMs = getLastReportTime(cycleDir);
     let silenceHours;
@@ -1232,7 +1486,6 @@ async function runSilenceCheck() {
       silenceHours = (Date.now() - lastReportMs) / 3600000;
     }
 
-    const posCount = getPositionCount(cycleDir);
     const threshold = posCount > 0 ? SILENCE_THRESHOLD_POSITION_H : SILENCE_THRESHOLD_NO_POSITION_H;
     if (silenceHours < threshold) continue;
     if (silenceIsInCooldown(state, dirName)) { skippedCycles++; continue; }
@@ -1240,10 +1493,72 @@ async function runSilenceCheck() {
     silentList.push({ dirName, coin, cycleDir, silenceHours, posCount, threshold });
   }
 
-  logEngine('INFO', '静默监控', `扫描 ${totalCycles} 周期 | 静默 ${silentList.length} | 冷却跳过 ${skippedCycles}`);
+  // ── 处理量能枯竭周期：直接归档 ──
+  for (let i = 0; i < lowVolumeCycles.length; i++) {
+    const { dirName, coin, cycleDir, vol24h } = lowVolumeCycles[i];
+    logEngine('INFO', '静默监控', `量能归档: ${coin} | 24h成交量 $${(vol24h/1e6).toFixed(1)}M | 无持仓`);
+    try {
+      const reason = `量能枯竭：24h成交量$${(vol24h/1e6).toFixed(1)}M<$7.5M，无持仓，静默监控自动归档`;
+      const archiveCmd = `node "${ARCHIVE_CYCLE_SCRIPT}" --cycle ${dirName} --by manual --reason "${reason.replace(/"/g, '\\"')}" --close-type "量能枯竭自动归档"`;
+      const { execSync } = require('child_process');
+      execSync(archiveCmd, { encoding: 'utf8', timeout: 30000, cwd: WORKSPACE_DIR });
+      state[dirName] = { coin, lastTriggeredAt: new Date().toISOString(), vol24h, posCount: 0, archived: true };
+      deadArchived++;
+      logEngine('INFO', '静默监控', `📦 已归档: ${dirName} → archived/ (量能枯竭)`);
+    } catch (e) {
+      logEngine('ERROR', '静默监控', `量能归档失败: ${coin}`, { error: e.message });
+    }
+    saveSilenceState(state);
+    if (i < lowVolumeCycles.length - 1) await new Promise(r => setTimeout(r, SILENCE_STAGGER_MS));
+  }
+
+  // ── 处理死周期：直接归档 ──
+  for (let i = 0; i < deadCycles.length; i++) {
+    const { dirName, coin, cycleDir, silenceHours } = deadCycles[i];
+    logEngine('INFO', '静默监控', `归档死周期: ${coin} | 静默 ${silenceHours.toFixed(1)}h | 无规则无持仓`);
+    try {
+      const reason = `静默${silenceHours.toFixed(1)}h，无规则无持仓，静默监控自动归档`;
+      const archiveCmd = `node "${ARCHIVE_CYCLE_SCRIPT}" --cycle ${dirName} --by manual --reason "${reason.replace(/"/g, '\\"')}" --close-type "静默监控自动归档"`;
+      const { execSync } = require('child_process');
+      execSync(archiveCmd, { encoding: 'utf8', timeout: 30000, cwd: WORKSPACE_DIR });
+      state[dirName] = { coin, lastTriggeredAt: new Date().toISOString(), silenceHours: Math.round(silenceHours * 10) / 10, posCount: 0, archived: true };
+      deadArchived++;
+      logEngine('INFO', '静默监控', `📦 已归档: ${dirName} → archived/`);
+    } catch (e) {
+      logEngine('ERROR', '静默监控', `归档失败: ${coin}`, { error: e.message });
+    }
+    saveSilenceState(state);
+    if (i < deadCycles.length - 1) await new Promise(r => setTimeout(r, SILENCE_STAGGER_MS));
+  }
+
+  logEngine('INFO', '静默监控', `扫描 ${totalCycles} 周期 | 静默 ${silentList.length} | 量能归档 ${lowVolumeCycles.length} | 死周期归档 ${deadArchived} | 冷却跳过 ${skippedCycles}`);
 
   for (let i = 0; i < silentList.length; i++) {
     const { dirName, coin, silenceHours, posCount, threshold } = silentList[i];
+
+    // ── 二次量能确认：静默超时已触发，posCount===0 的情况已在预检过滤，
+    //    此处仅作为安全兜底（预检与静默处理之间可能发生变化）──
+    if (posCount === 0) {
+      const vol24h = get24hVolume(coin);
+      if (vol24h >= 0 && vol24h < MIN_VOLUME_USD) {
+        logEngine('INFO', '静默监控', `📉 ${coin} 二次量能确认: $${(vol24h/1e6).toFixed(1)}M < $7.5M | 归档`);
+        try {
+          const reason = `量能枯竭(二次确认)：24h成交量$${(vol24h/1e6).toFixed(1)}M<$7.5M，静默${silenceHours.toFixed(1)}h，无持仓，静默监控自动归档`;
+          const archiveCmd = `node "${ARCHIVE_CYCLE_SCRIPT}" --cycle ${dirName} --by manual --reason "${reason.replace(/"/g, '\\"')}" --close-type "量能枯竭自动归档"`;
+          const { execSync } = require('child_process');
+          execSync(archiveCmd, { encoding: 'utf8', timeout: 30000, cwd: WORKSPACE_DIR });
+          state[dirName] = { coin, lastTriggeredAt: new Date().toISOString(), silenceHours: Math.round(silenceHours * 10) / 10, posCount: 0, archived: true };
+          deadArchived++;
+          logEngine('INFO', '静默监控', `📦 已归档: ${dirName} → archived/ (量能枯竭二次确认)`);
+        } catch (e) {
+          logEngine('ERROR', '静默监控', `量能归档失败: ${coin}`, { error: e.message });
+        }
+        saveSilenceState(state);
+        if (i < silentList.length - 1) await new Promise(r => setTimeout(r, SILENCE_STAGGER_MS));
+        continue;
+      }
+    }
+
     logEngine('INFO', '静默监控', `触发: ${coin} | 静默 ${silenceHours.toFixed(1)}h | 持仓 ${posCount}`);
 
     const alertData = {
@@ -1295,7 +1610,7 @@ async function runSilenceCheck() {
   if (cleaned > 0) saveSilenceState(state);
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  logEngine('INFO', '静默监控', `完成 | ${totalCycles}周期 | 触发${triggeredCycles} | 跳过${skippedCycles} | ${elapsed}s`);
+  logEngine('INFO', '静默监控', `完成 | ${totalCycles}周期 | 触发${triggeredCycles} | 归档${deadArchived} | 跳过${skippedCycles} | ${elapsed}s`);
 }
 
 /**
@@ -1325,6 +1640,15 @@ function startRuleTimer(ruleInfo, staggerIndex = 0) {
     mtime: mtime,
     module: rule  // ★ 用于网络恢复时调整间隔
   });
+  
+  // ★ per-level 规则：运行时维护可变价位数组（触发后删除已消费的record价位）
+  if (rule.triggerPolicy === 'per-level' && rule.PRICE_LEVELS) {
+    rule.priceLevels = rule.PRICE_LEVELS.map(l => ({ ...l })); // 深拷贝
+    logEngine('DEBUG', rule.name, 'PRICE_LEVELS_INIT', {
+      totalLevels: rule.priceLevels.length,
+      levels: rule.priceLevels.map(l => `${l.label}($${l.price}) triggerLevel=${l.triggerLevel || 'notify'}`)
+    });
+  }
   
   // 记录启动
   logRuleEvent(rule.name, 'TIMER_STARTED', {

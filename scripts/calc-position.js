@@ -130,7 +130,7 @@ function findNearestFartherLevel(rawStopPrice, levels, direction) {
   }
 }
 
-const MAX_STOP_PCT = 25;
+const MAX_STOP_PCT = 35;
 
 function calcPosition(finalStopPct, btcBaselinePct) {
   if (finalStopPct <= btcBaselinePct) return 40;

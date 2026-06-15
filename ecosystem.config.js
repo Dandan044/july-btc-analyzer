@@ -37,6 +37,26 @@ module.exports = {
       all_proxy: socksProxy
     }
   }, {
+    name: 'cycle-auto-archiver',
+    script: './scripts/cycle-auto-archiver.js',
+    cwd: __dirname,
+    autorestart: true,
+    watch: false,
+    max_restarts: 5,
+    restart_delay: 5000,
+    max_memory_restart: '100M',
+    error_file: './logs/cycle-auto-archiver.log',
+    out_file: './logs/cycle-auto-archiver.log',
+    merge_logs: true,
+    time: true,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      http_proxy: '',
+      https_proxy: '',
+      NO_PROXY: '*'
+    }
+  }, {
     name: 'cron-name-cache',
     script: './scripts/cron-name-cache.js',
     cwd: __dirname,
@@ -75,6 +95,48 @@ module.exports = {
       PATH: [process.env.HOME, '.npm-global', 'bin'].join('/') + ':/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     }
   }, {
+    name: 'silence-monitor',
+    script: './scripts/silence-monitor.js',
+    cwd: __dirname,
+    autorestart: true,
+    watch: false,
+    max_restarts: 10,
+    restart_delay: 5000,
+    max_memory_restart: '200M',
+    error_file: './logs/silence-monitor.log',
+    out_file: './logs/silence-monitor.log',
+    merge_logs: true,
+    time: true,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      PROXY_URL: proxyUrl,
+      http_proxy: proxyUrl,
+      https_proxy: proxyUrl,
+      all_proxy: socksProxy
+    }
+  }, {
+    name: 'position-monitor',
+    script: './scripts/position-monitor.js',
+    cwd: __dirname,
+    autorestart: true,
+    watch: false,
+    max_restarts: 5,
+    restart_delay: 5000,
+    max_memory_restart: '100M',
+    error_file: './logs/position-monitor.log',
+    out_file: './logs/position-monitor.log',
+    merge_logs: true,
+    time: true,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      PROXY_URL: proxyUrl,
+      http_proxy: proxyUrl,
+      https_proxy: proxyUrl,
+      all_proxy: socksProxy
+    }
+  }, {
     name: 'july-dashboard',
     script: './dashboard/server.js',
     args: '--port 3100',
@@ -86,6 +148,27 @@ module.exports = {
     max_memory_restart: '200M',
     error_file: './logs/dashboard.log',
     out_file: './logs/dashboard.log',
+    merge_logs: true,
+    time: true,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      PROXY_URL: proxyUrl,
+      http_proxy: proxyUrl,
+      https_proxy: proxyUrl,
+      all_proxy: socksProxy
+    }
+  }, {
+    name: 'mirror-bot',
+    script: './scripts/mirror-bot.js',
+    cwd: __dirname,
+    autorestart: true,
+    watch: false,
+    max_restarts: 10,
+    restart_delay: 3000,
+    max_memory_restart: '200M',
+    error_file: './logs/mirror-bot.log',
+    out_file: './logs/mirror-bot.log',
     merge_logs: true,
     time: true,
     env: {

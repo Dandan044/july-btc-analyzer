@@ -1,6 +1,7 @@
 # TOOLS.md - 七月工具笔记
 
 > 按出错代价排序。先看陷阱，再看数据，最后查脚本。
+> 提示词设计哲学：`~/.openclaw/PROMPT_DESIGN_PHILOSOPHY.md`（给维度不给规则，给问题不给答案）
 
 ---
 
@@ -19,7 +20,7 @@
 
 **常见错误**：`return ageHours < 72` ❌ → `return ageHours < 72 ? 'active' : 'expired'` ✅
 
-### OCO 拆分张数必须对齐 lotSz
+### OCO 拆分张数必须对齐 lotSz + 防浮点精度泄露
 
 `stage3-executor.js` 中拆分两档 OCO 仓位时，张数必须对齐合约的 `lotSz`。
 
@@ -28,7 +29,15 @@
 | SAHARA | 1 | 96×0.4=38.4 | `--sz 38.4` ❌ | `--sz 38` ✅ |
 | 某币 | 0.01 | 96.5×0.4=38.6 | 不处理 | `--sz 38.60` ✅ |
 
-**修复：** 用 `alignToLot = (v) => lotSz > 0 ? Math.floor(v / lotSz) * lotSz : round(v, 4)` 对齐后再传给 OKX。
+**修复：** `alignToLot = (v) => lotSz > 0 ? round(Math.floor(v / lotSz) * lotSz, 8) : round(v, 4)`
+
+#### ⚠️ 浮点精度泄露（2026-05-29 血案）
+
+`Math.floor(v / lotSz) * lotSz` 会产生不可见的浮点尾巴：
+- `23 * 0.1` 在 IEEE 754 中 = `2.3000000000000003`（不是 2.3！）
+- OKX 看到 `--sz 2.3000000000000003` 直接拒绝，重试三次全部失败
+
+**所有传给 OKX 的 `--sz` 值，在最后一步必须经过 `round()` 消除浮点尾巴。**
 
 ---
 
@@ -165,7 +174,7 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 
 ### 山寨币流程
 
-`tasks/alt-pipeline/` — 脚本化山寨币分析全流程的任务文件目录。两条入口（定时扫描 + 警报触发）汇入同一套 stage2/stage3/stage4。LLM 仅参与 sentiment 收集和交叉验证分析，其余全部由脚本（`scripts/scanner-*`、`stage1-*`、`stage3-*`、`stage4-*`）执行。详见 `tasks/alt-pipeline/README.md`。
+`tasks/pipeline/` — 山寨币/庄币分析流程的统一任务文件目录。双画像（alt + zhuang）共享模块化阶段二（9 个模块 + JSON 清单组装），详见 `tasks/pipeline/README.md`。
 
 ### 其他脚本
 
@@ -184,9 +193,31 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 | `scripts/alt-scanner-screening.py` | 山寨币筛选 | 扫描流程 |
 | `scripts/generate_kline_chart.py` | K线图生成 | 报告可视化 |
 | `scripts/sync_positions.js` | BTC 仓位同步 | `tasks/sync-positions.md` |
-| `scripts/sync-alt-positions.js` | 山寨币仓位同步 | 阶段一/三调用 |
+| `scripts/sync-alt-positions.js` | 山寨币仓位同步 | 阶段一/三调用。⚠️ OCO 覆盖检查已修复（多档拆分不再误报） |
 | `scripts/dispatch.js` | ⚠️ 调度器客户端（所有 cron add 必经） | `--priority --source --name --at --message` |
 | `scripts/cron-dispatcher.js` | Cron Add 调度器（PM2 常驻，端口 3102） | 见「基础设施速查 → Cron Add 调度器」 |
+
+### 监督者机制
+
+| 文件 | 用途 |
+|------|------|
+| `data/supervisor-config.json` | 监督者开关配置（monitoredActions + minPositionsForTrigger） |
+| `tasks/supervisor-blind.md` | 盲测阶段：独立市场评估 |
+| `tasks/supervisor-review.md` | 审查阶段：交叉对比 + 规则评估 |
+| `scripts/stage3-executor.js` | `--supervisor` 参数控制开仓/加仓是否路由至监督者 |
+
+> 触发条件：开仓/加仓（由 `monitoredActions` 控制）+ 全周期持仓总数 > `minPositionsForTrigger`（默认 5，Dashboard 设置页可调）。持仓 ≤ 阈值时跳过监督者，避免小仓位过度拦截。
+> 模型由调度器 `high-2` 优先级池决定，与七月模型不同以保证独立视角。
+
+### 持仓全面审视（position-monitor）
+
+| 文件 | 用途 |
+|------|------|
+| `scripts/position-monitor.js` | PM2 常驻进程（每 3h 检查实盘持仓 + 派发审计任务） |
+| `tasks/position-monitor.md` | 审计智能体规则：逐仓位盈亏复查 + 市场环境复核 + 决策执行 |
+| `data/position-monitor-cache.json` | 每次派发前写入的持仓快照，供审计智能体读取 |
+
+> 仅当 OKX 实盘持仓 > 0 时触发。使用 `pro` 优先级（ds-pro 池，DeepSeek V4 Pro）。
 
 ---
 
@@ -198,21 +229,80 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 
 ⚠️ 减仓用反向市价单，不能用 `swap close`（会全平）。
 
+**OKX CLI 直接调用（监督者使用）**：`okx market ticker/candles/orderbook/funding-rate ...`
+
+### 模型温度
+
+七月 + DeepSeek 模型 temperature 已设为 0.3（`~/.openclaw/openclaw.json` → `models.providers.*.models[].params.temperature`）。减少高温下的叙事生成，增强分析严谨性。
+
 ### OnchainOS 链上数据
 
 CLI：`onchainos`（v2.5.0，`~/.local/bin/onchainos`）。完整参考：`okx-dex-token/SKILL.md`。
 
-### PM2 警报器引擎
+### PM2 进程管理
 
-服务名 `btc-alert`，配置 `ecosystem.config.js`。
+所有 PM2 服务配置在 `ecosystem.config.js`。
+
 ```bash
-pm2 list/logs/restart btc-alert && pm2 save
+# 查看所有服务
+pm2 list
+
+# 警报器引擎
+pm2 logs btc-alert
+pm2 restart btc-alert
+
+# 持仓审计
+pm2 logs position-monitor
+pm2 restart position-monitor
+
+pm2 save
 ```
 
 ### Web Search
 
-主力 MiniMax（直连），备用 DuckDuckGo（需代理 `127.0.0.1:7890`）。
-切换需编辑 `openclaw.json` 后 `systemctl --user restart openclaw-gateway.service`（SIGUSR1 热加载不够）。
+**Provider: SearXNG（自建，Docker 容器）** `tools.web.search.provider: searxng`
+
+```bash
+# 容器管理
+sudo docker ps --filter name=searxng   # 查看状态
+sudo docker restart searxng            # 重启
+sudo docker logs searxng --tail 20     # 日志
+
+# 配置位置
+~/.config/searxng/settings.yml        # SearXNG 配置
+~/.openclaw/openclaw.json             # OpenClaw provider 配置
+```
+
+**架构：**
+```
+web_search → SearXNG (localhost:8888) → 172.17.0.1:7890 (mihomo) → 上游引擎
+```
+
+**引擎配置（settings.yml）：**
+| 引擎 | 状态 | 原因 |
+|------|------|------|
+| Bing ✓ | 启用 | 稳定 |
+| Brave ✓ | 启用 | 稳定（单发） |
+| Yahoo ✓ | 启用 | 稳定 |
+| Wikipedia ✓ | 启用 | 最稳定 |
+| Wikidata ✓ | 启用 | 知识图谱 |
+| Google ✗ | 禁用 | 反爬封 IP |
+| DuckDuckGo ✗ | 禁用 | CAPTCHA |
+
+**⚠️ 并发限制**：同一代理 IP 并发 > 2-3 可能触发 Brave/Bing 限流（180s）。
+实际 pipeline 串行处理（逐个币种），不受影响。
+
+**代理依赖**：SearXNG 容器内部通过 `172.17.0.1:7890` 走宿主机 mihomo 代理。
+宿主机代理必须运行（端口 7890），否则搜索返回 0 结果。
+
+**Docker 守护进程**：WSL2 无 systemd，自启脚本在 `.bashrc`。
+终端启动后自动拉起 dockerd → SearXNG 容器。
+
+**历史**：2026-06-10 从 DuckDuckGo（bot-detection 全面封锁）迁移到 SearXNG。
+恢复前曾测试 Exa（已有 key）作为候选方案，未实际使用。
+
+**相关文档：** `~/.npm-global/lib/node_modules/openclaw/docs/tools/searxng-search.md`
+`~/.npm-global/lib/node_modules/openclaw/docs/tools/web.md`
 
 ### 监控面板（Dashboard）
 
@@ -296,6 +386,26 @@ y = 1.0 - 0.5 × (corr - 0.15) / (0.85 - 0.15), clamped [0.5, 1.0]
 脚本：`scripts/calc-alt-hedge-y.js --coin <COIN> --direction long|short --btc-trend bullish|bearish|sideways`
 
 顺势或 sideways → y=1.0。异常回退 → y≈0.75。
+
+### stage3 市场环境对冲（阶段三 y 系数）
+
+**保留 corr 符号：负相关=自然对冲→放大仓位，正相关=跟大盘→顺势放逆势收。**
+
+```
+y = 1.0 + marketScore × corr × 0.5 + sectorScoreNorm × 0.15
+
+marketScore = dirSign × score / 10
+corr = Pearson R (BTC, ALT)  // 保留原始符号，≥0 跟大盘, <0 逆市
+```
+
+| marketScore × corr | 含义 | y |
+|---|---|---|
+| > 0 | 仓位有自然对冲（大盘跌+庄股涨+做多） | 放大 |
+| < 0 | 相关系数放大了方向风险（大盘跌+跟跌币+做多） | 缩减 |
+| = 0 | 无相关信息（corr=0） | 不调整 |
+
+- 负相关=庄家控盘强，市场越不利仓位越有保护 → 放大
+- 正相关=跟大盘走，顺势放大逆势缩减
 
 ---
 

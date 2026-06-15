@@ -1,0 +1,19 @@
+{
+  "prefix": "zhuang",
+  "log_prefix": "zhuang",
+  "report_prefix": "zhuang-report",
+  "label": "庄币",
+  "title": "庄币任务 - 阶段二：庄家行为交叉验证分析",
+  "subtitle": "此任务为庄币工作流的第二阶段，负责三维数据交叉验证、庄家行为识别、闪电战策略输出。",
+  "x_default": 2.0,
+  "x_range": "2.0~2.2",
+  "min_rr": 1.5,
+  "max_stop_pct": 25,
+  "step_report_save": "6",
+  "step_trade_json": "7",
+  "step_alert": "8",
+  "step_close": "9",
+  "report_footer": "阶段二 - 庄币版 v1.0",
+  "zhuang_stage": true,
+  "supervisor_enabled": false
+}

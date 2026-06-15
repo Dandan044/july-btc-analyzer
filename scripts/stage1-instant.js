@@ -11,11 +11,12 @@
  *   步骤3: 获取即时合约数据
  *   步骤4: 复用已有媒体/链上数据（检查存在性）
  *   步骤5: 收集历史报告路径
+ *   步骤5.5: BTC 跟踪度计算（多框架 corr+Beta+下行半相关）
  *   步骤6: 输出即时数据清单 JSON
  *   步骤7: 记录阶段结束
  *
  * 输出: JSON 到 stdout（最后一行 __INSTANT_OUTPUT__）
- * 日志: 追加到 logs/alt-{COIN}-process.log
+ * 日志: 追加到 logs/{prefix}-{COIN}-process.log（自动检测画像）
  */
 
 const { execSync } = require('child_process');
@@ -44,7 +45,24 @@ if (!COIN) {
 }
 
 const WORKSPACE = path.resolve(__dirname, '..');
-const LOG_FILE = path.join(WORKSPACE, 'logs', `alt-${COIN}-process.log`);
+const ACTIVE_DIR = path.join(WORKSPACE, 'active');
+
+// ─── 自动检测画像（庄币/山寨币） ───
+let PROFILE = 'alt';
+let PREFIX = 'alt-';
+let LOG_PREFIX = 'alt';
+let REPORT_PREFIX = 'alt-report-';
+try {
+  const zhuangDirs = fs.readdirSync(ACTIVE_DIR).filter(d => d.startsWith(`zhuang-${COIN}-`));
+  if (zhuangDirs.length > 0) {
+    PROFILE = 'zhuang';
+    PREFIX = 'zhuang-';
+    LOG_PREFIX = 'zhuang';
+    REPORT_PREFIX = 'zhuang-report-';
+  }
+} catch (_) {}
+
+const LOG_FILE = path.join(WORKSPACE, 'logs', `${LOG_PREFIX}-${COIN}-process.log`);
 const SYNC_SCRIPT = path.join(WORKSPACE, 'scripts', 'sync-alt-positions.js');
 const GET_SCRIPT = path.join(WORKSPACE, 'skills', 'btc-market-lite', 'scripts', 'get_altcoin_analysis.js');
 const PROXY_URL = process.env.PROXY_URL || 'http://127.0.0.1:7890';
@@ -79,17 +97,16 @@ log('开始执行 - 警报数据解析');
 // ════════════════════════════════════════════
 // 步骤 2: 定位活跃周期
 // ════════════════════════════════════════════
-const activeDir = path.join(WORKSPACE, 'active');
 let cycleDir = null;
 
 try {
-  const existing = fs.readdirSync(activeDir)
-    .filter(d => d.startsWith(`alt-${COIN}-`))
+  const existing = fs.readdirSync(ACTIVE_DIR)
+    .filter(d => d.startsWith(`${PREFIX}${COIN}-`))
     .sort()
     .reverse();
 
   if (existing.length === 0) {
-    log(`⛔ ERROR: 未找到活跃周期 active/alt-${COIN}-*，无法执行即时分析`, 'ERROR');
+    log(`⛔ ERROR: 未找到活跃周期 active/${PREFIX}${COIN}-*，无法执行即时分析`, 'ERROR');
     output({ status: 'error', coin: COIN, reason: '无活跃周期' });
     process.exit(1);
   }
@@ -179,8 +196,8 @@ for (let attempt = 0; attempt <= CONTRACT_MAX_RETRIES; attempt++) {
 // ════════════════════════════════════════════
 // 步骤 4: 复用已有媒体和链上数据
 // ════════════════════════════════════════════
-const mediaFile = path.join(activeDir, cycleDir, 'data-context', 'sentiment-media.md');
-const onchainFile = path.join(activeDir, cycleDir, 'data-context', 'sentiment-onchain.md');
+const mediaFile = path.join(ACTIVE_DIR, cycleDir, 'data-context', 'sentiment-media.md');
+const onchainFile = path.join(ACTIVE_DIR, cycleDir, 'data-context', 'sentiment-onchain.md');
 
 const mediaExists = fs.existsSync(mediaFile);
 const onchainExists = fs.existsSync(onchainFile);
@@ -193,14 +210,18 @@ log(`已有数据复用: 媒体=${mediaExists ? '存在' : '缺失'}, 链上=${o
 const reportPaths = [];
 try {
   // 直接搜当前周期 reports/ 下的历史报告（此时本篇报告尚未生成，目录内均为历史）
-  const reportsDir = path.join(activeDir, cycleDir, 'reports');
+  const reportsDir = path.join(ACTIVE_DIR, cycleDir, 'reports');
   if (fs.existsSync(reportsDir)) {
-    const reports = fs.readdirSync(reportsDir)
-      .filter(f => f.startsWith(`alt-report-${COIN}-`) && f.endsWith('.md'))
-      .sort()
-      .reverse()
-      .slice(0, 5);
-    for (const r of reports) {
+    const allReports = fs.readdirSync(reportsDir)
+      .filter(f => f.startsWith(`${REPORT_PREFIX}${COIN}-`) && f.endsWith('.md'))
+      .sort();  // 按文件名排序（时间升序）
+    const firstReport = allReports[0] || null;
+    const recentReports = allReports.reverse().slice(0, 5);  // 最近 5 篇
+    // 确保第一篇始终在收集列表中（方向承诺在首篇报告）
+    if (firstReport && !recentReports.includes(firstReport)) {
+      recentReports.unshift(firstReport);
+    }
+    for (const r of recentReports) {
       reportPaths.push(`active/${cycleDir}/reports/${r}`);
     }
   }
@@ -209,6 +230,36 @@ try {
 } catch (e) {
   log(`历史报告收集失败: ${e.message}`, 'WARN');
 }
+
+// ════════════════════════════════════════════
+// 步骤 5.5: BTC 跟踪度计算
+// ════════════════════════════════════════════
+log('BTC 跟踪度: 调用 calc-btc-correlation.js...');
+
+const CORR_SCRIPT = path.join(WORKSPACE, 'scripts', 'calc-btc-correlation.js');
+const trackingFile = path.join(ACTIVE_DIR, cycleDir, 'data-context', 'btc-tracking.json');
+
+try {
+  const corrCmd = `node "${CORR_SCRIPT}" --coin ${COIN}`;
+  const corrOutput = execSync(corrCmd, { encoding: 'utf8', timeout: 60000, stdio: ['pipe', 'pipe', 'pipe'] });
+  const jsonStart = corrOutput.indexOf('[');
+  if (jsonStart >= 0) {
+    const parsed = JSON.parse(corrOutput.slice(jsonStart));
+    const coinData = parsed.find(r => r.coin === COIN);
+    if (coinData && coinData.timeframes) {
+      fs.writeFileSync(trackingFile, JSON.stringify(coinData, null, 2), 'utf8');
+      const tf1h = coinData.timeframes['1H(3天)'] || {};
+      log(`BTC 跟踪度: corr=${tf1h.correlation} beta=${tf1h.beta} down_corr=${tf1h.downside_corr} -> ${trackingFile}`);
+    } else {
+      log('BTC 跟踪度: 未找到币种数据', 'WARN');
+    }
+  } else {
+    log('BTC 跟踪度: 无法解析 JSON 输出', 'WARN');
+  }
+} catch (e) {
+  log(`BTC 跟踪度计算失败: ${e.message?.slice(0, 150)}`, 'WARN');
+}
+
 
 // ════════════════════════════════════════════
 // 步骤 6: 输出即时数据清单 JSON
@@ -226,6 +277,7 @@ const manifest = {
     alert_type: alertData.alertType || 'price',
     trigger_price: alertData.triggerPrice || null,
     current_price: alertData.currentPrice || null,
+    cached_events: alertData.cachedEvents || [],
     raw_data: alertData,
   },
 
@@ -270,13 +322,13 @@ const manifest = {
   },
 
   next_stage: {
-    task_file: 'tasks/alt-pipeline/alt-intel-stage2.live.md',
+    task_file: `tasks/pipeline/stage2-${PROFILE}.md`,
     spawn_instruction: '阶段一即时数据获取已完成，请读取 data-manifest 开始阶段二交叉验证分析。',
   },
 };
 
 // 写入 manifest 文件
-const manifestDir = path.join(activeDir, cycleDir, 'data-context');
+const manifestDir = path.join(ACTIVE_DIR, cycleDir, 'data-context');
 if (!fs.existsSync(manifestDir)) {
   fs.mkdirSync(manifestDir, { recursive: true });
 }
@@ -327,18 +379,23 @@ const stage2Message = `[警报触发即时分析]
 警报上下文:
 ${JSON.stringify(alertData, null, 2)}
 
-请读取 tasks/alt-pipeline/alt-intel-stage2.live.md 执行交叉验证分析。`;
+请读取 tasks/pipeline/stage2-${PROFILE}.md 执行交叉验证分析。`;
 
-const jobName = `alt-instant-${COIN}-${Date.now()}`;
+const jobName = `instant-${PROFILE}-${COIN}-${Date.now()}`;
 
-// 从警报数据中读取优先级，默认 high-1（后续警报引擎补充 priority 字段后自动分流）
-const instantPriority = alertData.priority || 'high-1';
+// 从警报数据中读取优先级，庄币默认 high-2（优先处理），其余 high-1
+const instantPriority = alertData.priority || (PROFILE === 'zhuang' ? 'high-2' : 'high-1');
 
 // 写消息到临时文件
 const msgFile = `/tmp/dispatch-msg-${jobName}.txt`;
 fs.writeFileSync(msgFile, stage2Message, 'utf8');
 
 const dispatchScript = path.join(WORKSPACE, 'scripts', 'dispatch.js');
+
+// ── 防雪崩 jitter：随机延迟 500-4000ms，避免多个警报同时涌入调度器 ──
+const jitterMs = 500 + Math.floor(Math.random() * 3500);
+log(`调度器提交延迟 ${jitterMs}ms (防雪崩)`);
+execSync(`sleep ${(jitterMs / 1000).toFixed(3)}`, { timeout: 5000 });
 
 let dispatched = false;
 try {

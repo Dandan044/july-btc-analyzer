@@ -432,7 +432,7 @@ echo "[$NOW] ========== 扫描结束 ========== " >> logs/alt-scanner.log
 6. **OI 变化筛选**：按 OI 变化率绝对值排序，选最大的
 7. **筛A+筛B 必须使用预写脚本**：直接执行 `scripts/alt-scanner-screening.py`
 8. **OI 筛选必须使用预写脚本**：直接执行 `scripts/alt-scanner-oi-filter.py`
-9. **黑名单外部维护**：修改 `data/altcoin-blacklist.json`
+9. **黑名单外部维护**：修改 `config/altcoin-blacklist.json`
 10. **LLM 仅参与筛C**：筛A/B 是机械逻辑，筛C 需要语义判断
 11. **一次只扫一个**：第一个通过全部筛选的币就 spawn，本轮结束
 12. **不传周期目录**：阶段一自行创建，spawn 只传币种和触发时间

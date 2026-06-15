@@ -22,7 +22,9 @@ const path = require('path');
 
 // ─── 参数解析 ───
 const COIN = process.argv[2];
-const CYCLE_DIR = process.argv[3];
+// 规范化 CYCLE_DIR：防御调用方误传 active/ 前缀（如 active/alt-BEAT-20260604-1600）
+const CYCLE_DIR_RAW = process.argv[3];
+const CYCLE_DIR = CYCLE_DIR_RAW ? CYCLE_DIR_RAW.replace(/^active\//, '') : '';
 const LOG_FILE = process.argv[4];
 
 if (!COIN || !CYCLE_DIR) {
@@ -34,6 +36,12 @@ const WORKSPACE = path.resolve(__dirname, '..');
 const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
 const POSITIONS_FILE = path.join(WORKSPACE, 'active', CYCLE_DIR, 'positions.json');
 const INST_ID = `${COIN}-USDT-SWAP`;
+
+// 安全校验：确保拼装后的路径仍在 active/ 目录下
+if (!POSITIONS_FILE.startsWith(path.join(WORKSPACE, 'active'))) {
+  console.error(`ERROR: positions.json path escaped active/ directory: ${POSITIONS_FILE}`);
+  process.exit(1);
+}
 
 // ─── 工具函数 ───
 function runCmd(cmd) {
@@ -89,9 +97,9 @@ if (fs.existsSync(POSITIONS_FILE)) {
 }
 
 // ─── 步骤 2: 获取实盘持仓 ───
-log(`获取实盘持仓: ${INST_ID} cross`);
+log(`获取实盘持仓: ${INST_ID}`);
 const positionsRaw = runCmd(
-  `bash "${PROXY}" --profile live account positions --instId ${INST_ID} --tdMode cross --json`
+  `bash "${PROXY}" --profile live account positions --instId ${INST_ID} --json`
 );
 
 if (positionsRaw === null) {
@@ -101,9 +109,9 @@ if (positionsRaw === null) {
   process.exit(1);
 }
 
-// 筛选该币种 + cross 模式
+// 筛选该币种 (不区分逐仓/全仓)
 const livePositions = positionsRaw.filter(
-  p => p.instId === INST_ID && p.mgnMode === 'cross' && num(p.pos) > 0
+  p => p.instId === INST_ID && num(p.pos) > 0
 );
 
 log(`实盘持仓: ${livePositions.length} 个`);
@@ -111,7 +119,7 @@ log(`实盘持仓: ${livePositions.length} 个`);
 // ─── 步骤 3: 获取 OCO 止盈止损订单 ───
 log('获取 OCO 订单...');
 const algoOrders = runCmd(
-  `bash "${PROXY}" --profile live swap algo orders --instId ${INST_ID} --tdMode cross --json`
+  `bash "${PROXY}" --profile live swap algo orders --instId ${INST_ID} --json`
 ) || [];
 
 // 筛选 live 状态的 OCO 订单
@@ -124,7 +132,7 @@ log(`活跃 OCO 订单: ${liveOcoOrders.length} 个`);
 // ─── 步骤 4: 获取账单记录 ───
 log('获取账单记录...');
 const billsRaw = runCmd(
-  `bash "${PROXY}" --profile live account bills --instId ${INST_ID} --ccy USDT --tdMode cross --limit 50 --json`
+  `bash "${PROXY}" --profile live account bills --instId ${INST_ID} --ccy USDT --limit 50 --json`
 ) || [];
 
 // ─── 步骤 5: 检测平仓 ───
@@ -140,7 +148,7 @@ if (oldPositionsData && oldPositionsData['当前持仓'] && oldPositionsData['�
       log(`检测到平仓: posId=${oldPosId}`);
       // 查询 positions-history 获取平仓详情
       const historyRaw = runCmd(
-        `bash "${PROXY}" --profile live account positions-history --instId ${INST_ID} --tdMode cross --limit 20 --json`
+        `bash "${PROXY}" --profile live account positions-history --instId ${INST_ID} --limit 20 --json`
       ) || [];
 
       // 找到该 posId 的最新平仓记录
@@ -203,51 +211,133 @@ const currentPositions = [];
 for (const pos of livePositions) {
   const posId = String(pos.posId);
 
-  // 匹配 OCO 订单
-  const matchingOco = liveOcoOrders.filter(o => o.posSide === pos.posSide);
+  // 匹配 OCO 订单（一个持仓可能有多个拆分 OCO，如 907+906=1813）
+  const matchingOcos = liveOcoOrders.filter(o => o.posSide === pos.posSide);
 
-  const tpPx = matchingOco.length > 0 ? num(matchingOco[0].tpTriggerPx) : 0;
-  const slPx = matchingOco.length > 0 ? num(matchingOco[0].slTriggerPx) : 0;
-
-  // 构建委托订单
+  // 构建委托订单（一个 OCO 一个条目，支持多档止盈）
   const orders = [];
-  if (tpPx > 0 || slPx > 0) {
+  let ocoTotalSz = 0;
+  for (const oco of matchingOcos) {
+    const ocoTpPx = num(oco.tpTriggerPx);
+    const ocoSlPx = num(oco.slTriggerPx);
+    const ocoSz = oco.sz || '0';
+    ocoTotalSz += parseInt(ocoSz, 10) || 0;
     orders.push({
-      '订单ID': matchingOco[0]?.algoId || '',
+      '订单ID': oco.algoId || '',
       '订单类型': 'OCO止盈止损',
-      '止盈触发价': tpPx > 0 ? String(round(tpPx, 4)) : '',
-      '止盈执行方式': num(matchingOco[0]?.tpOrdPx) === -1 ? '市价' : '限价',
-      '止损触发价': slPx > 0 ? String(round(slPx, 4)) : '',
-      '止损执行方式': num(matchingOco[0]?.slOrdPx) === -1 ? '市价' : '限价',
-      '数量': matchingOco[0]?.sz || pos.pos,
-      '状态': matchingOco[0]?.state || 'live',
+      '止盈触发价': ocoTpPx > 0 ? String(round(ocoTpPx, 4)) : '',
+      '止盈执行方式': num(oco.tpOrdPx) === -1 ? '市价' : '限价',
+      '止损触发价': ocoSlPx > 0 ? String(round(ocoSlPx, 4)) : '',
+      '止损执行方式': num(oco.slOrdPx) === -1 ? '市价' : '限价',
+      '数量': ocoSz,
+      '状态': oco.state || 'live',
     });
   }
+  // 总覆盖率（用于日志，不存入 JSON 但用于警告）
+  const posTotal = parseInt(pos.pos, 10) || 0;
+  if (ocoTotalSz !== posTotal && posTotal > 0) {
+    log(`⚠️ OCO 覆盖不完整: 持仓${posTotal}张, OCO覆盖${ocoTotalSz}张 (${orders.length}个OCO)`, 'WARN');
+  }
 
-  // 构建操作记录（从 bills 筛选）
+  // ─── 收集旧 OCO 止盈止损价位（用于 OCO 触发检测）───
+  let oldTpPrices = [];
+  let oldSlPrices = [];
+  if (oldPositionsData && oldPositionsData['当前持仓']) {
+    const oldMatching = oldPositionsData['当前持仓']
+      .find(op => String(op['持仓ID']) === posId);
+    if (oldMatching) {
+      const oldOcos = (oldMatching['委托订单'] || [])
+        .filter(o => o['订单类型'] === 'OCO止盈止损');
+      for (const oco of oldOcos) {
+        const tp = parseFloat(oco['止盈触发价']);
+        const sl = parseFloat(oco['止损触发价']);
+        if (tp > 0) oldTpPrices.push(tp);
+        if (sl > 0) oldSlPrices.push(sl);
+      }
+    }
+  }
+
+  // ─── 构建操作记录（从 bills 筛选）───
   const actionRecords = [];
   const cTime = num(pos.cTime);
 
   // 筛选该 posId 的账单（按 posId 匹配不精确，按时间 + 币种 + 模式筛选）
   const posBills = billsRaw
-    .filter(b => num(b.ts) >= cTime && b.instId === INST_ID && b.mgnMode === 'cross')
+    .filter(b => num(b.ts) >= cTime && b.instId === INST_ID)
     .sort((a, b) => num(a.ts) - num(b.ts));
 
   for (const bill of posBills) {
     const type = String(bill.type);
-    const subType = String(bill.subType);
+    const subTypeVal = String(bill.subType);
     const ts = String(num(bill.ts));
     const fee = round(num(bill.fee));
 
     if (type === '2') {
-      // 开仓/加仓/减仓
-      actionRecords.push({
-        '时间': ts,
-        '类型': '开仓',  // 简化，实际可能需要更多判断
-        '价格': round(num(bill.px), 4),
-        '数量': String(bill.sz),
-        '手续费': fee,
-      });
+      // type=2 = 成交 (trade). subType 区分开仓/平仓
+      // subType=3/4: 开仓 (pnl===0)
+      // subType=5/6: 平仓/减仓 (pnl!==0)
+      const billPx = num(bill.px);
+      const billPnl = num(bill.pnl);
+
+      if (subTypeVal === '3' || subTypeVal === '4' || Math.abs(billPnl) < 0.0001) {
+        // 开仓/加仓
+        actionRecords.push({
+          '时间': ts,
+          '类型': '开仓',
+          '价格': round(billPx, 4),
+          '数量': String(bill.sz),
+          '手续费': fee,
+        });
+      } else if (subTypeVal === '5' || subTypeVal === '6') {
+        // 平仓/减仓：通过比较价格与旧 OCO 价位判断是否 OCO 触发
+        let closeLabel = '减仓';
+        let matchedOcoPrice = 0;
+
+        // 比价函数：允许 1% 误差（OCO 市价执行时实际成交价可能偏离触发价）
+        const isCloseTo = (px, target) => target > 0 && Math.abs(px - target) / target < 0.01;
+
+        // 先检查止盈价
+        for (const tp of oldTpPrices) {
+          if (isCloseTo(billPx, tp)) {
+            closeLabel = 'OCO止盈触发';
+            matchedOcoPrice = tp;
+            break;
+          }
+        }
+        // 再检查止损价
+        if (closeLabel === '减仓') {
+          for (const sl of oldSlPrices) {
+            if (isCloseTo(billPx, sl)) {
+              closeLabel = 'OCO止损触发';
+              matchedOcoPrice = sl;
+              break;
+            }
+          }
+        }
+
+        const record = {
+          '时间': ts,
+          '类型': closeLabel,
+          '价格': round(billPx, 4),
+          '数量': String(bill.sz),
+          '已实现盈亏': round(billPnl),
+          '手续费': fee,
+        };
+        if (matchedOcoPrice > 0) {
+          record['触发价位'] = round(matchedOcoPrice, 4);
+        }
+        actionRecords.push(record);
+      } else {
+        // 未知 subType，回退到旧逻辑
+        log(`未知 subType=${subTypeVal} (type=2), pnl=${billPnl}，按开仓处理`, 'WARN');
+        actionRecords.push({
+          '时间': ts,
+          '类型': '开仓',
+          '价格': round(billPx, 4),
+          '数量': String(bill.sz),
+          '手续费': fee,
+        });
+      }
     } else if (type === '8') {
       // 资金费结算
       actionRecords.push({
@@ -256,13 +346,12 @@ for (const pos of livePositions) {
         '金额': round(num(bill.pnl)),
       });
     }
-    // type 1 = 平仓（不会出现在活跃仓位的账单中）
   }
 
   currentPositions.push({
     '持仓ID': posId,
     '合约': INST_ID,
-    '保证金模式': 'cross',
+    '保证金模式': pos.mgnMode || 'unknown',
     '持仓方向': pos.posSide,
     '持仓张数': String(pos.pos),
     '可用张数': String(pos.availPos),
@@ -327,7 +416,7 @@ if (currentPositions.length === 0) {
   output['备注'] = `当前无${INST_ID}持仓`;
 } else {
   const p = currentPositions[0];
-  output['备注'] = `${INST_ID} cross ${p['持仓方向']} ${p['持仓张数']}张 @ $${p['平均入场价']}`;
+  output['备注'] = `${INST_ID} ${p.mgnMode || ''} ${p['持仓方向']} ${p['持仓张数']}张 @ $${p['平均入场价']}`;
 }
 
 fs.writeFileSync(POSITIONS_FILE, JSON.stringify(output, null, 2) + '\n', 'utf8');

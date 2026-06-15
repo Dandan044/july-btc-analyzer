@@ -16,7 +16,7 @@ import os
 WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROXY_URL = os.environ.get("PROXY_URL", "http://127.0.0.1:7890")
 PENDING_PATH = os.path.join(WORKSPACE, "scripts", "_non-alt-pending.json")
-NON_ALT_PATH = os.path.join(WORKSPACE, "data", "non-alt-list.json")
+NON_ALT_PATH = os.path.join(WORKSPACE, "config", "non-alt-list.json")
 
 # 已加载的非山寨名单（分类时跳过）
 existing_non_alts = set()
@@ -25,7 +25,7 @@ if os.path.exists(NON_ALT_PATH):
         existing_non_alts = set(json.load(f).get("non_alts", []))
 
 # 已加载的黑名单
-BLACKLIST_PATH = os.path.join(WORKSPACE, "data", "altcoin-blacklist.json")
+BLACKLIST_PATH = os.path.join(WORKSPACE, "config", "altcoin-blacklist.json")
 existing_blacklist = set()
 if os.path.exists(BLACKLIST_PATH):
     with open(BLACKLIST_PATH) as f:
@@ -126,7 +126,7 @@ print(f"""
 }}
 
 分类完成后，请：
-1. 将 non_alts 列表追加到 data/non-alt-list.json 的 "non_alts" 数组中（去重）
+1. 将 non_alts 列表追加到 config/non-alt-list.json 的 "non_alts" 数组中（去重）
 2. 将 uncertain 币种单独列出，标注不确定的原因
 3. 输出汇总统计
 """)

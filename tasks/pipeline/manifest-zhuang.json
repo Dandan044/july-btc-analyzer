@@ -1,0 +1,14 @@
+{
+  "profile": "zhuang",
+  "files": [
+    "modules/01-数据准备.md",
+    "profiles/analysis-zhuang.md",
+    "modules/02-止损仓位计算-zhuang.md",
+    "modules/03-保存报告.md",
+    "modules/04-交易决策JSON.md",
+    "modules/05-警报决策.md",
+    "modules/06-收尾日志.md",
+    "modules/07-阶段交接.md",
+    "modules/08-异常与要求.md"
+  ]
+}

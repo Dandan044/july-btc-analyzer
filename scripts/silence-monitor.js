@@ -83,12 +83,13 @@ function saveState(state) {
 /**
  * 从周期目录名提取币种符号
  * alt-2Z-20260525-2030 → 2Z
+ * zhuang-2Z-20260525-2030 → 2Z
  */
 function extractCoin(cycleDirName) {
   const parts = cycleDirName.split('-');
-  // alt-{COIN}-YYYYMMDD-HHMM
+  // {profile}-{COIN}-YYYYMMDD-HHMM
   // COIN 可能含连字符（如 JELLYJELLY 不会，但以防万一）
-  // 实际格式: alt-{COIN}-{8位日期}-{4位时间}
+  // 实际格式: {profile}-{COIN}-{8位日期}-{4位时间}
   // 取 parts[1]
   return parts[1] || null;
 }
@@ -195,7 +196,7 @@ async function runCheck() {
   let cycleDirs;
   try {
     cycleDirs = fs.readdirSync(ACTIVE_DIR)
-      .filter(d => d.startsWith('alt-'))
+      .filter(d => d.startsWith('alt-') || d.startsWith('zhuang-'))
       .sort();
   } catch (e) {
     log(`扫描 active/ 失败: ${e.message}`, 'ERROR');
@@ -203,7 +204,9 @@ async function runCheck() {
   }
 
   totalCycles = cycleDirs.length;
-  log(`发现 ${totalCycles} 个活跃山寨币周期`);
+  const altCount = cycleDirs.filter(d => d.startsWith('alt-')).length;
+  const zhuangCount = cycleDirs.filter(d => d.startsWith('zhuang-')).length;
+  log(`发现 ${totalCycles} 个活跃周期（山寨 ${altCount} | 庄币 ${zhuangCount}）`);
 
   // 收集静默周期
   const silentList = [];

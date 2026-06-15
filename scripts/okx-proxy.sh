@@ -4,7 +4,9 @@
 # 使用方式: ./okx-proxy.sh --profile live account balance
 
 # 获取 OKX CLI 实际路径
-OKX_BIN=$(which okx || echo "/usr/local/bin/okx")
+# cron 环境下 PATH 仅含 /usr/bin:/bin，需手动扩展
+export PATH="$PATH:/home/administrator/.npm-global/bin:/usr/local/bin"
+OKX_BIN=$(which okx || echo "/home/administrator/.npm-global/bin/okx")
 
 # 代理端口（从环境变量或默认值）
 PROXY_HOST="127.0.0.1"

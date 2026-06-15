@@ -3,13 +3,15 @@
 山寨币扫描引擎 - OI 变化筛选脚本
 
 输入：通过筛A+B+C 的币种列表（stdin JSON）
-输出：按 OI 变化率排序后的结果（stdout JSON）
+输出：按加权综合分排序后的结果（stdout JSON）
 
 OI 变化时间窗口：24h
+
 排序规则：
-  1. OI 变化方向与价格方向一致（涨+OI增 或 跌+OI减）优先
-  2. 同组内按 OI 变化率绝对值排序
-  3. 选第一组的最高值
+  庄币：纯 |24h涨跌幅| 降序
+  普通山寨：纯 OI 增加值（原始值，非绝对值）降序
+  归一化：min-max 归一化到 [0,1]，clamp 异常值
+  按综合分降序排序，选最高分为 top_pick
 """
 
 import json
@@ -115,6 +117,8 @@ def main():
     for coin_data in input_data:
         coin = coin_data.get('coin')
         change_pct = coin_data.get('change_pct', 0)
+        change_pct_24h = coin_data.get('change_pct_24h')  # zhuang 画像
+        btc_divergence = coin_data.get('btc_divergence')  # zhuang 画像：BTC 偏离度
         idx = coin_data.get('idx')
         
         oi_data = fetch_oi_change(coin)
@@ -122,6 +126,8 @@ def main():
         result = {
             "coin": coin,
             "change_pct": change_pct,
+            "change_pct_24h": change_pct_24h,
+            "btc_divergence": btc_divergence,
             "idx": idx,
             "oi_change_pct": oi_data.get('oi_change_pct'),
             "oi_current": oi_data.get('oi_current'),
@@ -131,24 +137,87 @@ def main():
         
         results.append(result)
     
-    # 排序：按 OI 变化率绝对值降序
-    def sort_key(item):
-        # OI 获取失败 → 排到最后
-        if item['oi_change_pct'] is None:
-            return -1
-        return abs(item['oi_change_pct'])
+    # ═══ 归一化加权排序 ═══
+    # 庄币画像（有 change_pct_24h + btc_divergence）：纯 |24h涨跌幅| 评分
+    # 普通山寨画像：双因子 |涨跌幅| + |OI|
+    valid = [r for r in results if r['oi_change_pct'] is not None]
+    has_24h = valid and all(r.get('change_pct_24h') is not None for r in valid)
+    has_btc_div = has_24h and valid and all(r.get('btc_divergence') is not None for r in valid)
     
-    results.sort(key=sort_key, reverse=True)
+    if has_btc_div:
+        # 庄币：纯按 |24h涨跌幅| 评分（OI/BTC偏离仅作参考信息，不参与评分）
+        abs_vals_24h = [abs(v['change_pct_24h'] or 0) for v in valid]
+        max_24h = max(abs_vals_24h)
+        min_24h = min(abs_vals_24h)
+        
+        for r in results:
+            if r['oi_change_pct'] is None:
+                r['composite_score'] = 0
+                continue
+            abs_v = abs(r.get('change_pct_24h', 0) or 0)
+            norm_v = (abs_v - min_24h) / (max_24h - min_24h) if max_24h != min_24h else 1.0
+            r['composite_score'] = round(norm_v, 4)
+            r['norm_details'] = {'change_pct_24h': round(norm_v, 4)}
+        
+        results.sort(key=lambda x: x.get('composite_score', 0), reverse=True)
+    elif has_24h:
+        # 三因子：⅓|4h| + ⅓|24h| + ⅓|OI|
+        factors = [
+            ('change_pct', 1/3),
+            ('change_pct_24h', 1/3),
+            ('oi_change_pct', 1/3),
+        ]
+        
+        for r in results:
+            if r['oi_change_pct'] is None:
+                r['composite_score'] = 0
+                continue
+            
+            score = 0.0
+            norm_details = {}
+            
+            for field, weight in factors:
+                abs_vals = [abs(v[field] or 0) for v in valid if v.get(field) is not None]
+                if not abs_vals:
+                    continue
+                max_val = max(abs_vals)
+                min_val = min(abs_vals)
+                
+                abs_v = abs(r.get(field, 0) or 0)
+                norm_v = (abs_v - min_val) / (max_val - min_val) if max_val != min_val else 1.0
+                norm_v = max(0.0, min(1.0, norm_v))
+                
+                score += weight * norm_v
+                norm_details[field] = round(norm_v, 4)
+            
+            r['composite_score'] = round(score, 4)
+            r['norm_details'] = norm_details
+        
+        results.sort(key=lambda x: x.get('composite_score', 0), reverse=True)
+    else:
+        # 普通山寨：按 OI 增加值（原始值，非绝对值）降序
+        for r in results:
+            if r['oi_change_pct'] is None:
+                r['composite_score'] = -9999
+            else:
+                r['composite_score'] = r['oi_change_pct']
+        results.sort(key=lambda x: x.get('composite_score', -9999), reverse=True)
     
-    # 选出 top_pick（OI 变化率绝对值最大的）
+    # 选出 top_pick（综合分最高）
     top_pick = None
     for item in results:
-        if item['oi_change_pct'] is not None:
-            top_pick = {
+        if item.get('composite_score') is not None and item.get('composite_score') != -9999:
+            fields = {
                 "coin": item['coin'],
+                "composite_score": item['composite_score'],
                 "change_pct": item['change_pct'],
-                "oi_change_pct": item['oi_change_pct']
+                "oi_change_pct": item['oi_change_pct'],
             }
+            if has_24h:
+                fields["change_pct_24h"] = item.get('change_pct_24h')
+            if has_btc_div:
+                fields["btc_divergence"] = item.get('btc_divergence')
+            top_pick = fields
             break
     
     # 输出结果

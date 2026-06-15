@@ -108,6 +108,7 @@ function showHelp() {
   --cycle <周期ID>     要归档的周期（必填）
                          BTC:   cycle-YYYYMMDD-NNN
                          山寨:  alt-{COIN}-YYYYMMDD-HHMM
+                         庄币:  zhuang-{COIN}-YYYYMMDD-HHMM
 
   --by <来源>           规则归档来源枚举（默认: cycle-archived）
                          可选: ${VALID_BY.join(' | ')}
@@ -161,14 +162,21 @@ function log(msg, level) {
 // 周期类型检测
 // ============================================================
 function detectCycleType(cycleId) {
-  if (cycleId.startsWith('alt-')) return 'altcoin';
   if (cycleId.startsWith('cycle-')) return 'btc';
+  if (cycleId.startsWith('zhuang-')) return 'zhuang';
+  if (cycleId.startsWith('alt-')) return 'altcoin';
   return 'unknown';
 }
 
 function extractCoin(cycleId) {
   const type = detectCycleType(cycleId);
   if (type === 'btc') return 'BTC';
+  if (type === 'zhuang') {
+    const match = cycleId.match(/^zhuang-([A-Z0-9]+)-\d{8}-\d{4}$/);
+    if (match) return match[1];
+    const parts = cycleId.split('-');
+    if (parts.length >= 2) return parts[1];
+  }
   if (type === 'altcoin') {
     const match = cycleId.match(/^alt-([A-Z0-9]+)-\d{8}-\d{4}$/);
     if (match) return match[1];
@@ -539,7 +547,7 @@ function main() {
 
   if (type === 'unknown') {
     console.error(`❌ 无法识别周期类型: "${cycleId}"`);
-    console.error('   BTC: cycle-YYYYMMDD-NNN  |  山寨: alt-{COIN}-YYYYMMDD-HHMM');
+    console.error('   BTC: cycle-YYYYMMDD-NNN  |  山寨: alt-{COIN}-YYYYMMDD-HHMM  |  庄币: zhuang-{COIN}-YYYYMMDD-HHMM');
     process.exit(1);
   }
   if (!coin) {
@@ -548,7 +556,7 @@ function main() {
   }
 
   const dryTag = opts.dryRun ? '[DRY RUN] ' : '';
-  const typeLabel = type === 'btc' ? 'BTC周期' : `山寨币周期 (${coin})`;
+  const typeLabel = type === 'btc' ? 'BTC周期' : type === 'zhuang' ? `庄币周期 (${coin})` : `山寨币周期 (${coin})`;
   const by = opts.by || 'cycle-archived';
   const reason = opts.reason || `${coin}周期归档，警报清零`;
 

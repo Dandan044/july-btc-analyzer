@@ -1,49 +1,86 @@
 #!/usr/bin/env bash
 #
-# scanner-runner.sh - 山寨币扫描引擎 Runner
+# scanner-runner.sh - 统一山寨币扫描引擎 Runner（alt / zhuang 双画像）
 #
-# 用法: bash scripts/scanner-runner.sh
+# 用法: bash scripts/scanner-runner.sh --profile alt|zhuang
 #
 # 流程:
-#   1. 执行 scanner-full.py 扫描引擎
+#   1. 执行 scanner-full.py --profile <PROFILE> 扫描引擎
 #   2. 解析 JSON 输出
-#   3. 命中币种 → openclaw cron add (one-shot, 1分钟后触发阶段一)
+#   3. 命中币种 → stage1-prep.js → dispatch.js 派发 LLM 阶段一
 #   4. 未命中 → 正常退出
 #
-# 由 Linux crontab 每小时触发: 0 * * * * /path/to/scanner-runner.sh >> /dev/null 2>&1
+# Crontab:
+#   */30 * * * * scanner-runner.sh --profile alt    >> logs/scanner-cron.log 2>&1
+#   5 * * * *    scanner-runner.sh --profile zhuang >> logs/zhuang-scanner-cron.log 2>&1
 #
 
 set -euo pipefail
+
+# ─── 参数解析 ───
+PROFILE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --profile) PROFILE="$2"; shift 2 ;;
+    *) echo "未知参数: $1"; exit 1 ;;
+  esac
+done
+
+if [ -z "$PROFILE" ] || [ "$PROFILE" != "alt" ] && [ "$PROFILE" != "zhuang" ]; then
+  echo "用法: $0 --profile alt|zhuang"
+  exit 1
+fi
 
 # 环境变量（crontab 环境缺少 PATH）
 export PATH="$HOME/.npm-global/bin:$PATH"
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
-OPENCLAW="$(which openclaw 2>/dev/null || echo "$HOME/.npm-global/bin/openclaw")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="$(dirname "$SCRIPT_DIR")"
 
 NOW=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$NOW] ========== scanner-runner 启动 =========="
+echo "[$NOW] ========== scanner-runner 启动 | profile=$PROFILE =========="
+
+# ─── Profile 差异化配置 ───
+case "$PROFILE" in
+  alt)
+    LAST_RUN_FILE="$WORKSPACE/data/last-scanner-run.txt"
+    INTERVAL_KEY="scannerIntervalMin"
+    DEFAULT_INTERVAL=15
+    PREP_MODE="alt"
+    JOB_PREFIX="alt-sentiment"
+    TASK_FILE="tasks/pipeline/stage1.md"
+    STAGE2_FILE="tasks/pipeline/stage2-alt.md"
+    CHANGE_LABEL="涨跌幅"
+    ;;
+  zhuang)
+    LAST_RUN_FILE="$WORKSPACE/data/last-zhuang-scanner-run.txt"
+    INTERVAL_KEY="zhuangScannerIntervalMin"
+    DEFAULT_INTERVAL=60
+    PREP_MODE="zhuang"
+    JOB_PREFIX="zhuang-sentiment"
+    TASK_FILE="tasks/pipeline/stage1.md"
+    STAGE2_FILE="tasks/pipeline/stage2-zhuang.md"
+    CHANGE_LABEL="24h涨跌幅"
+    ;;
+esac
 
 # ─── 步骤 0: 检查扫描间隔 ───
 SETTINGS_FILE="$WORKSPACE/data/dashboard-settings.json"
-INTERVAL_MIN=60  # 默认 60 分钟
+INTERVAL_MIN=$DEFAULT_INTERVAL
 if [ -f "$SETTINGS_FILE" ]; then
-  CONFIGURED=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('scannerIntervalMin',60))" "$SETTINGS_FILE" 2>/dev/null)
+  CONFIGURED=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('${INTERVAL_KEY}',${DEFAULT_INTERVAL}))" "$SETTINGS_FILE" 2>/dev/null)
   if [ -n "$CONFIGURED" ] && [ "$CONFIGURED" -gt 0 ] 2>/dev/null; then
     INTERVAL_MIN=$CONFIGURED
   fi
 fi
 
-LAST_RUN_FILE="$WORKSPACE/data/last-scanner-run.txt"
 if [ -f "$LAST_RUN_FILE" ]; then
   LAST_RUN=$(cat "$LAST_RUN_FILE")
   LAST_EPOCH=$(date -d "$LAST_RUN" +%s 2>/dev/null || echo 0)
   NOW_EPOCH=$(date +%s)
   ELAPSED_MIN=$(( (NOW_EPOCH - LAST_EPOCH) / 60 ))
-  # 给 1 分钟容差，避免整数截断导致误跳过（如 29m55s → 29 < 30 → 误判）
   if [ "$ELAPSED_MIN" -lt "$((INTERVAL_MIN - 1))" ]; then
     echo "[$NOW] 距上次扫描 ${ELAPSED_MIN}min < ${INTERVAL_MIN}min，跳过本轮"
     echo "[$NOW] ========== scanner-runner 结束（间隔跳过）=========="
@@ -53,10 +90,9 @@ fi
 echo "[$NOW] 扫描间隔: ${INTERVAL_MIN}min"
 
 # ─── 步骤 1: 执行扫描脚本 ───
-echo "[$NOW] 执行 scanner-full.py..."
-OUTPUT=$(python3 "$SCRIPT_DIR/scanner-full.py" 2>&1)
+echo "[$NOW] 执行 scanner-full.py --profile $PROFILE ..."
+OUTPUT=$(python3 "$SCRIPT_DIR/scanner-full.py" --profile "$PROFILE" 2>&1)
 
-# 打印脚本输出到 stdout(会进入 crontab 日志)
 echo "$OUTPUT"
 
 # ─── 步骤 2: 提取 JSON 输出 ───
@@ -76,7 +112,7 @@ fi
 
 echo "[$NOW] 扫描结果: $RESULT"
 
-# ─── 步骤 3: 命中 → 创建 cron job ───
+# ─── 步骤 3: 命中 → 派发 ───
 if [ "$RESULT" != "hit" ]; then
     echo "[$NOW] 未命中币种,正常退出"
     date -u '+%Y-%m-%dT%H:%M:%SZ' > "$LAST_RUN_FILE"
@@ -86,25 +122,22 @@ fi
 
 # 解析命中的币种
 COIN=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('coin',''))" 2>/dev/null)
+CHANGE_PCT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('change_pct',0))" 2>/dev/null)
+OI_PCT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('oi_change_pct',0))" 2>/dev/null)
 
 if [ -z "$COIN" ]; then
     echo "[$NOW] ⛔ ERROR: 命中但无法解析币种"
     exit 1
 fi
 
-CHANGE_PCT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('change_pct',0))" 2>/dev/null)
-OI_PCT=$(echo "$JSON_LINE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('oi_change_pct',0))" 2>/dev/null)
-
-echo "[$NOW] ✅ 命中币种: $COIN (涨跌幅: ${CHANGE_PCT}%, OI: ${OI_PCT}%)"
+echo "[$NOW] ✅ 命中币种: $COIN (${CHANGE_LABEL}: ${CHANGE_PCT}%, OI: ${OI_PCT}%)"
 echo "[$NOW] 执行阶段一预处理（上线检查 → 周期创建 → 持仓同步 → 合约数据 → 历史报告）..."
 
 # ─── 步骤 4: 执行 stage1-prep.js ───
-PREP_OUTPUT=$(node "$SCRIPT_DIR/stage1-prep.js" "$COIN" 2>&1)
+PREP_OUTPUT=$(node "$SCRIPT_DIR/stage1-prep.js" "$COIN" --mode "$PREP_MODE" 2>&1)
 
-# 打印 prep 日志（stderr 行）
 echo "$PREP_OUTPUT" | grep -v '^__PREP_OUTPUT__$' | grep -v '^{' || true
 
-# 解析 prep JSON（最后一行）
 PREP_JSON=$(echo "$PREP_OUTPUT" | grep '^{' | tail -1)
 
 if [ -z "$PREP_JSON" ]; then
@@ -136,7 +169,6 @@ case "$PREP_STATUS" in
         ;;
 esac
 
-# 提取周期目录
 CYCLE_DIR=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cycle_dir',''))" 2>/dev/null)
 POS_COUNT=$(echo "$PREP_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('positions_count',0))" 2>/dev/null)
 
@@ -148,20 +180,24 @@ fi
 echo "[$NOW] 周期: active/$CYCLE_DIR | 持仓: $POS_COUNT"
 echo "[$NOW] 创建 one-shot cron job（LLM 执行 sentiment）..."
 
-# ─── 步骤 5: 通过调度器创建 cron job（sentiment + manifest + stage2） ───
-JOB_NAME="alt-sentiment-${COIN}-$(date +%s)"
+# ─── 步骤 4.5: 组装阶段二任务文件 ───
+echo "[$NOW] 组装阶段二任务文件..."
+node "$SCRIPT_DIR/assemble-stage2.js" --profile "$PROFILE" --write 2>&1
+
+# ─── 步骤 5: 通过调度器派发 LLM 阶段一 ───
+JOB_NAME="${JOB_PREFIX}-${COIN}-$(date +%s)"
 MSG="币种: ${COIN}
 周期目录: active/${CYCLE_DIR}
 持仓数: ${POS_COUNT}
 合约数据: OK
-涨跌幅: ${CHANGE_PCT}%
+画像: ${PROFILE}
+${CHANGE_LABEL}: ${CHANGE_PCT}%
 OI变化: ${OI_PCT}%
 
 预处理已完成（上线检查→周期创建→持仓同步→合约数据→历史报告路径）。
-请读取 tasks/alt-pipeline/alt-intel-stage1-v2.md 执行消息面和链上数据收集。
-完成后运行数据清单脚本，然后读取 alt-intel-stage2.live.md 进入阶段二。"
+请读取 ${TASK_FILE} 执行消息面和链上数据收集。
+完成后运行数据清单脚本，然后读取 ${STAGE2_FILE} 进入阶段二。"
 
-# 写消息到临时文件（避免 shell 多行转义）
 MSG_FILE="/tmp/dispatch-msg-${JOB_NAME}.txt"
 echo "$MSG" > "$MSG_FILE"
 

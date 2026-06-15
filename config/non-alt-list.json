@@ -1,0 +1,40 @@
+{
+  "_schema": "非山寨币排除名单。筛C使用此名单替代LLM语义判断。匹配即跳过，不等同于黑名单。",
+  "_usage": "扫描引擎筛C：coin ∈ non_alts → 跳过（非真山寨币）。与黑名单不同，此名单不阻止分析已活跃币种。",
+  "categories": {
+    "stocks": "股票/公司代币（OKX 上的股票型永续合约）",
+    "commodities": "商品/贵金属合约",
+    "forex": "外汇合约",
+    "majors": "已有独立分析的加密主流币"
+  },
+  "non_alts": [
+    "BTC",
+    "BUSD",
+    "CL",
+    "DAI",
+    "ETH",
+    "EUR",
+    "FDUSD",
+    "GBP",
+    "INR",
+    "JPY",
+    "NG",
+    "OIL",
+    "OKB",
+    "SOL",
+    "STABLE",
+    "TUSD",
+    "USD",
+    "USDC",
+    "USDT",
+    "XAG",
+    "XAU",
+    "XCU",
+    "XPD",
+    "XPT"
+  ],
+  "_removed_for_experiment": {
+    "stocks": ["AAPL", "AMD", "AMZN", "ARM", "AVGO", "BABA", "BAC", "BIDU", "COHR", "COIN", "COST", "CRCL", "CSCO", "DIS", "F", "GLW", "GME", "GOOGL", "HIMS", "HOOD", "INTC", "JD", "JPM", "KO", "LLY", "MA", "MARA", "META", "MRVL", "MSFT", "MSTR", "MU", "NBIS", "NFLX", "NIO", "NVDA", "ORCL", "PDD", "PEP", "PLTR", "PYPL", "QCOM", "RIOT", "RIVN", "RKLB", "SHOP", "SNDK", "SOFI", "SQ", "TSLA", "TSM", "UBER", "V", "WDC", "WMT"],
+    "etfs": ["EWJ", "EWY", "IWM", "QQQ", "SOXL", "SOXS", "SPX", "SPXU", "SPY", "SQQQ", "TECL", "TECS", "TQQQ", "UPRO", "USO", "XLE"]
+  ]
+}

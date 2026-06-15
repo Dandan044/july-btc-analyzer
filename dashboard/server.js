@@ -86,7 +86,7 @@ app.use((req, res, next) => {
 const SETTINGS_FILE = path.join(BASE_DIR, 'data', 'dashboard-settings.json');
 
 function readSettings() {
-  const defaults = { scannerLimit: 45, scannerIntervalMin: 60, glassEnabled: true, cardOpacity: 0.95 };
+  const defaults = { scannerLimit: 45, scannerIntervalMin: 15, zhuangScannerLimit: 20, zhuangScannerIntervalMin: 60, positionMultiplier: 1.3, zhuangPositionMultiplier: 1.0, hedgeEnabled: true, leverage: 10, glassEnabled: true, cardOpacity: 0.95, tpShiftPercent: 5, slShiftPercent: 5, mirrorValueMultiplier: 1.0 };
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       const saved = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
@@ -136,8 +136,10 @@ const BREAKER_COOLDOWN = 60000;  // 熔断冷却 60s
 /** 安全 execSync，出错返回空。内置熔断：同命令连续失败 3 次后 60s 内不再执行 */
 function safeExec(cmd, opts = {}) {
   const prefix = cmd.split(' ').slice(0, 2).join(' '); // e.g. "openclaw cron"
+  const skipBreaker = opts.noBreaker;
+  delete opts.noBreaker;
   const breaker = execBreaker[prefix];
-  if (breaker && Date.now() < breaker.until) {
+  if (!skipBreaker && breaker && Date.now() < breaker.until) {
     console.error(`[breaker] 熔断中: ${prefix} (${Math.round((breaker.until - Date.now()) / 1000)}s 后恢复)`);
     return null;
   }
@@ -149,12 +151,14 @@ function safeExec(cmd, opts = {}) {
     return result;
   } catch (e) {
     console.error(`[exec error] ${prefix}: ${e.message.slice(0, 100)}`);
-    // 记录故障
-    if (!execBreaker[prefix]) execBreaker[prefix] = { failures: 0, until: 0 };
-    execBreaker[prefix].failures++;
-    if (execBreaker[prefix].failures >= BREAKER_THRESHOLD) {
-      execBreaker[prefix].until = Date.now() + BREAKER_COOLDOWN;
-      console.error(`[breaker] 已熔断: ${prefix} (${BREAKER_COOLDOWN / 1000}s 冷却)`);
+    // 记录故障（OKX 调用不触发熔断）
+    if (!skipBreaker) {
+      if (!execBreaker[prefix]) execBreaker[prefix] = { failures: 0, until: 0 };
+      execBreaker[prefix].failures++;
+      if (execBreaker[prefix].failures >= BREAKER_THRESHOLD) {
+        execBreaker[prefix].until = Date.now() + BREAKER_COOLDOWN;
+        console.error(`[breaker] 已熔断: ${prefix} (${BREAKER_COOLDOWN / 1000}s 冷却)`);
+      }
     }
     return null;
   }
@@ -162,9 +166,17 @@ function safeExec(cmd, opts = {}) {
 
 /** 通过 proxychains4 调 okx CLI,返回 JSON */
 function okxCli(args) {
-  const raw = safeExec(`proxychains4 -q okx --profile live --json ${args} 2>/dev/null`);
+  // 抑制升级检查（避免污染 stdout JSON 解析）
+  const noUpdateEnv = 'OKX_NO_UPDATE_CHECK=1';
+  // OKX 调用不受熔断器限制（仪表盘数据源不可被熔断）
+  const raw = safeExec(`${noUpdateEnv} proxychains4 -q okx --profile live --json ${args} 2>/dev/null`, { noBreaker: true });
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  try {
+    // 容错：跳过 stdout 中非 JSON 前缀（如 "Update available..." 等升级提示）
+    const jsonStart = raw.search(/[\[{]/);
+    if (jsonStart === -1) return null;
+    return JSON.parse(raw.slice(jsonStart));
+  } catch { return null; }
 }
 
 /** 读 JSON 文件 */
@@ -238,7 +250,8 @@ function enrichRulesWithState(rules) {
 function getRules(filter = {}) {
   // 策略:先拉全部规则,再在内存中过滤(兼容旧格式无 coin/cycleId 字段的规则)
   const args = '--format json --all';
-  const raw = safeExec(`node "${path.join(SCRIPTS_DIR, 'query-rules.js')}" ${args} 2>/dev/null`);
+  // maxBuffer 5MB — 规则文件数增长后 JSON 输出已超默认 1MB 限制 (2026-05-30)
+  const raw = safeExec(`node "${path.join(SCRIPTS_DIR, 'query-rules.js')}" ${args} 2>/dev/null`, { maxBuffer: 5 * 1024 * 1024 });
   if (!raw) return [];
   let rules;
   try { rules = JSON.parse(raw).map(enrichRule); } catch { return []; }
@@ -290,7 +303,11 @@ function scanCycles(location = 'active') {
     const reportsDir = path.join(cycleDir, 'reports');
 
     const positions = readJSON(posFile);
-    const reports = listFiles(reportsDir).filter(f => f.endsWith('.md')).sort().reverse();
+    const reportFiles = listFiles(reportsDir).filter(f => f.endsWith('.md'));
+    const reports = reportFiles.sort((a, b) => {
+      try { return fs.statSync(path.join(reportsDir, b)).mtimeMs - fs.statSync(path.join(reportsDir, a)).mtimeMs; }
+      catch { return 0; }
+    });
     const lastReport = reports[0] || null;
     const lastReportPath = lastReport ? path.join(reportsDir, lastReport) : null;
     const lastReportTime = lastReportPath ? mtimeISO(lastReportPath) : null;
@@ -363,7 +380,7 @@ app.get('/api/settings', (req, res) => {
 app.post('/api/settings', (req, res) => {
   try {
     const settings = readSettings();
-    const { scannerLimit, scannerIntervalMin, zhuangScannerLimit, zhuangScannerIntervalMin, positionMultiplier, zhuangPositionMultiplier, hedgeEnabled, leverage, glassEnabled, cardOpacity } = req.body;
+    const { scannerLimit, scannerIntervalMin, zhuangScannerLimit, zhuangScannerIntervalMin, positionMultiplier, zhuangPositionMultiplier, hedgeEnabled, leverage, glassEnabled, cardOpacity, tpShiftPercent, slShiftPercent, supervisorMinPositions, mirrorValueMultiplier } = req.body;
     if (scannerLimit !== undefined) {
       const v = parseInt(scannerLimit);
       if (isNaN(v) || v < 1) return res.status(400).json({ ok: false, error: 'invalid scannerLimit' });
@@ -371,7 +388,7 @@ app.post('/api/settings', (req, res) => {
     }
     if (scannerIntervalMin !== undefined) {
       const v = parseInt(scannerIntervalMin);
-      if (isNaN(v) || v < 15 || v > 480) return res.status(400).json({ ok: false, error: 'invalid scannerIntervalMin (15-480)' });
+      if (isNaN(v) || v < 5 || v > 480) return res.status(400).json({ ok: false, error: 'invalid scannerIntervalMin (5-480)' });
       settings.scannerIntervalMin = v;
     }
     if (zhuangScannerLimit !== undefined) {
@@ -381,7 +398,7 @@ app.post('/api/settings', (req, res) => {
     }
     if (zhuangScannerIntervalMin !== undefined) {
       const v = parseInt(zhuangScannerIntervalMin);
-      if (isNaN(v) || v < 15 || v > 480) return res.status(400).json({ ok: false, error: 'invalid zhuangScannerIntervalMin (15-480)' });
+      if (isNaN(v) || v < 5 || v > 480) return res.status(400).json({ ok: false, error: 'invalid zhuangScannerIntervalMin (5-480)' });
       settings.zhuangScannerIntervalMin = v;
     }
     if (positionMultiplier !== undefined) {
@@ -410,6 +427,51 @@ app.post('/api/settings', (req, res) => {
       if (isNaN(v) || v < 0.3 || v > 1) return res.status(400).json({ ok: false, error: '不透明度必须在 0.3-1 之间' });
       settings.cardOpacity = v;
     }
+    if (tpShiftPercent !== undefined) {
+      const v = parseInt(tpShiftPercent);
+      if (isNaN(v) || v < 0 || v > 15) return res.status(400).json({ ok: false, error: '止盈偏移百分比必须在 0-15 之间' });
+      settings.tpShiftPercent = v;
+    }
+    if (slShiftPercent !== undefined) {
+      const v = parseInt(slShiftPercent);
+      if (isNaN(v) || v < 0 || v > 15) return res.status(400).json({ ok: false, error: '止损偏移百分比必须在 0-15 之间' });
+      settings.slShiftPercent = v;
+    }
+    if (mirrorValueMultiplier !== undefined) {
+      const v = parseFloat(mirrorValueMultiplier);
+      if (isNaN(v) || v < 0.5 || v > 10) return res.status(400).json({ ok: false, error: '镜像倍率必须在 0.5-10 之间' });
+      settings.mirrorValueMultiplier = v;
+      // 同步写入 mirror-bot-config.json
+      const mirrorCfgPath = path.join(BASE_DIR, 'data', 'mirror-bot-config.json');
+      try {
+        let mc = {};
+        if (fs.existsSync(mirrorCfgPath)) mc = JSON.parse(fs.readFileSync(mirrorCfgPath, 'utf8'));
+        mc.valueMultiplier = v;
+        fs.writeFileSync(mirrorCfgPath, JSON.stringify(mc, null, 2), 'utf8');
+        console.log('镜像倍率已同步到 mirror-bot-config.json:', v);
+      } catch (e) {
+        console.error('同步 mirror-bot-config.json 失败:', e.message);
+      }
+    }
+    if (supervisorMinPositions !== undefined) {
+      const v = parseInt(supervisorMinPositions);
+      if (isNaN(v) || v < 0 || v > 50) return res.status(400).json({ ok: false, error: '监督者触发最小持仓数必须在 0-50 之间' });
+      settings.supervisorMinPositions = v;
+      // 同步写入 supervisor-config.json
+      const supervisorConfigPath = path.join(BASE_DIR, 'data', 'supervisor-config.json');
+      try {
+        let sc = {};
+        if (fs.existsSync(supervisorConfigPath)) {
+          sc = JSON.parse(fs.readFileSync(supervisorConfigPath, 'utf8'));
+        }
+        sc.minPositionsForTrigger = v;
+        const dir = path.dirname(supervisorConfigPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(supervisorConfigPath, JSON.stringify(sc, null, 2), 'utf8');
+      } catch (e) {
+        console.error('同步 supervisor-config.json 失败:', e.message);
+      }
+    }
     if (writeSettings(settings)) {
       res.json({ ok: true, ...settings });
     } else {
@@ -422,9 +484,9 @@ app.post('/api/settings', (req, res) => {
 
 // ── GET /api/scanner-data ──────────────────────────
 // 返回系统黑名单、用户黑名单、非山寨名单（供面板展示）
-const SYSTEM_BL_PATH = path.join(BASE_DIR, 'data', 'altcoin-blacklist.json');
-const USER_BL_PATH = path.join(BASE_DIR, 'data', 'user-blacklist.json');
-const NON_ALT_PATH = path.join(BASE_DIR, 'data', 'non-alt-list.json');
+const SYSTEM_BL_PATH = path.join(BASE_DIR, 'config', 'altcoin-blacklist.json');
+const USER_BL_PATH = path.join(BASE_DIR, 'config', 'user-blacklist.json');
+const NON_ALT_PATH = path.join(BASE_DIR, 'config', 'non-alt-list.json');
 
 app.get('/api/scanner-data', (req, res) => {
   try {
@@ -477,33 +539,6 @@ app.delete('/api/user-blacklist/:coin', (req, res) => {
     delete data.reason[coin];
     fs.writeFileSync(USER_BL_PATH, JSON.stringify(data, null, 2) + '\n', 'utf8');
     res.json({ ok: true, coin, action: 'removed', total: data.blacklist.length });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
-// ── GET/POST /api/stage2-mode ─────────────────────────
-const STAGE2_LINK = path.join(BASE_DIR, 'tasks', 'alt-pipeline', 'alt-intel-stage2.live.md');
-const SWITCH_SCRIPT = path.join(BASE_DIR, 'scripts', 'switch-stage2-mode.sh');
-
-app.get('/api/stage2-mode', (req, res) => {
-  try {
-    const out = execSync(`bash "${SWITCH_SCRIPT}" status`, { encoding: 'utf8', timeout: 5000 });
-    const mode = out.includes('激进') ? 'aggressive' : 'normal';
-    res.json({ ok: true, mode });
-  } catch (e) {
-    res.json({ ok: true, mode: 'normal' });
-  }
-});
-
-app.post('/api/stage2-mode', (req, res) => {
-  try {
-    const { mode } = req.body;
-    if (!['normal', 'aggressive'].includes(mode)) {
-      return res.status(400).json({ ok: false, error: 'invalid mode' });
-    }
-    execSync(`bash "${SWITCH_SCRIPT}" ${mode}`, { encoding: 'utf8', timeout: 5000 });
-    res.json({ ok: true, mode });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -595,6 +630,103 @@ app.get('/api/market-brief/latest', (req, res) => {
   }
 });
 
+// ── GET /api/btc-outlook ──────────────────────────────
+app.get('/api/btc-outlook', (req, res) => {
+  try {
+    const OUTLOOK_FILE = path.join(BASE_DIR, 'data', 'btc-outlook.json');
+    if (!fs.existsSync(OUTLOOK_FILE)) return res.json({ found: false });
+    const data = readJSON(OUTLOOK_FILE);
+    if (!data) return res.json({ found: false });
+    res.json({ found: true, ...data });
+  } catch (e) {
+    res.status(500).json({ error: e.message, found: false });
+  }
+});
+
+// ── GET /api/coin-cooldown ────────────────────────────
+const COOLDOWN_FILE = path.join(BASE_DIR, 'data', 'coin-cooldown.json');
+
+app.get('/api/coin-cooldown', (req, res) => {
+  try {
+    if (!fs.existsSync(COOLDOWN_FILE)) {
+      return res.json({ entries: [], updated: null, activeCount: 0 });
+    }
+    const data = readJSON(COOLDOWN_FILE);
+    const entries = data.entries || {};
+    const now = new Date();
+
+    // 筛选未过期的冷却条目，计算剩余时间
+    const active = [];
+    for (const [coin, info] of Object.entries(entries)) {
+      const until = new Date(info.cooldown_until);
+      const remainingMs = until - now;
+      if (remainingMs > 0) {
+        const remainingH = remainingMs / 3600000;
+        const remainingD = remainingH / 24;
+        active.push({
+          coin,
+          remainingMs,
+          remainingH: Math.round(remainingH * 10) / 10,
+          remainingD: Math.round(remainingD * 10) / 10,
+          cooldown_until: info.cooldown_until,
+          reason: (info.reason || '').replace(/\s*\(cycle:[^)]+\)$/, ''),
+          cycleTag: (info.reason || '').match(/\(cycle: ([^)]+)\)/)?.[1] || '',
+          added_at: info.added_at,
+        });
+      }
+    }
+
+    // 按剩余时间升序（最接近到期在前）
+    active.sort((a, b) => a.remainingMs - b.remainingMs);
+
+    res.json({
+      entries: active,
+      activeCount: active.length,
+      totalCount: Object.keys(entries).length,
+      updated: data.updated || null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DELETE /api/coin-cooldown/:coin ────────────────────
+app.delete('/api/coin-cooldown/:coin', (req, res) => {
+  const coin = req.params.coin?.toUpperCase();
+  if (!coin) return res.status(400).json({ error: '缺少币种参数' });
+
+  try {
+    if (!fs.existsSync(COOLDOWN_FILE)) {
+      return res.json({ removed: coin, success: true, note: '冷却名单文件不存在' });
+    }
+
+    const data = readJSON(COOLDOWN_FILE);
+    const entries = data.entries || {};
+
+    if (!entries[coin]) {
+      // 尝试大小写不敏感匹配
+      const caseKey = Object.keys(entries).find(k => k.toUpperCase() === coin);
+      if (!caseKey) {
+        return res.json({ removed: coin, success: true, note: '该币种未在冷却名单中' });
+      }
+      const removed = entries[caseKey];
+      delete entries[caseKey];
+      data.updated = new Date().toISOString();
+      fs.writeFileSync(COOLDOWN_FILE, JSON.stringify(data, null, 2), 'utf8');
+      return res.json({ removed: caseKey, reason: removed.reason, success: true });
+    }
+
+    const removed = entries[coin];
+    delete entries[coin];
+    data.updated = new Date().toISOString();
+    fs.writeFileSync(COOLDOWN_FILE, JSON.stringify(data, null, 2), 'utf8');
+
+    res.json({ removed: coin, reason: removed.reason, success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/dashboard ────────────────────────────────
 app.get('/api/dashboard', (req, res) => {
   try {
@@ -628,18 +760,86 @@ app.get('/api/dashboard', (req, res) => {
       const twentyFourHoursAgo = Date.now() - 24 * 3600000;
       const logAlerts = [];
       if (fs.existsSync(logFile)) {
-        // 引擎格式: "2026-05-21T00:00:34: [🔧警报引擎] [INFO] [RULE-NAME] TRIGGERED"
-        const raw = safeExec(`grep 'TRIGGERED' "${logFile}" | tail -1000`);
+        // 解析多种触发事件类型
+        // TRIGGERED         → 旧逻辑 notify 触发
+        // TRIGGERED_COMPLETED → 触发完成（含 cachedEventsPassed 信息）
+        // TRIGGERED_PER_LEVEL → per-level 分级触发（含 notify/record 计数）
+        // TRIGGERED_RECORD    → per-rule record 触发（仅缓存）
+        // RECORD_LEVELS_CONSUMED → record 价位被消费（从监控中删除）
+        // CACHE_APPEND       → 事件写入缓存
+        const raw = safeExec(`grep -E 'TRIGGERED(_PER_LEVEL|_RECORD|_COMPLETED)?|RECORD_LEVELS_CONSUMED|CACHE_APPEND' "${logFile}" | tail -2000`);
         if (raw) {
           const lines = raw.trim().split('\n').filter(Boolean);
           for (const line of lines) {
             const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
             const time = tsMatch ? tsMatch[1] : '';
             const ts = time ? new Date(time).getTime() : 0;
-            if (ts <= twentyFourHoursAgo) continue; // 跳过24小时外的
-            const ruleMatch = line.match(/\[([^\]]+)\]\s*TRIGGERED/);
-            const rule = ruleMatch ? ruleMatch[1].trim() : line.slice(60).trim().slice(0, 100);
-            logAlerts.push({ id: `${time}::${rule}`, time, rule, ts, cachedAt: Date.now() });
+            if (ts <= twentyFourHoursAgo) continue;
+
+            // 解析事件类型
+            let eventType = 'trigger', rule = '', detail = '', coin = '';
+            
+            if (line.includes('TRIGGERED_PER_LEVEL')) {
+              eventType = 'per-level';
+              const m = line.match(/\[([^\]]+)\]\s*TRIGGERED_PER_LEVEL/);
+              rule = m ? m[1].trim() : '';
+              const nc = parseInt((line.match(/"notifyCount":(\d+)/) || [])[1]) || 0;
+              const rc = parseInt((line.match(/"recordCount":(\d+)/) || [])[1]) || 0;
+              if (nc > 0) {
+                // notify 触发 → 拉起了 LLM
+                if (rc > 0) detail = `📢拉起分析 + ${rc}个record同步触发`;
+                else detail = '📢拉起LLM分析';
+              } else {
+                // 纯 record 触发 → 没有拉起 LLM
+                detail = `📝${rc}个record价位触发(未拉起)`;
+              }
+              const cm = rule.match(/^([A-Z0-9]+)-/);
+              coin = cm ? cm[1] : '';
+            } else if (line.includes('TRIGGERED_RECORD')) {
+              eventType = 'record';
+              const m = line.match(/\[([^\]]+)\]\s*TRIGGERED_RECORD/);
+              rule = m ? m[1].trim() : '';
+              detail = '📝仅记录';
+              const cm = rule.match(/^([A-Z0-9]+)-/);
+              coin = cm ? cm[1] : '';
+            } else if (line.includes('RECORD_LEVELS_CONSUMED')) {
+              eventType = 'level-consumed';
+              const m = line.match(/\[([^\]]+)\]\s*RECORD_LEVELS_CONSUMED/);
+              rule = m ? m[1].trim() : '';
+              const rm = line.match(/"removed":\["([^"]+)"\]/);
+              detail = rm ? `已消费: ${rm[1]}` : '观测价位已触发删除';
+              const cm = rule.match(/^([A-Z0-9]+)-/);
+              coin = cm ? cm[1] : '';
+            } else if (line.includes('CACHE_APPEND')) {
+              eventType = 'cache';
+              const m = line.match(/\[([^\]]+)\]\s*CACHE_APPEND/);
+              rule = m ? m[1].trim() : '';
+              const lv = line.match(/"level":"([^"]+)"/);
+              const sz = line.match(/"cacheSize":(\d+)/);
+              detail = lv ? `缓存: ${lv[1]} (累计${sz?.[1]||'?'}条)` : '事件已缓存';
+              const cm = rule.match(/^([A-Z0-9]+)-/);
+              coin = cm ? cm[1] : '';
+            } else if (line.includes('TRIGGERED_COMPLETED')) {
+              eventType = 'completed';
+              const m = line.match(/\[([^\]]+)\]\s*TRIGGERED_COMPLETED/);
+              rule = m ? m[1].trim() : '';
+              const ce = line.match(/cachedEventsPassed/);
+              const cnt = line.match(/"cachedEventsPassed":"(\d+)条/);
+              detail = cnt ? `✅完成 + ${cnt[1]}条历史已传入` : (ce ? '✅完成(含缓存)' : '✅分析完成');
+              const cm = rule.match(/^([A-Z0-9]+)-/);
+              coin = cm ? cm[1] : '';
+            } else if (line.includes('TRIGGERED')) {
+              // 旧格式 TRIGGERED（无后缀）— 匹配最后一个 [...] 前的规则名
+              const m = line.match(/\[([^\]]+)\]\s*TRIGGERED(?!_)/);
+              rule = m ? m[1].trim() : line.slice(60).trim().slice(0, 100);
+              detail = '🔔触发';
+              const cm = rule.match(/^([A-Z0-9]+)-/);
+              coin = cm ? cm[1] : '';
+            }
+            
+            if (rule) {
+              logAlerts.push({ id: `${time}::${rule}::${eventType}`, time, rule, ts, eventType, detail, coin, cachedAt: Date.now() });
+            }
           }
         }
       }
@@ -680,11 +880,12 @@ app.get('/api/dashboard', (req, res) => {
     // 实盘持仓数（从 OKX 缓存读取，由 /api/live-pnl 每 5min 更新）
     const livePositionCount = okxPositionCountCache.count || 0;
 
-    // 按状态分组
+    // 按状态分组（只用 active 规则判定，归档规则不算）
     const statusGroups = { alive: 0, dead: 0 };
     for (const c of cycles) {
       const rules = rulesByCycleMap[c.cycleId] || [];
-      const status = cycleStatus(c, rules.length);
+      const activeRulesForCycle = rules.filter(r => r.status === 'active');
+      const status = cycleStatus(c, activeRulesForCycle.length);
       statusGroups[status]++;
     }
 
@@ -1093,6 +1294,83 @@ app.get('/api/positions-detail', (req, res) => {
   }
 });
 
+// ── GET /api/mirror-positions ─────────────────────────────
+// 镜像账户持仓，供前端实盘仓位卡片镜像模式使用
+app.get('/api/mirror-positions', (req, res) => {
+  try {
+    const allPositions = okxCli('--profile mirror account positions');
+    const algoOrders = okxCli('--profile mirror swap algo orders');
+
+    const held = (allPositions || []).filter(p => {
+      const pos = parseFloat(p.pos);
+      return pos !== 0 && !isNaN(pos);
+    });
+
+    const ordersByInstId = {};
+    (algoOrders || []).forEach(o => {
+      if (!ordersByInstId[o.instId]) ordersByInstId[o.instId] = [];
+      ordersByInstId[o.instId].push({
+        instId: o.instId, ordId: o.ordId, side: o.side, ordType: o.ordType,
+        sz: o.sz, px: o.px, state: o.state, algoId: o.algoId || '',
+        tpTriggerPx: o.tpTriggerPx || '', tpOrdPx: o.tpOrdPx || '',
+        slTriggerPx: o.slTriggerPx || '', slOrdPx: o.slOrdPx || '',
+      });
+    });
+
+    const positions = held.map(p => {
+      const upl = parseFloat(p.upl) || 0;
+      const uplRatio = parseFloat(p.uplRatio) || 0;
+      const notionalUsd = parseFloat(p.notionalUsd) || 0;
+      return {
+        instId: p.instId, posSide: p.posSide, pos: p.pos, availPos: p.availPos,
+        avgPx: p.avgPx, markPx: p.markPx, last: p.last,
+        lever: p.lever, mgnMode: p.mgnMode,
+        upl: String(upl), uplRatio: String(uplRatio),
+        realizedPnl: p.realizedPnl, fee: p.fee, fundingFee: p.fundingFee,
+        liqPx: p.liqPx, margin: p.margin, mgnRatio: p.mgnRatio,
+        notionalUsd: String(notionalUsd), cTime: p.cTime, uTime: p.uTime,
+        orders: ordersByInstId[p.instId] || [],
+      };
+    });
+
+    const totalUpl = positions.reduce((s, p) => s + parseFloat(p.upl), 0);
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      count: positions.length,
+      orderCount: (algoOrders || []).length,
+      totalUpl: Math.round(totalUpl * 100) / 100,
+      positions,
+      isMirror: true,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/portfolio-exposure ──────────────────────────
+// 组合暴露度快照（含缓存，60s TTL）
+const exposureCache = { data: null, ts: 0 };
+app.get('/api/portfolio-exposure', (req, res) => {
+  try {
+    // 缓存 60s
+    if (exposureCache.data && Date.now() - exposureCache.ts < 60000) {
+      return res.json(exposureCache.data);
+    }
+    const script = path.join(BASE_DIR, 'scripts', 'calc-portfolio-exposure.js');
+    const result = execSync(`node "${script}"`, {
+      encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const data = JSON.parse(result);
+    exposureCache.data = data;
+    exposureCache.ts = Date.now();
+    res.json(data);
+  } catch (e) {
+    res.json({ error: e.message, timestamp: new Date().toISOString() });
+  }
+});
+
 // ── GET /api/scanner-logs ─────────────────────────────────
 // 返回扫描日志的结构化提取 + 原始日志
 app.get('/api/scanner-logs', (req, res) => {
@@ -1103,6 +1381,8 @@ app.get('/api/scanner-logs', (req, res) => {
     const logFiles = [
       path.join(LOGS_DIR, 'scanner-cron.log'),
       path.join(LOGS_DIR, 'alt-scanner.log'),
+      path.join(LOGS_DIR, 'zhuang-scanner-cron.log'),
+      path.join(LOGS_DIR, 'zhuang-scanner.log'),
     ];
 
     // 合并两个日志文件的最近 N 行（每个文件取 lines 行，不截断合并结果）
@@ -1136,10 +1416,13 @@ app.get('/api/scanner-logs', (req, res) => {
       if (m) {
         const detailM = l.text.match(/涨跌幅[:：]\s*([+-]?[\d.]+%)/);
         const oiM = l.text.match(/OI(?:变化)?[:：]\s*([+-]?[\d.]+%)/);
+        // 区别 zhuang vs alt 扫描画像（标签 + 文件名双重检测）
+        const isZhuang = /\[扫描:zhuang\]/.test(l.text) || l.source.includes('zhuang');
         rawHits.push({
           time: l.time,
           coin: m[1],
           type: 'hit',
+          profile: isZhuang ? 'zhuang' : 'altcoin',
           change: detailM ? detailM[1] : '',
           oiChange: oiM ? oiM[1] : '',
           source: l.source,
@@ -1175,6 +1458,50 @@ app.get('/api/scanner-logs', (req, res) => {
           });
         }
       }
+      // 格式4: 阶段一 启动完成 / 预处理成功（zhuang-scanner-cron.log）
+      m = l.text.match(/\[阶段一\]\s*=+\s*山寨币分析启动\s*\|\s*币种[:：]\s*([A-Z0-9]+)/);
+      if (m) {
+        rawHits.push({
+          time: l.time,
+          coin: m[1],
+          type: 'stage1-start',
+          profile: l.source.includes('zhuang') ? 'zhuang' : 'altcoin',
+          source: l.source,
+        });
+        continue;
+      }
+      // 格式5: 预处理成功 / 预处理阶段完成
+      m = l.text.match(/(预处理成功|预处理阶段完成)/);
+      if (m) {
+        // 从 allLines 查找最近的阶段一启动行（同源文件，向前/向后搜索，优先按时间差最小）
+        let associatedCoin = '';
+        const srcIdx = allLines.findIndex(al => al === l);
+        if (srcIdx >= 0) {
+          let bestDist = Infinity;
+          for (let i = 0; i < allLines.length; i++) {
+            if (i === srcIdx) continue;
+            if (allLines[i].source !== l.source) continue;
+            if (!/\[阶段一\]\s*=+\s*山寨币分析启动/.test(allLines[i].text)) continue;
+            const coinM = allLines[i].text.match(/币种[:：]\s*([A-Z0-9]+)/);
+            if (!coinM) continue;
+            // 按索引距离优先（同文件内的相邻性）
+            const dist = Math.abs(i - srcIdx);
+            if (dist < bestDist) {
+              bestDist = dist;
+              associatedCoin = coinM[1];
+            }
+          }
+        }
+        rawHits.push({
+          time: l.time,
+          coin: associatedCoin,
+          type: 'stage1-done',
+          profile: l.source.includes('zhuang') ? 'zhuang' : 'altcoin',
+          result: m[1] === '预处理成功' ? 'success' : 'complete',
+          source: l.source,
+        });
+        continue;
+      }
     }
 
     // 去掉无时间戳的噪音条目（dispatch 行等无 [YYYY-MM-DD HH:MM:SS] 格式）
@@ -1184,10 +1511,10 @@ app.get('/api/scanner-logs', (req, res) => {
     for (const h of validHits) {
       if (h.type !== 'hit') continue;
       if (h.change && h.oiChange) continue; // 已有完整详情
-      const hIdx = allLines.findIndex(l => l.time === h.time && l.text.includes(h.coin));
+      const hIdx = allLines.findIndex(l => l.time === h.time && l.source === h.source && /✅\s*命中/.test(l.text));
       if (hIdx < 0) continue;
-      // 检查前后 3 行，找同源文件的涨跌幅/OI 行
-      for (let offset = -3; offset <= 3; offset++) {
+      // 检查前后 5 行，找同源文件的涨跌幅/OI 行（庄币细节可能隔 2-3 行）
+      for (let offset = -5; offset <= 5; offset++) {
         if (offset === 0) continue;
         const idx = hIdx + offset;
         if (idx < 0 || idx >= allLines.length) continue;
@@ -1216,6 +1543,7 @@ app.get('/api/scanner-logs', (req, res) => {
       const existing = hits.find(e =>
         e.coin === h.coin &&
         e.type === h.type &&
+        (e.profile || '') === (h.profile || '') &&
         Math.abs(new Date(e.time).getTime() - hTime) <= DEDUP_WINDOW_MS
       );
       if (existing) {
@@ -1266,6 +1594,7 @@ app.get('/api/silence-monitor-logs', (req, res) => {
 
     // 去重：PM2 日志会重复输出（stderr + stdout），相同文本相邻的去重
     allLines = allLines.filter((l, i, arr) => i === 0 || l.text !== arr[i - 1].text);
+    allLines.reverse();
 
     let filteredLines = allLines;
     if (search) filteredLines = allLines.filter(l => l.text.toUpperCase().includes(search));
@@ -1338,6 +1667,85 @@ app.get('/api/silence-monitor-logs', (req, res) => {
       hits,
       rawLines: filteredLines,
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/auto-archiver-logs ─────────────────────────
+app.get('/api/auto-archiver-logs', (req, res) => {
+  try {
+    const lines = parseInt(req.query.lines) || 300;
+    const search = (req.query.search || '').toUpperCase().trim();
+    const logFile = path.join(LOGS_DIR, 'cycle-auto-archiver.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    const raw = safeExec(`tail -${lines} "${logFile}"`);
+    if (!raw) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    let allLines = raw.trim().split('\n').filter(Boolean).map(line => {
+      const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\]/);
+      return { time: tsMatch ? tsMatch[1].replace('T', ' ') : '', text: line };
+    });
+    allLines = allLines.filter((l, i, arr) => i === 0 || l.text !== arr[i - 1].text);
+    allLines.reverse();
+    if (search) allLines = allLines.filter(l => l.text.toUpperCase().includes(search));
+    res.json({ timestamp: new Date().toISOString(), totalLines: allLines.length, lines: allLines });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/onchain-refresh-logs ─────────────────────────
+app.get('/api/onchain-refresh-logs', (req, res) => {
+  try {
+    const lines = parseInt(req.query.lines) || 300;
+    const search = (req.query.search || '').toUpperCase().trim();
+    const logFile = path.join(LOGS_DIR, 'onchain-refresh.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    const raw = safeExec(`tail -${lines} "${logFile}"`);
+    if (!raw) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    let allLines = raw.trim().split('\n').filter(Boolean).map(line => {
+      // 匹配两种时间戳格式: [2026-06-03 12:23:01] 和 [2026-06-03T12:23:01.356+08:00]
+      const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\]/);
+      return { time: tsMatch ? tsMatch[1].replace('T', ' ') : '', text: line };
+    });
+    allLines = allLines.filter((l, i, arr) => i === 0 || l.text !== arr[i - 1].text);
+    if (search) allLines = allLines.filter(l => l.text.toUpperCase().includes(search));
+    allLines.reverse();
+    res.json({ timestamp: new Date().toISOString(), totalLines: allLines.length, lines: allLines });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/mirror-bot-logs ──────────────────────────
+app.get('/api/mirror-bot-logs', (req, res) => {
+  try {
+    const lines = parseInt(req.query.lines) || 300;
+    const search = (req.query.search || '').toUpperCase().trim();
+    const logFile = path.join(LOGS_DIR, 'mirror-bot.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    const raw = safeExec(`tail -${lines} "${logFile}"`);
+    if (!raw) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    let allLines = raw.trim().split('\n').filter(Boolean).map(line => {
+      const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\]/);
+      return { time: tsMatch ? tsMatch[1].replace('T', ' ') : '', text: line };
+    });
+    allLines = allLines.filter((l, i, arr) => i === 0 || l.text !== arr[i - 1].text);
+    if (search) allLines = allLines.filter(l => l.text.toUpperCase().includes(search));
+    allLines.reverse();
+    res.json({ timestamp: new Date().toISOString(), totalLines: allLines.length, lines: allLines });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1490,7 +1898,12 @@ app.post('/api/cycles/:id/archive', (req, res) => {
     const cmd = `node "${script}" --cycle "${cycleId}" --by manual --reason "${reason}"`;
     const output = safeExec(cmd);
 
-    res.json({ success: true, cycleId, reason, output: output?.trim() });
+    // 检测脚本是否失败（safeExec 在非零退出码时返回 null）
+    if (output === null) {
+      return res.status(500).json({ error: `归档脚本执行失败: ${cycleId}` });
+    }
+
+    res.json({ success: true, cycleId, reason, output: output.trim() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2048,6 +2461,8 @@ app.post('/api/pm2/:action', (req, res) => {
         memory: Math.round((p.monit?.memory || 0) / 1048576 * 10) / 10,
         restarts: p.pm2_env?.restart_time || 0,
         uptime: p.pm2_env?.pm_uptime || 0,
+        cronRestart: p.pm2_env?.cron_restart || '',
+        autorestart: p.pm2_env?.autorestart !== false,
       }));
       return res.json({ processes: procs });
     }
@@ -2089,6 +2504,29 @@ app.get('/api/dispatcher/details', (req, res) => {
   });
   dispatcherReq.on('error', () => res.json({ error: '调度器未运行' }));
   dispatcherReq.on('timeout', () => { dispatcherReq.destroy(); res.json({ error: '调度器超时' }); });
+});
+
+// ── POST /api/dispatcher/clear-queue ───────────────────
+// 清空调度器排队任务
+app.post('/api/dispatcher/clear-queue', (req, res) => {
+  const http = require('http');
+  const postData = '';
+  const opts = {
+    hostname: '127.0.0.1', port: 3102, path: '/admin/clear-queue',
+    method: 'POST', timeout: 5000,
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+  };
+  const dispatcherReq = http.request(opts, (dispatcherRes) => {
+    let data = '';
+    dispatcherRes.on('data', c => data += c);
+    dispatcherRes.on('end', () => {
+      try { res.json(JSON.parse(data)); } catch (e) { res.json({ error: 'parse error' }); }
+    });
+  });
+  dispatcherReq.on('error', () => res.json({ error: '调度器未运行' }));
+  dispatcherReq.on('timeout', () => { dispatcherReq.destroy(); res.json({ error: '调度器超时' }); });
+  dispatcherReq.write(postData);
+  dispatcherReq.end();
 });
 
 // ── GET /api/dispatcher/forecast ───────────────────────
@@ -2258,6 +2696,8 @@ app.get('/api/system', (req, res) => {
           memory: Math.round((p.monit?.memory || 0) / 1024 / 1024),
           uptime: p.pm2_env?.pm_uptime,
           restarts: p.pm2_env?.restart_time,
+          cronRestart: p.pm2_env?.cron_restart || '',
+          autorestart: p.pm2_env?.autorestart !== false,
         }));
       } catch {}
     }
@@ -2519,7 +2959,7 @@ app.get('/api/report', (req, res) => {
     if (!filePath) return res.status(400).json({ error: '缺少 path 参数' });
 
     // Safety: only allow files under BASE_DIR
-    const resolved = path.resolve(filePath);
+    const resolved = path.resolve(BASE_DIR, filePath);
     if (!resolved.startsWith(BASE_DIR)) {
       return res.status(403).json({ error: '路径不在工作区内' });
     }
@@ -2612,6 +3052,8 @@ app.get('/api/logs', (req, res) => {
 // ── GET /api/trade-decisions ────────────────────────
 // 开仓决策可视化：读取所有活跃周期的 trade-decision JSON
 app.get('/api/trade-decisions', (req, res) => {
+  const maxDays = parseInt(req.query.days) || 1;
+  const cutoff = new Date(Date.now() - maxDays * 86400000);
   try {
     const results = [];
     for (const location of ['active', 'archived']) {
@@ -2661,6 +3103,15 @@ app.get('/api/trade-decisions', (req, res) => {
               }
             }
 
+            // 过滤：只保留近 N 天的决策
+            if (fileTime) {
+              const fileDate = new Date(fileTime.replace(' ', 'T'));
+              if (fileDate < cutoff) continue;
+            } else {
+              // 无法解析文件时间的，跳过（避免旧数据污染）
+              continue;
+            }
+
             results.push({
               ...content,
               _cycleId: cycleDir,
@@ -2680,6 +3131,107 @@ app.get('/api/trade-decisions', (req, res) => {
     // 按文件时间倒序
     results.sort((a, b) => (b._fileTime || '').localeCompare(a._fileTime || ''));
     res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/supervisor-reviews ────────────────────
+// 扫描活跃周期的监督者审查报告
+app.get('/api/supervisor-reviews', (req, res) => {
+  const maxDays = parseInt(req.query.days) || 30;
+  const cutoff = new Date(Date.now() - maxDays * 86400000);
+  try {
+    const results = [];
+    for (const location of ['active', 'archived']) {
+      const locPath = path.join(BASE_DIR, location);
+      if (!fs.existsSync(locPath)) continue;
+      const cycleDirs = fs.readdirSync(locPath).filter(d => {
+        try { return fs.statSync(path.join(locPath, d)).isDirectory(); } catch { return false; }
+      });
+
+      for (const cycleDir of cycleDirs) {
+        const reportsDir = path.join(locPath, cycleDir, 'reports');
+        if (!fs.existsSync(reportsDir)) continue;
+
+        const reviewFiles = fs.readdirSync(reportsDir)
+          .filter(f => f.startsWith('supervisor-review-') && f.endsWith('.md'))
+          .sort();
+
+        const cls = classifyCycle(cycleDir);
+        const coin = cls.coin;
+
+        for (const rf of reviewFiles) {
+          // supervisor-review-COIN-YYYY-MM-DD-HHMM.md
+          const timeMatch = rf.match(/supervisor-review-\w+-(\d{4}-\d{2}-\d{2}-\d{4})\.md$/);
+          const fileTime = timeMatch ? timeMatch[1].replace(/-(\d{2})(\d{2})$/, ' $1:$2') : null;
+
+          if (fileTime) {
+            const fileDate = new Date(fileTime.replace(' ', 'T'));
+            if (fileDate < cutoff) continue;
+          }
+
+          const filePath = path.join(reportsDir, rf);
+          let preview = '';
+          let verdict = 'UNKNOWN';
+          try {
+            const raw = fs.readFileSync(filePath, 'utf8');
+            // 提取审查结果：多模式匹配，覆盖报告中的各种最终判定写法
+            // [^A-Za-z\n]{0,20} 容忍 emoji (🔴✅) + 加粗 (**) + 破折号 (—) 等装饰字符
+            // 模式1: 判定：PASS / 最终判定：🔴 BLOCK / | 判定 | BLOCK 30m | / 判定：**PASS**
+            let vMatch = raw.match(/(?:最终判定|判定)\s*(?:[：:]|\s*\|\s*)[^A-Za-z\n]{0,20}\b(PASS|BLOCK|DELAY|ARCHIVE)\b/i);
+            // 模式2: 标题行直接写判决 ### PASS ✅ / ### 🔴 BLOCK — 延迟 / ### **BLOCK — 延迟 2h**
+            if (!vMatch) {
+              vMatch = raw.match(/^##[#]?\s*[^A-Za-z\n]{0,20}\b(PASS|BLOCK|DELAY|ARCHIVE)\b/im);
+            }
+            // 模式3: 判定标题后的第一段内容（容忍 emoji + 加粗 + 标题前缀）
+            if (!vMatch) {
+              const secMatch = raw.match(/^##[#]?\s*(?:.*)?(?:最终判定|判定).*$/im);
+              if (secMatch) {
+                const afterSection = raw.slice(raw.indexOf(secMatch[0]) + secMatch[0].length).slice(0, 200);
+                vMatch = afterSection.match(/\b(PASS|BLOCK|DELAY|ARCHIVE)\b/i);
+                if (vMatch) vMatch = [vMatch[0], vMatch[1]];
+              }
+            }
+            if (vMatch) {
+              verdict = vMatch[1].toUpperCase().replace(/\s+/g, ' ');
+            }
+            // 提取前300字符作为预览
+            preview = raw.slice(0, 300).replace(/^#.*\n?/gm, '').trim();
+          } catch {}
+
+          results.push({
+            coin,
+            cycle_id: cycleDir,
+            location,
+            file: rf,
+            file_path: path.relative(BASE_DIR, filePath),
+            file_time: fileTime,
+            verdict,
+            preview: preview.slice(0, 150),
+          });
+        }
+      }
+    }
+    results.sort((a, b) => (b.file_time || '').localeCompare(a.file_time || ''));
+    res.json(results);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/pending-trade-lessons ──────────────────
+// 读取复盘缓冲记录 learnings/PENDING_TRADE_LESSONS.json
+app.get('/api/pending-trade-lessons', (req, res) => {
+  try {
+    const lessonsPath = path.join(BASE_DIR, 'learnings', 'PENDING_TRADE_LESSONS.json');
+    if (!fs.existsSync(lessonsPath)) {
+      return res.json([]);
+    }
+    const lessons = JSON.parse(fs.readFileSync(lessonsPath, 'utf8'));
+    // 按时间倒序（最新在前）
+    lessons.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    res.json(lessons);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2964,12 +3516,12 @@ app.get('/api/self-heal', (req, res) => {
 
     // 15分钟粒度统计在后段 restoredRules 解析完成后处理
 
-    // 规则恢复统计: 从 btc-alert.log 中解析 NETWORK_RESTORED 事件
+    // 引擎自动恢复统计: 从 btc-alert.log 中解析 NETWORK_RESTORED 事件（全量）
     const alertLog = path.join(LOGS_DIR, 'btc-alert.log');
     let restoredCount = 0;
     let restoredRules = [];
     if (fs.existsSync(alertLog)) {
-      const raw2 = safeExec(`grep -a 'NETWORK_RESTORED' "${alertLog}" | tail -100`);
+      const raw2 = safeExec(`grep -a 'NETWORK_RESTORED' "${alertLog}"`);
       if (raw2) {
         const restoreLines = raw2.trim().split('\n').filter(Boolean);
         const seenRestore = new Set();
@@ -2993,7 +3545,31 @@ app.get('/api/self-heal', (req, res) => {
     }
     restoredRules.sort((a, b) => b.ts.localeCompare(a.ts));
 
-    // 将恢复事件也按天聚合加入 dailyStats
+    // 引擎自动调整统计: 从 btc-alert.log 中解析 NETWORK_ADJUSTED 事件
+    let netAdjustCount = 0;
+    let netAdjustRules = [];
+    if (fs.existsSync(alertLog)) {
+      const rawAdj = safeExec(`grep -a 'NETWORK_ADJUSTED' "${alertLog}"`);
+      if (rawAdj) {
+        const adjustLines = rawAdj.trim().split('\n').filter(Boolean);
+        const seenAdjust = new Set();
+        for (const line of adjustLines) {
+          const tsA = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+          const ruleA = line.match(/\[([^\]]+)\]\s*NETWORK_ADJUSTED/);
+          if (tsA && ruleA) {
+            const key = ruleA[1].trim() + '::' + tsA[1].slice(0, 16);
+            if (!seenAdjust.has(key)) {
+              seenAdjust.add(key);
+              netAdjustRules.push({ ts: tsA[1], rule: ruleA[1].trim() });
+              netAdjustCount++;
+            }
+          }
+        }
+      }
+    }
+    netAdjustRules.sort((a, b) => b.ts.localeCompare(a.ts));
+
+    // 将恢复事件按天聚合加入 dailyStats
     const restoreByDay = {};
     const restoreByHour = {};
     for (const rr of restoredRules) {
@@ -3010,9 +3586,26 @@ app.get('/api/self-heal', (req, res) => {
         restoreByHour[hrKey]++;
       }
     }
-    // 合并到 dailyStats
+    // 合并恢复事件到 dailyStats
     for (const ds of dailyStats) {
       ds.restores = restoreByDay[ds.date] || 0;
+    }
+
+    // 引擎自动调整按天聚合
+    const adjByDay = {};
+    const adjByHour = {};
+    for (const ar of netAdjustRules) {
+      const day = ar.ts.slice(0, 10);
+      const hrKey = ar.ts.slice(0, 13);
+      if (!adjByDay[day]) adjByDay[day] = 0;
+      adjByDay[day]++;
+      if (new Date(ar.ts).getTime() >= twentyFourHrAgo) {
+        if (!adjByHour[hrKey]) adjByHour[hrKey] = 0;
+        adjByHour[hrKey]++;
+      }
+    }
+    for (const ds of dailyStats) {
+      ds.netAdjusts = adjByDay[ds.date] || 0;
     }
     // 合并到 hourlyStats: 先合并已有的，再补全只有恢复没有自愈事件的小时
     const hrMap = {};
@@ -3020,13 +3613,21 @@ app.get('/api/self-heal', (req, res) => {
       hrMap[hs.hour] = hs;
       const key = hs.hour.replace(' ', 'T').replace(':00', '').slice(0, 13);
       hs.restores = restoreByHour[key] || 0;
+      hs.netAdjusts = adjByHour[key] || 0;
     }
-    // 补充只有恢复事件的小时
+    // 补充只有恢复/调整事件的小时
     for (const [hrKey, rc] of Object.entries(restoreByHour)) {
-      // hrKey 格式: "2026-05-23T13"，转成 "2026-05-23 13:00"
       const hourStr = hrKey.replace('T', ' ') + ':00';
       if (!hrMap[hourStr]) {
-        hrMap[hourStr] = { hour: hourStr, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: rc };
+        hrMap[hourStr] = { hour: hourStr, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: rc, netAdjusts: 0 };
+      }
+    }
+    for (const [hrKey, ac] of Object.entries(adjByHour)) {
+      const hourStr = hrKey.replace('T', ' ') + ':00';
+      if (!hrMap[hourStr]) {
+        hrMap[hourStr] = { hour: hourStr, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0, netAdjusts: ac };
+      } else {
+        hrMap[hourStr].netAdjusts = ac;
       }
     }
     // 重写 hourlyStats，按时间排序
@@ -3044,7 +3645,7 @@ app.get('/api/self-heal', (req, res) => {
       const m = parseInt(e.ts.slice(14, 16)) || 0;
       const qh = Math.floor(isNaN(m) ? 0 : m / 15) * 15;
       const key15 = e.ts.slice(0, 14) + String(qh).padStart(2, '0') + ':00';
-      if (!qhBuckets[key15]) qhBuckets[key15] = { time: key15, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 };
+      if (!qhBuckets[key15]) qhBuckets[key15] = { time: key15, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0, netAdjusts: 0 };
       if (e.type === 'fixed') qhBuckets[key15].fixes++;
       else if (e.type === 'interval_adjust' || e.type === 'selfheal') qhBuckets[key15].intervals++;
       else if (e.type === 'archived') qhBuckets[key15].archives++;
@@ -3057,8 +3658,18 @@ app.get('/api/self-heal', (req, res) => {
       const qh = Math.floor(isNaN(m) ? 0 : m / 15) * 15;
       const dayHr = rr.ts.slice(0, 10) + ' ' + rr.ts.slice(11, 13);
       const key15r = dayHr + ':' + String(qh).padStart(2, '0') + ':00';
-      if (!qhBuckets[key15r]) qhBuckets[key15r] = { time: key15r, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 };
+      if (!qhBuckets[key15r]) qhBuckets[key15r] = { time: key15r, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0, netAdjusts: 0 };
       qhBuckets[key15r].restores++;
+    }
+    // 引擎调整事件入 15 分钟桶
+    for (const ar of netAdjustRules) {
+      if (new Date(ar.ts).getTime() < threeHrAgo.getTime()) continue;
+      const m = ar.ts.length >= 16 ? parseInt(ar.ts.slice(14, 16)) : 0;
+      const qh = Math.floor(isNaN(m) ? 0 : m / 15) * 15;
+      const dayHr = ar.ts.slice(0, 10) + ' ' + ar.ts.slice(11, 13);
+      const key15a = dayHr + ':' + String(qh).padStart(2, '0') + ':00';
+      if (!qhBuckets[key15a]) qhBuckets[key15a] = { time: key15a, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0, netAdjusts: 0 };
+      qhBuckets[key15a].netAdjusts++;
     }
     // 补齐最近 3 小时的 12 个 15 分钟桶（填 0）
     const nowHr = new Date();
@@ -3066,7 +3677,7 @@ app.get('/api/self-heal', (req, res) => {
     for (let i = 0; i < 12; i++) {
       const ts = new Date(nowHr.getTime() - (11 - i) * 15 * 60 * 1000);
       const key = ts.toISOString().slice(0, 10) + ' ' + String(ts.getHours()).padStart(2, '0') + ':' + String(ts.getMinutes()).padStart(2, '0') + ':00';
-      if (!qhBuckets[key]) qhBuckets[key] = { time: key, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0 };
+      if (!qhBuckets[key]) qhBuckets[key] = { time: key, fixes: 0, intervals: 0, archives: 0, coinDiags: 0, restores: 0, netAdjusts: 0 };
       qhSelfHeal.push(qhBuckets[key]);
     }
 
@@ -3077,9 +3688,13 @@ app.get('/api/self-heal', (req, res) => {
       restoredSummary: {
         count: restoredCount,
       },
+      netAdjustSummary: {
+        count: netAdjustCount,
+      },
       summary: {
         fixes: fixes.length,
         intervals: intervals.length,
+        netAdjusts: netAdjustCount,
         archives: archiveEntries.length,
         coinDiags: coinDiags.length,
       },
@@ -3143,7 +3758,7 @@ app.get('/api/alert-activity', (req, res) => {
     }
 
     const eventPatterns = [
-      'CHECK_START', 'TIMER_STARTED', 'TRIGGERED |', 'TRIGGER_COMPLETED',
+      'CHECK_START', 'TIMER_STARTED', 'TRIGGERED |', 'TRIGGERED_PER_LEVEL', 'TRIGGERED_RECORD', 'TRIGGER_COMPLETED',
       'DATA_COLLECTED', 'RULE_UNLOADED', 'RULE_RELOADED', 'RULE_ARCHIVED',
       'NETWORK_ADJUSTED', 'NETWORK_RESTORED', 'SELF_HEAL_TRIGGERED',
       'SELF_HEAL_SPAWNED', 'SUMMARY_SENT'
@@ -3167,6 +3782,8 @@ app.get('/api/alert-activity', (req, res) => {
   c[ts]++;
   if (/CHECK_START/) ck[ts]++;
   if (/TRIGGERED \\|/) tr[ts]++;
+  if (/TRIGGERED_PER_LEVEL/) tr[ts]++;
+  if (/TRIGGERED_RECORD/) tr[ts]++;
   if (/NETWORK_ADJUSTED/) ad[ts]++;
   if (/NETWORK_RESTORED/) rs[ts]++;
   if (/RULE_ARCHIVED/) ar[ts]++;
@@ -3222,7 +3839,7 @@ END {
         return total;
       }
       byDay[dayStr].checks = dayCount('CHECK_START');
-      byDay[dayStr].triggers = dayCount('TRIGGERED ');
+      byDay[dayStr].triggers = dayCount('TRIGGERED ') + dayCount('TRIGGERED_PER_LEVEL') + dayCount('TRIGGERED_RECORD');
       byDay[dayStr].adjust = dayCount('NETWORK_ADJUSTED');
       byDay[dayStr].restore = dayCount('NETWORK_RESTORED');
       byDay[dayStr].archive = dayCount('RULE_ARCHIVED');
@@ -3253,7 +3870,9 @@ END {
       key = sprintf(\"%02d:%02d\", h, m);
       c[key]++;
       if(/CHECK_START/) ck[key]++;
-      if(/TRIGGERED /) tr[key]++;
+      if(/TRIGGERED \\|/) tr[key]++;
+      if(/TRIGGERED_PER_LEVEL/) tr[key]++;
+      if(/TRIGGERED_RECORD/) tr[key]++;
       if(/NETWORK_ADJUSTED/) ad[key]++;
       if(/NETWORK_RESTORED/) rs[key]++;
     } END {
@@ -3289,7 +3908,7 @@ END {
       totals,
       summary: {
         checks: totals['CHECK_START'] || 0,
-        triggers: totals['TRIGGERED |'] || 0,
+        triggers: (totals['TRIGGERED |'] || 0) + (totals['TRIGGERED_PER_LEVEL'] || 0) + (totals['TRIGGERED_RECORD'] || 0),
         adjust: totals['NETWORK_ADJUSTED'] || 0,
         restore: totals['NETWORK_RESTORED'] || 0,
         unloads: totals['RULE_UNLOADED'] || 0,
@@ -3300,6 +3919,94 @@ END {
       hourly: hourlyStats,
       quarterHourly,
     });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/position-monitor/reports ───────────────────
+// 列出所有持仓审视报告文件
+app.get('/api/position-monitor/reports', (req, res) => {
+  try {
+    const files = fs.readdirSync(DATA_DIR)
+      .filter(f => /^position-monitor-\d{8}-\d{4}\.md$/.test(f))
+      .map(f => {
+        const filePath = path.join(DATA_DIR, f);
+        const stat = fs.statSync(filePath);
+        const content = fs.readFileSync(filePath, 'utf8');
+        const titleMatch = content.match(/^# 持仓审视报告 — (.*)$/m);
+        const overviewMatch = content.match(/## 审查概况\n([\s\S]*?)(?=\n## )/);
+        const actionsMatch = content.match(/## 已执行操作\n([\s\S]*?)(?=\n## )/);
+        const hasActions = !!(actionsMatch && !actionsMatch[1].includes('无操作'));
+        // 提取各判定数量
+        const holdM = content.match(/HOLD:\s*(\d+)/);
+        const reduceM = content.match(/REDUCE:\s*(\d+)/);
+        const addM = content.match(/ADD:\s*(\d+)/);
+        const closeM = content.match(/CLOSE:\s*(\d+)/);
+        const totalM = content.match(/审查持仓数:\s*(\d+)/);
+        return {
+          file: f,
+          time: titleMatch ? titleMatch[1] : f.replace('position-monitor-', '').replace('.md', ''),
+          size: stat.size,
+          mtime: stat.mtime.toISOString(),
+          hasActions,
+          total: totalM ? parseInt(totalM[1]) : 0,
+          hold: holdM ? parseInt(holdM[1]) : 0,
+          reduce: reduceM ? parseInt(reduceM[1]) : 0,
+          add: addM ? parseInt(addM[1]) : 0,
+          close: closeM ? parseInt(closeM[1]) : 0,
+          overview: overviewMatch ? overviewMatch[1].trim() : '',
+        };
+      })
+      .sort((a, b) => b.mtime.localeCompare(a.mtime));
+
+    res.json({ files, count: files.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/position-monitor/reports/:file ─────────────
+// 读取单份持仓审视报告完整内容
+app.get('/api/position-monitor/reports/:file', (req, res) => {
+  try {
+    const file = req.params.file;
+    if (!/^position-monitor-\d{8}-\d{4}\.md$/.test(file)) {
+      return res.status(400).json({ error: '无效的文件名' });
+    }
+    const filePath = path.join(DATA_DIR, file);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: '报告不存在' });
+    }
+    const content = fs.readFileSync(filePath, 'utf8');
+    res.json({ file, time: mtimeISO(filePath), content });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/position-monitor/log ───────────────────────
+// 返回最近持仓审计日志行
+app.get('/api/position-monitor/log', (req, res) => {
+  try {
+    const maxLines = parseInt(req.query.lines) || 200;
+    const logFile = path.join(LOGS_DIR, 'position-monitor.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ lines: [], count: 0 });
+    }
+    const raw = safeExec(`tail -${maxLines} "${logFile}"`);
+    // 去重：position-monitor.js 日志双写（PM2 stdout + 显式 fs.append），同一行出现两次
+    const seen = new Set();
+    const logLines = (raw || '').trim().split('\n').filter(Boolean).map(line => {
+      // 匹配两种格式: [YYYY-MM-DD HH:MM:SS] 或 YYYY-MM-DDTHH:MM:SS:
+      let tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/);
+      if (!tsMatch) tsMatch = line.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2}):/);
+      const time = tsMatch ? (tsMatch[1] + (tsMatch[2] ? ' ' + tsMatch[2] : '')) : '';
+      return { time, text: line };
+    }).filter(l => l.time) // 只保留有时间戳的行
+    .sort((a, b) => b.time.localeCompare(a.time)) // 最新在前
+    .filter(l => { const k = l.time + l.text.slice(0, 80); if (seen.has(k)) return false; seen.add(k); return true; });
+    res.json({ lines: logLines, count: logLines.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

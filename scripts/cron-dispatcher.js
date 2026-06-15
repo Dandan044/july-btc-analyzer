@@ -51,7 +51,7 @@ process.on('SIGHUP', () => {
 // ════════════════════════════════════════════
 
 // 优先级顺序（降序：数字越大越优先）
-const PRIORITY_ORDER = ['high-3', 'high-2', 'high-1', 'med-2', 'med-1', 'low-2', 'low-1'];
+const PRIORITY_ORDER = ['pro', 'high-3', 'high-2', 'high-1', 'med-2', 'med-1', 'low-2', 'low-1'];
 
 // 优先级队列: Map<priority, job[]>
 const queue = new Map();
@@ -59,7 +59,7 @@ for (const p of PRIORITY_ORDER) queue.set(p, []);
 
 // ═══ 新：动态窗口载荷跟踪 ═══
 const DEFAULT_DURATION_MS = 10 * 60 * 1000; // cron 任务默认耗时（日报/复盘等长任务）
-const INTERNAL_WINDOW_MS = 2 * 60 * 1000;   // internal 条目窗口：填补 dispatch→缓存刷新 的 ~30s 间隙
+const INTERNAL_WINDOW_MS = 15 * 60 * 1000;  // internal 条目窗口：匹配分析任务实际运行时长（3-15min），防止空队列时低估负载
 const OPENCLAW_CONFIG_PATH = path.join(process.env.HOME || '/home/administrator', '.openclaw', 'openclaw.json');
 
 // 活跃任务窗口: Map<jobKey, { model, windowStart, windowEnd, source }>
@@ -108,7 +108,7 @@ const dedupCache = new Map();
 
 // 节流记录: Map<priorityLevel, lastDispatchTime>
 const throttleMap = new Map();
-for (const p of ['high', 'med', 'low']) throttleMap.set(p, 0);
+for (const p of ['pro', 'high', 'med', 'low']) throttleMap.set(p, 0);
 
 // 任务内部状态: Map<jobId, { job, retryAfter, enqueuedAt }>
 const jobMeta = new Map();
@@ -470,19 +470,6 @@ function executeCronAdd(job) {
 
   const atStr = atTime.toISOString();
 
-  const args = [
-    'cron', 'add',
-    '--name', job.name,
-    '--agent', d.agent,
-    '--session', d.session,
-    '--at', atStr,
-    '--message', job.message,
-  ];
-
-  if (job.model) args.push('--model', job.model);
-  if (d.delete_after_run) args.push('--delete-after-run');
-  if (d.no_deliver) args.push('--no-deliver');
-
   log('DISPATCH', `${job.priority} | ${job.coin || '-'} | ${job.source} | model=${job.model} | name=${job.name}`);
 
   // 用 spawn 传数组参数，绕过 shell 转义问题
@@ -497,6 +484,13 @@ function executeCronAdd(job) {
   if (d.delete_after_run) openclawArgs.push('--delete-after-run');
   if (d.no_deliver) openclawArgs.push('--no-deliver');
 
+  // ── 按优先级注入超时：防止长时间分析任务占用模型池 ──
+  const priorityLevelKey = priorityLevel(job.priority);
+  const timeoutCfg = CONFIG.timeout?.[priorityLevelKey];
+  if (timeoutCfg?.timeout_seconds) {
+    openclawArgs.push('--timeout-seconds', String(timeoutCfg.timeout_seconds));
+  }
+
   // ── Bug2 修复：同步写入 activeJobs（dispatch-pending），不等 spawn 回调 ──
   // 防止 schedulerTick while 循环在同一个 tick 内派发多个任务到同一模型
   const taskAt = job.taskAt || Date.now();
@@ -506,53 +500,97 @@ function executeCronAdd(job) {
     windowStart: taskAt,
     windowEnd: taskAt + INTERNAL_WINDOW_MS,
     source: 'dispatch-pending',
-    name: job.name,  // 去重用
+    name: job.name,
     coin: job.coin || extractCoinFromName(job.name),
   });
 
-  const child = spawn('openclaw', openclawArgs, {
-    env: { ...process.env, PATH: process.env.PATH },
-    timeout: 15000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const MAX_ATTEMPTS = 2;
+  const RETRY_DELAY_MS = 3000;
 
-  let stderrOut = '';
-  child.stderr.on('data', c => stderrOut += c);
-  child.on('close', (code) => {
-    // 无论成败，先清掉 pending 条目
-    activeJobs.delete(pendingKey);
+  function doAttempt(attempt) {
+    const child = spawn('openclaw', openclawArgs, {
+      env: { ...process.env, PATH: process.env.PATH },
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
-    if (code !== 0) {
-      log('ERROR', `cron add 失败 [${job.name}]: exit=${code} ${stderrOut.slice(0, 200)}`);
-      stats.rejected++;
-      stats.byPriority[job.priority].rejected++;
-    } else {
-      stats.dispatched++;
-      stats.byPriority[job.priority].dispatched++;
-      if (job.model) stats.modelUsage[job.model] = (stats.modelUsage[job.model] || 0) + 1;
-      // 内部跟踪：记录派发任务的时间窗口（cron 导入时会自动覆盖）
-      const jobKey = 'internal:' + job.name;
-      // 先删掉可能已存在的 cron 条目，避免双计
-      for (const [key, val] of activeJobs) {
-        if (val.source === 'cron' && key.endsWith(job.name)) activeJobs.delete(key);
+    let stdoutOut = '';
+    let stderrOut = '';
+    child.stdout.on('data', c => stdoutOut += c);
+    child.stderr.on('data', c => stderrOut += c);
+
+    child.on('close', (code, signal) => {
+      if (code === 0) {
+        // 成功
+        activeJobs.delete(pendingKey);
+        stats.dispatched++;
+        stats.byPriority[job.priority].dispatched++;
+        if (job.model) stats.modelUsage[job.model] = (stats.modelUsage[job.model] || 0) + 1;
+        const jobKey = 'internal:' + job.name;
+        for (const [key, val] of activeJobs) {
+          if (val.source === 'cron' && key.endsWith(job.name)) activeJobs.delete(key);
+        }
+        activeJobs.set(jobKey, {
+          model: job.model,
+          windowStart: taskAt,
+          windowEnd: taskAt + INTERNAL_WINDOW_MS,
+          source: 'internal',
+          name: job.name,
+          coin: extractCoinFromName(job.name),
+        });
+        if (attempt > 1) {
+          log('INFO', `cron add 重试成功 [${job.name}] (第${attempt}次尝试)`);
+        }
+        return;
       }
-      activeJobs.set(jobKey, {
-        model: job.model,
-        windowStart: taskAt,
-        windowEnd: taskAt + INTERNAL_WINDOW_MS,
-        source: 'internal',
-        name: job.name,  // 去重用
-        coin: extractCoinFromName(job.name),
-      });
-    }
-  });
-  child.on('error', (err) => {
-    // spawn 本身失败也要清 pending
-    activeJobs.delete(pendingKey);
-    log('ERROR', `cron add 异常 [${job.name}]: ${err.message}`);
-    stats.rejected++;
-    stats.byPriority[job.priority].rejected++;
-  });
+
+      // ── 失败：拼装详细诊断信息 ──
+      const parts = [];
+      parts.push(`exit=${code}`);
+      if (signal) parts.push(`signal=${signal}`);
+      if (stdoutOut.trim()) {
+        parts.push(`stdout="${stdoutOut.trim().slice(0, 300)}"`);
+      } else {
+        parts.push('stdout=(空)');
+      }
+      if (stderrOut.trim()) {
+        parts.push(`stderr="${stderrOut.trim().slice(0, 300)}"`);
+      } else {
+        parts.push('stderr=(空)');
+      }
+      const errDetail = parts.join(' | ');
+
+      if (attempt < MAX_ATTEMPTS) {
+        log('WARN', `cron add 失败 [${job.name}] 第${attempt}/${MAX_ATTEMPTS}次: ${errDetail} — ${RETRY_DELAY_MS / 1000}s 后重试...`);
+        setTimeout(() => doAttempt(attempt + 1), RETRY_DELAY_MS);
+      } else {
+        // 最终失败
+        activeJobs.delete(pendingKey);
+        const reasonHint = signal
+          ? `被信号 ${signal} 终止`
+          : (code === null ? '进程异常退出' : `退出码 ${code}`);
+        log('ERROR', `cron add 最终失败 [${job.name}] (${MAX_ATTEMPTS}次尝试, ${reasonHint}): ${errDetail}`);
+        stats.rejected++;
+        stats.byPriority[job.priority].rejected++;
+      }
+    });
+
+    child.on('error', (err) => {
+      // spawn 本身失败（如 openclaw 二进制不存在、ENOENT 等）
+      const errType = err.code || 'UNKNOWN';
+      if (attempt < MAX_ATTEMPTS) {
+        log('WARN', `cron add spawn异常 [${job.name}] 第${attempt}/${MAX_ATTEMPTS}次: code=${errType} msg="${err.message}" — ${RETRY_DELAY_MS / 1000}s 后重试...`);
+        setTimeout(() => doAttempt(attempt + 1), RETRY_DELAY_MS);
+      } else {
+        activeJobs.delete(pendingKey);
+        log('ERROR', `cron add spawn最终异常 [${job.name}] (${MAX_ATTEMPTS}次): code=${errType} msg="${err.message}"`);
+        stats.rejected++;
+        stats.byPriority[job.priority].rejected++;
+      }
+    });
+  }
+
+  doAttempt(1);
 }
 
 function parseDelay(s) {
@@ -632,8 +670,12 @@ function computeTaskAt(job) {
   return new Date(job.at).getTime();
 }
 
+// 单 tick 内最大 dispatch 数（跨所有优先级），防止 cron 系统被并发击穿
+const MAX_DISPATCH_PER_TICK = 2;
+
 function schedulerTick() {
   cleanDedupCache();
+  let tickDispatchCount = 0;
 
   // 按优先级顺序 dequeue
   for (const prio of PRIORITY_ORDER) {
@@ -642,8 +684,8 @@ function schedulerTick() {
       const job = jobs[0];
       const meta = jobMeta.get(job.id);
 
-      // MED/LOW 重试间隔检查
-      if (priorityLevel(prio) !== 'high' && meta && meta.retryAfter > Date.now()) {
+      // MED/LOW 重试间隔检查 (pro/high 无延迟)
+      if (!['pro','high'].includes(priorityLevel(prio)) && meta && meta.retryAfter > Date.now()) {
         break;
       }
 
@@ -659,10 +701,14 @@ function schedulerTick() {
 
       if (result === null) {
         if (meta) {
-          const retryMs = priorityLevel(prio) === 'med'
-            ? CONFIG.retry.med_retry_after_ms
-            : CONFIG.retry.low_retry_after_ms;
-          meta.retryAfter = Date.now() + retryMs;
+          const level = priorityLevel(prio);
+          if (level === 'pro' || level === 'high') {
+            // pro/high 不设重试延迟，直接跳过
+          } else if (level === 'med') {
+            meta.retryAfter = Date.now() + CONFIG.retry.med_retry_after_ms;
+          } else {
+            meta.retryAfter = Date.now() + CONFIG.retry.low_retry_after_ms;
+          }
         }
         break;
       }
@@ -672,12 +718,19 @@ function schedulerTick() {
       }
 
       // 下发
+      // 单 tick 串行化：每个 tick 最多 dispatch MAX_DISPATCH_PER_TICK 个任务
+      // 防止 openclaw cron add 并发调用被 cron 系统拒绝
+      if (tickDispatchCount >= MAX_DISPATCH_PER_TICK) {
+        break;
+      }
+
       jobs.shift();
       jobMeta.delete(job.id);
       job.model = result.id;
       job.taskAt = taskAt;
 
       throttleMap.set(priorityLevel(prio), Date.now());
+      tickDispatchCount++;
 
       executeCronAdd(job);
       persistQueue();
@@ -794,9 +847,9 @@ function handleStatus(req, res) {
       by_source: stats.bySource,
       model_usage: stats.modelUsage,
     },
-    // 简化：只返回 level→pool 映射（high/med/low）
+    // 简化：只返回 level→pool 映射（pro/high/med/low）
     pool_map: CONFIG.priority_pool_map,
-    level_routing: { high: CONFIG.priority_pool_map['high'], med: CONFIG.priority_pool_map['med'], low: CONFIG.priority_pool_map['low'] },
+    level_routing: { pro: CONFIG.priority_pool_map['pro'] || 'ds-pro', high: CONFIG.priority_pool_map['high'], med: CONFIG.priority_pool_map['med'], low: CONFIG.priority_pool_map['low'] },
   });
 }
 
@@ -852,6 +905,26 @@ function handleDetails(req, res) {
 // ════════════════════════════════════════════
 // GET /forecast — 24h 载荷热力图数据（按池聚合）
 // ════════════════════════════════════════════
+function handleClearQueue(req, res) {
+  try {
+    // 清空中内存队列
+    for (const prio of PRIORITY_ORDER) {
+      queue.set(prio, []);
+    }
+    jobMeta.clear();
+
+    // 清空持久化文件
+    try { if (fs.existsSync(QUEUE_PERSIST_FILE)) fs.unlinkSync(QUEUE_PERSIST_FILE); } catch (_) {}
+    try { if (fs.existsSync(QUEUE_PERSIST_FILE + '.tmp')) fs.unlinkSync(QUEUE_PERSIST_FILE + '.tmp'); } catch (_) {}
+
+    log('INFO', `队列已清空`);
+    jsonReply(res, 200, { status: 'ok', cleared: true });
+  } catch (e) {
+    log('ERROR', `队列清空失败: ${e.message}`);
+    jsonReply(res, 500, { error: e.message });
+  }
+}
+
 function handleForecast(req, res) {
   const now = Date.now();
   const SLOT_MIN = 30;
@@ -903,6 +976,9 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'POST' && req.url === '/reload') {
     return handleReload(req, res);
+  }
+  if (req.method === 'POST' && req.url === '/admin/clear-queue') {
+    return handleClearQueue(req, res);
   }
   jsonReply(res, 404, { error: 'not found' });
 });

@@ -111,7 +111,11 @@ const archiveRules = decision.archive_rules || [];
 let archivedCount = 0;
 let archivedNames = [];
 
-for (const ruleName of archiveRules) {
+for (const ruleEntry of archiveRules) {
+  const ruleName = typeof ruleEntry === 'string' ? ruleEntry : (ruleEntry.rule_name || ruleEntry.name || String(ruleEntry));
+  const ruleBy = (typeof ruleEntry === 'object' && ruleEntry.by) ? ruleEntry.by : 'stage4-cleanup';
+  const ruleReason = (typeof ruleEntry === 'object' && ruleEntry.reason) ? ruleEntry.reason : (decision.archive_reason || '阶段四正常清理');
+  
   const rulePath = path.join(RULES_DIR, ruleName);
   if (!fs.existsSync(rulePath)) {
     log(`归档跳过: ${ruleName} (文件已被引擎或前期步骤归档，无需重复操作)`, 'WARN');
@@ -121,11 +125,11 @@ for (const ruleName of archiveRules) {
   }
 
   try {
-    const archiveCmd = `node "${ARCHIVE_SCRIPT}" --rule ${ruleName} --by stage4-cleanup --reason "${decision.archive_reason || '阶段四正常清理'}"`;
+    const archiveCmd = `node "${ARCHIVE_SCRIPT}" --rule "${ruleName}" --by ${ruleBy} --reason "${ruleReason}"`;
     execSync(archiveCmd, { encoding: 'utf8', timeout: 10000 });
     archivedCount++;
     archivedNames.push(ruleName);
-    log(`归档规则: ${ruleName} | 原因: ${decision.archive_reason || '阶段四正常清理'}`);
+    log(`归档规则: ${ruleName} | 原因: ${ruleReason}`);
   } catch (err) {
     log(`归档失败: ${ruleName} → ${err.message}`, 'ERROR');
   }
@@ -188,6 +192,12 @@ function writePriceLevelRule(filePath, rule, decision) {
   if (levels.length === 0) throw new Error('price_levels 为空');
   if (levels.length > 6) throw new Error(`价位超过6个限制 (${levels.length})`);
 
+  // 规则 C：上下侧必须各有一个 notify
+  const supportNotify = levels.some(l => l.type === 'support' && (l.triggerLevel || 'notify') === 'notify');
+  const resistanceNotify = levels.some(l => l.type === 'resistance' && (l.triggerLevel || 'notify') === 'notify');
+  if (!supportNotify) throw new Error('支撑侧缺少 notify 价位（规则 C：上下侧必须各至少1个 notify）');
+  if (!resistanceNotify) throw new Error('阻力侧缺少 notify 价位（规则 C：上下侧必须各至少1个 notify）');
+
   const reportPath = decision.report_path || '';
   const maxRetracePct = rule.max_retrace_pct || 0.3;
 
@@ -203,7 +213,8 @@ function writePriceLevelRule(filePath, rule, decision) {
     }
     return `  { price: ${l.price}, type: '${l.type}', label: '${l.label}',
     action: '${l.action || ''}', priority: '${l.priority || 'high'}',
-    confirmPolicy: '${l.confirmPolicy || 'hold'}', confirmMs: ${confirmMs} }`;
+    confirmPolicy: '${l.confirmPolicy || 'hold'}', confirmMs: ${confirmMs},
+    triggerLevel: '${l.triggerLevel || 'notify'}' }`;
   }).join(',\n');
 
   const summary = levels.map(l =>
@@ -250,6 +261,8 @@ const STABILITY = {
 
 module.exports = {
   name: '${COIN}-多价位监控',
+  triggerPolicy: 'per-level',
+  PRICE_LEVELS,  // ★ 引擎需要读取价位数组以初始化运行时拷贝
 
   // ═══ C19: 规则元数据 ═══
   ruleType: 'price-levels',
@@ -297,7 +310,7 @@ module.exports = {
       const confirmedLevels = [];
       const allLogs = [];
 
-      for (const level of PRICE_LEVELS) {
+      for (const level of (this.priceLevels || PRICE_LEVELS)) {
         const key = String(level.price);
         if (!this.levelStates[key]) {
           this.levelStates[key] = { firstTouch: null, touches: 0, crossbacks: 0, confirmed: false };
@@ -479,7 +492,10 @@ module.exports = {
 function writeNonPriceRule(filePath, rule, decision) {
   const reportPath = decision.report_path || '';
   const ruleType = rule.type || 'oi-monitor';
-  const threshold = rule.threshold_value || rule.threshold_pct || 5;
+  // normalize: LLM may output negative threshold (e.g. -14) for direction='below'.
+  // using Math.abs prevents generating '--14' (double minus→prefix decrement syntax error)
+  // when the template prepends '-' for the comparison: e.g. 'changeFromBase <= -' + (-14) = 'changeFromBase <= --14'
+  const threshold = Math.abs(rule.threshold_value || rule.threshold_pct || 5);
   const thresholdType = rule.threshold_type || 'pct';  // 'pct'=百分比 | 'absolute'=绝对值（仅 oi-monitor）
   const label = rule.label || `${COIN} ${ruleType} 监控`;
   const rawTemplate = rule.significance_template || `${ruleType} 触发`;
@@ -721,6 +737,7 @@ const THRESHOLD = ${threshold};
 
 module.exports = {
   name: '${COIN}-${label}',
+  triggerLevel: '${rule.triggerLevel || 'notify'}',
 
   // ═══ C19: 规则元数据 ═══
   ruleType: '${ruleType}',

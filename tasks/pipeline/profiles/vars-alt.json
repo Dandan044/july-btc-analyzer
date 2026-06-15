@@ -1,0 +1,19 @@
+{
+  "prefix": "alt",
+  "log_prefix": "alt",
+  "report_prefix": "alt-report",
+  "label": "山寨币",
+  "title": "山寨币任务 - 阶段二：交叉验证分析",
+  "subtitle": "此任务为山寨币工作流的第二阶段，负责三维数据交叉验证、叙事一致性判断、开仓策略输出。",
+  "x_default": 1.8,
+  "x_range": "1.5~2.0",
+  "min_rr": 1.2,
+  "max_stop_pct": 35,
+  "step_report_save": "7",
+  "step_trade_json": "8",
+  "step_alert": "9",
+  "step_close": "10",
+  "report_footer": "阶段二 - v2.1",
+  "zhuang_stage": false,
+  "supervisor_enabled": true
+}

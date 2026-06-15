@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>七月-V0.1.2 Agent量化平台</title>
+<title>七月-V0.1.3 Agent量化平台</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -519,6 +519,73 @@ header {
   line-height: 1.6;
 }
 
+/* ── BTC 展望 ── */
+.mb-outlook-row {
+  display: flex;
+  gap: 10px;
+  margin: 0 18px 10px;
+}
+.mb-outlook-card {
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--border);
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.02);
+}
+.mb-outlook-card.strong_bullish  { border-left-color: #06c167; background: rgba(6,193,103,0.06); }
+.mb-outlook-card.likely_bullish  { border-left-color: #34d399; background: rgba(52,211,153,0.04); }
+.mb-outlook-card.neutral         { border-left-color: var(--text-muted); }
+.mb-outlook-card.likely_bearish  { border-left-color: #f59e0b; background: rgba(245,158,11,0.04); }
+.mb-outlook-card.strong_bearish  { border-left-color: #f87171; background: rgba(248,113,113,0.06); }
+.mb-outlook-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.mb-outlook-hd .label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+.mb-outlook-hd .badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.mb-outlook-hd .badge.strong_bullish  { background: #0d9e4e; color: #fff; }
+.mb-outlook-hd .badge.likely_bullish  { background: var(--green-bg); color: var(--green); }
+.mb-outlook-hd .badge.neutral         { background: var(--bg-hover); color: var(--text-secondary); }
+.mb-outlook-hd .badge.likely_bearish  { background: var(--yellow-bg); color: var(--yellow); }
+.mb-outlook-hd .badge.strong_bearish  { background: var(--red-bg); color: var(--red); }
+.mb-outlook-reason {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.45;
+  margin-bottom: 4px;
+}
+.mb-outlook-lvls {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.mb-outlook-lvls span { margin-right: 8px; }
+.mb-outlook-lvls .sup { color: var(--green); }
+.mb-outlook-lvls .res { color: var(--red); }
+.mb-outlook-price {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+@media (max-width: 600px) {
+  .mb-outlook-row { flex-direction: column; margin: 4px 10px 8px; }
+}
+
 /* 底部: 树图+新闻 并排 */
 .mb-bottom-row {
   display: flex;
@@ -960,6 +1027,135 @@ body.glass-off .td-group-header {
   background: #fff;
 }
 
+/* ── 开仓决策 + 冷却时间 并排 ──────────────────────── */
+.td-cooldown-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+  align-items: flex-start;
+}
+.td-cooldown-row .td-main-panel {
+  flex: 1;
+  min-width: 0;
+}
+.td-cooldown-row .cd-panel {
+  flex: 0 0 400px;
+  min-width: 320px;
+}
+@media (max-width: 960px) {
+  .td-cooldown-row {
+    flex-direction: column;
+  }
+  .td-cooldown-row .cd-panel {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* ── 冷却时间面板 ──────────────────────────────────── */
+.cd-table-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0 8px 4px;
+}
+.cd-table-scroll::-webkit-scrollbar { width: 4px; }
+.cd-table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.cd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  table-layout: fixed;
+}
+.cd-table thead { position: sticky; top: 0; z-index: 2; }
+.cd-table th {
+  text-align: left;
+  padding: 5px 5px;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+.cd-table td {
+  padding: 3px 5px;
+  border-bottom: 1px solid rgba(37,42,58,0.3);
+  color: var(--text-secondary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cd-table tr:hover td { background: var(--bg-hover); }
+.cd-table .cd-coin {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+}
+.cd-table .cd-remaining {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cd-table .cd-remaining.soon { color: var(--yellow); }
+.cd-table .cd-remaining.mid { color: var(--text-secondary); }
+.cd-table .cd-remaining.long { color: var(--text-muted); }
+.cd-table .cd-reason {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cd-table .cd-reason:hover {
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  position: relative;
+  z-index: 10;
+}
+.cd-rm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.65rem;
+  line-height: 1;
+  transition: all 0.15s;
+}
+.cd-rm-btn:hover {
+  color: var(--red);
+  border-color: var(--red);
+  background: var(--red-bg);
+}
+.cd-rm-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.cd-table .cd-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px 8px;
+  font-size: 0.78rem;
+}
+.cd-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+.cd-header-row .cd-count { font-weight: 600; }
+.cd-header-row .cd-count.warn { color: var(--yellow); }
+.cd-header-row .cd-count.ok { color: var(--green); }
+
 /* ── 开仓决策卡片 ──────────────────────────────────── */
 .td-search-bar {
   background: var(--bg-card);
@@ -1057,6 +1253,8 @@ body.glass-off .td-group-header {
 .td-card-action.close { background: rgba(239,68,68,0.15); color: var(--red); }
 .td-card-action.adjust{ background: rgba(99,102,241,0.15); color: #818cf8; }
 .td-card-action.hold  { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+.td-card-action.wait  { background: rgba(249,115,22,0.15); color: #f97316; }
+.td-card-action.abort { background: rgba(239,68,68,0.12); color: var(--red); font-style: italic; }
 .td-card-action.planned { background: rgba(148,163,184,0.15); color: var(--text-muted); font-style: italic; }
 .td-card-reject {
   font-size: 0.64rem;
@@ -1116,6 +1314,161 @@ body.glass-off .td-group-header {
   line-height: 1.4;
 }
 
+/* ── 监督者审查记录卡片 ──────────────────────────────────── */
+#td-review-toggle.active { color: var(--accent); font-weight: 600; }
+.sr-card {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.sr-card:hover { border-color: var(--accent); }
+.sr-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+}
+.sr-card-time { color: var(--text-muted); font-size: 0.7rem; white-space: nowrap; }
+.sr-card-coin { font-weight: 600; color: var(--text-primary); font-size: 0.78rem; }
+.sr-card-verdict { font-size: 0.68rem; font-weight: 600; padding: 1px 6px; border-radius: 10px; white-space: nowrap; }
+.sr-card-verdict.pass  { background: rgba(52,211,153,0.15); color: var(--green); }
+.sr-card-verdict.block { background: rgba(239,68,68,0.15); color: var(--red); }
+.sr-card-verdict.delay { background: rgba(251,191,36,0.15); color: var(--yellow); }
+.sr-card-verdict.archive { background: rgba(107,114,128,0.15); color: var(--text-muted); }
+.sr-card-arrow { color: var(--text-muted); font-size: 0.65rem; transition: transform 0.15s; margin-left: auto; }
+.sr-card.expanded .sr-card-arrow { transform: rotate(90deg); }
+.sr-card-detail {
+  display: none;
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-height: 360px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sr-card.expanded .sr-card-detail { display: block; }
+.sr-card-preview { color: var(--text-muted); font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+
+/* ── 待审教训卡片 ──────────────────────────────────── */
+.pl-card-list {
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.pl-card-list:empty::before {
+  content: '暂无待审教训';
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  padding: 16px;
+  display: block;
+  width: 100%;
+  text-align: center;
+}
+.pl-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+.pl-card:hover { border-color: var(--accent); }
+.pl-card.expanded { border-color: var(--accent); }
+.pl-card-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 20px;
+  flex-wrap: wrap;
+}
+.pl-card-date {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.pl-card-title {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pl-card-cycle {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  background: var(--bg-hover);
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.pl-card-arrow {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+.pl-card.expanded .pl-card-arrow { transform: rotate(90deg); }
+.pl-card-detail {
+  display: none;
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.pl-card.expanded .pl-card-detail { display: block; }
+.pl-detail-section {
+  margin-bottom: 6px;
+}
+.pl-detail-label {
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 3px;
+}
+.pl-detail-text {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-line;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.pl-detail-q {
+  font-size: 0.7rem;
+  color: var(--text-primary);
+  padding: 2px 0 2px 12px;
+  border-left: 2px solid var(--accent);
+  margin: 2px 0 2px 4px;
+  line-height: 1.4;
+}
+.pl-detail-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  margin-bottom: 6px;
+}
+.pl-detail-meta span { display: flex; align-items: center; gap: 3px; }
+
 .status-chips {
   display: flex;
   gap: 10px;
@@ -1146,15 +1499,107 @@ body.glass-off .td-group-header {
 }
 .alert-item {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 8px 18px;
-  font-size: 0.8rem;
-  border-bottom: 1px solid rgba(37,42,58,0.5);
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(37,42,58,0.4);
   transition: background 0.15s;
 }
 .alert-item:hover { background: var(--bg-hover); }
 .alert-item:last-child { border-bottom: none; }
+
+.alert-row1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.alert-row2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 2px;
+}
+
+.alert-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.alert-coin {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(59,130,246,0.15);
+  color: #60a5fa;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.alert-time {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.alert-rule {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.alert-detail {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── 折叠卡片 ── */
+.alert-group { cursor: default; }
+.alert-group-header {
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 0;
+}
+.alert-group-header:hover { opacity: 0.85; }
+.alert-group-count {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.alert-expand {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.alert-group-body {
+  border-top: 1px solid rgba(37,42,58,0.3);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.alert-subitem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 4px 4px;
+  font-size: 0.76rem;
+}
+.alert-subitem .alert-badge { font-size: 0.65rem; padding: 1px 5px; }
+.alert-subitem .alert-rule { font-size: 0.74rem; }
+.alert-subitem .alert-time { font-size: 0.68rem; color: var(--text-muted); margin-left: 0; min-width: 60px; }
+}
 
 /* ── PnL + Alerts 并排 ── */
 .pnl-alert-row {
@@ -1176,19 +1621,565 @@ body.glass-off .td-group-header {
 /* ── 实盘仓位 + 扫描日志 并排 ── */
 .poslog-row {
   display: flex;
+  flex-direction: column;
   gap: 18px;
   margin-bottom: 18px;
 }
 .poslog-panel {
-  flex: 1;
+  width: 100%;
   min-width: 0;
   margin-bottom: 0;
+  max-height: 600px;
 }
+/* 仓位卡片内部: 持仓列表 + 暴露风险 左右分栏 */
+.poslog-inner {
+  display: flex;
+  gap: 16px;
+}
+.poslog-positions-col {
+  flex: 1;
+  min-width: 0;
+  max-width: 34%;
+}
+/* ── 暴露风险面板（重新设计） ── */
+.poslog-exposure-col {
+  flex: 2;
+  min-width: 280px;
+  max-width: 66%;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.poslog-exposure-col > div:first-child { flex-shrink: 0; }
+#exposure-content {
+  flex: 1;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+#exposure-content::-webkit-scrollbar { width: 5px; }
+#exposure-content::-webkit-scrollbar-track { background: transparent; }
+#exposure-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#exposure-content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 @media (max-width: 900px) {
-  .poslog-row {
-    flex-direction: column;
+  .poslog-inner { flex-direction: column; }
+  .poslog-exposure-col {
+    max-width: 100%;
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 12px;
+    margin-top: 8px;
+    max-height: 520px;
   }
+  .poslog-positions-col { max-width: 100%; }
 }
+
+/* ── 组合仪表盘横向条 ── */
+.expo-dashbar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  min-height: 56px;
+}
+.expo-dash-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 10px;
+  min-width: 80px;
+  flex: 1;
+  border-left: 1px solid var(--border);
+  position: relative;
+}
+.expo-dash-item:first-child {
+  border-left: none;
+  flex: 0.6;
+  min-width: 60px;
+}
+.expo-dash-label {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.expo-dash-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  line-height: 1.2;
+}
+.expo-dash-sub {
+  font-size: 0.52rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+/* 压力测试上下箭头 */
+.expo-dash-stress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+.expo-stress-up,
+.expo-stress-down {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0px;
+}
+.expo-stress-val {
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  line-height: 1.2;
+}
+.expo-stress-label {
+  font-size: 0.5rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  white-space: nowrap;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 告警 ── */
+.exposure-warnings {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: rgba(239,68,68,0.08);
+  border-left: 2px solid #ef4444;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.62rem;
+  color: #fca5a5;
+  line-height: 1.5;
+}
+.exposure-warnings div { margin-bottom: 2px; }
+.exposure-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  padding: 14px 0;
+}
+
+/* ── 问号帮助按钮 ── */
+.expo-help-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.62rem;
+  padding: 0 2px;
+  margin-left: 2px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.expo-help-btn:hover { opacity: 1; }
+
+/* ── 暴露风险帮助弹窗 ── */
+.expo-help-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.expo-help-overlay.active { display: flex; }
+.expo-help-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 22px 26px;
+  max-width: 480px;
+  width: 90%;
+  max-height: 75vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  animation: slideUp 0.2s ease;
+  position: relative;
+}
+.expo-help-modal h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.expo-help-modal h4 {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 14px 0 6px 0;
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+}
+.expo-help-modal p { margin: 0 0 8px 0; }
+.expo-help-modal code {
+  background: var(--bg-card-alt);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+.expo-help-modal .expo-help-close {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.expo-help-modal .expo-help-close:hover { color: var(--text-primary); }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+@keyframes slideUp { from { transform:translateY(12px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+@media (max-width: 900px) {
+  .expo-help-modal { max-width: 92%; padding: 16px 18px; font-size: 0.72rem; }
+}
+
+/* ── 逐币跟踪度 ── */
+.expo-coin-section {
+  margin-top: 2px;
+}
+.expo-coin-section .section-title {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.expo-coin-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 9px 11px;
+  margin-bottom: 6px;
+  transition: border-color 0.15s;
+}
+.expo-coin-card:last-child { margin-bottom: 0; }
+.expo-coin-card:hover { border-color: var(--border-light); }
+.expo-coin-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.expo-coin-cluster {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.expo-coin-name {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+}
+.expo-coin-dir {
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.expo-coin-dir.long { background: var(--green-bg); color: var(--green); }
+.expo-coin-dir.short { background: var(--red-bg); color: var(--red); }
+.expo-coin-notional {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  font-family: var(--font-mono);
+}
+
+/* ── 指标行 ── */
+.expo-metric-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+.expo-metric-row:last-child { margin-bottom: 0; }
+.expo-metric-label {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  width: 50px;
+  flex-shrink: 0;
+  text-align: right;
+  font-weight: 500;
+}
+
+/* Corr 双条 */
+.expo-corr-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.expo-corr-bar-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.expo-corr-bar-line .tf-label {
+  font-size: 0.52rem;
+  color: var(--text-muted);
+  width: 16px;
+  text-align: right;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.expo-corr-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+.expo-corr-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-muted);
+  opacity: 0.25;
+  z-index: 1;
+}
+.expo-corr-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.expo-corr-fill.left {
+  right: 50%;
+}
+.expo-corr-fill.right {
+  left: 50%;
+}
+.expo-corr-bar-line .corr-num {
+  font-size: 0.62rem;
+  font-weight: 700;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+
+/* 跟涨/跌 Beta — 中心分散双柱 */
+.expo-dual-bar {
+  flex: 1;
+  height: 16px;
+}
+.expo-dual-track {
+  height: 100%;
+  background: rgba(255,255,255,0.04);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+.expo-dual-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-muted);
+  opacity: 0.3;
+  z-index: 1;
+}
+.expo-dual-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+  opacity: 0.85;
+}
+.expo-dual-fill.up {
+  left: 50%;
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+.expo-dual-fill.down {
+  right: 50%;
+  background: linear-gradient(90deg, #f87171, #ef4444);
+}
+.expo-bar-val {
+  font-size: 0.62rem;
+  font-weight: 600;
+  width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+}
+.expo-bar-val.label-sm {
+  width: 28px;
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-weight: 400;
+}
+
+/* Beta 贡献条 */
+.expo-contrib-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--border);
+}
+.expo-contrib-label {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  width: 50px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.expo-contrib-track {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+.expo-contrib-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-muted);
+  opacity: 0.3;
+  z-index: 1;
+}
+.expo-contrib-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 2px;
+}
+.expo-contrib-fill.left {
+  right: 50%;
+  background: var(--green);
+}
+.expo-contrib-fill.right {
+  left: 50%;
+  background: var(--red);
+}
+.expo-contrib-val {
+  font-size: 0.58rem;
+  font-weight: 600;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+.expo-contrib-cluster {
+  font-size: 0.5rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 仓位风险贡献底部区 */
+.expo-bottom-section {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.expo-bottom-title {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.expo-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+  font-size: 0.58rem;
+}
+.expo-bottom-coin {
+  width: 34px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.expo-bottom-dir {
+  width: 14px;
+  text-align: center;
+  font-size: 0.52rem;
+  font-weight: 700;
+}
+.expo-bottom-track {
+  flex: 1;
+  height: 4px;
+  background: var(--bg-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.expo-bottom-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+.expo-bottom-val {
+  width: 32px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: 0.56rem;
+}
+
+/* 指标颜色 */
+.color-strong { color: #34d399; }
+.color-moderate { color: #fbbf24; }
+.color-weak { color: #f97316; }
+.color-poor { color: #ef4444; }
 
 /* ── 实盘仓位卡片 ── */
 .pos-card {
@@ -1321,6 +2312,116 @@ body.glass-off .td-group-header {
 .pos-list-scroll::-webkit-scrollbar { width: 4px; }
 .pos-list-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+/* ── 实盘仓位卡片：模式切换 ── */
+.poslog-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 8px;
+}
+.poslog-mode-pill {
+  font-size: 0.62rem;
+  padding: 2px 10px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+}
+.poslog-mode-pill.active { background: var(--accent-dim); color: var(--text-primary); border-color: var(--accent-dim); }
+.poslog-mode-pill:hover { border-color: var(--accent); }
+
+/* ── 审计报告卡片 ── */
+.audit-report-card {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.audit-report-card:hover { border-color: var(--border-light); background: var(--bg-hover); }
+.audit-report-card.expanded { border-color: var(--accent-dim); }
+.audit-report-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.audit-report-time {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.audit-report-count {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+.audit-report-tags {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.audit-report-tag {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.audit-report-tag.hold { background: var(--green-bg); color: var(--green); }
+.audit-report-tag.reduce { background: var(--orange-bg, #fef3c7); color: var(--orange, #d97706); }
+.audit-report-tag.add { background: var(--accent-dim); color: var(--accent); }
+.audit-report-tag.close { background: var(--red-bg); color: var(--red); }
+.audit-report-tag.action { background: var(--accent-dim); color: var(--accent); }
+.audit-report-arrow {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  transition: transform var(--transition);
+}
+.audit-report-card.expanded .audit-report-arrow { transform: rotate(180deg); }
+.audit-report-detail {
+  display: none;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.68rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  font-family: var(--font-mono);
+  max-height: 500px;
+  overflow-y: auto;
+  animation: slideDown 0.3s ease;
+}
+.audit-report-detail::-webkit-scrollbar { width: 4px; }
+.audit-report-detail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.audit-report-card.expanded .audit-report-detail { display: block; }
+.audit-report-detail-loading {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 20px;
+  font-size: 0.7rem;
+}
+
+/* ── 审计日志条目 ── */
+.audit-log-entry {
+  padding: 4px 0;
+  font-size: 0.65rem;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.audit-log-entry:last-child { border-bottom: none; }
+.audit-log-time {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+}
 /* ── 扫描日志卡片 ── */
 .scanlog-mode-bar {
   display: flex;
@@ -1390,6 +2491,22 @@ body.glass-off .td-group-header {
 .scanlog-hit-tag.hit { background: var(--green-bg); color: var(--green); }
 .scanlog-hit-tag.screening { background: var(--accent-glow); color: var(--accent); }
 .scanlog-hit-tag.dispatch { background: var(--yellow-bg); color: var(--yellow); }
+.scanlog-hit-tag.stage1-start { background: rgba(167,139,250,0.12); color: #a78bfa; }
+.scanlog-hit-tag.stage1-done { background: rgba(52,211,153,0.08); color: #6ee7b7; }
+
+/* ── 扫描日志 画像标签 ── */
+.scanlog-profile-tag {
+  display: inline-block;
+  font-size: 0.52rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 2px;
+  margin-right: 2px;
+  line-height: 1.3;
+  vertical-align: middle;
+}
+.scanlog-profile-tag.zhuang { background: rgba(251,146,60,0.15); color: #fb923c; }
+.scanlog-profile-tag.alt { background: rgba(79,140,255,0.1); color: #4f8cff; }
 .scanlog-hit-coin {
   font-weight: 700;
   font-family: var(--font-mono);
@@ -1435,32 +2552,6 @@ body.glass-off .td-group-header {
   font-size: 0.75rem;
 }
 
-/* ── 静默监控命中标签 ── */
-.silence-hit-tag { font-size: 0.58rem; padding: 1px 5px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
-.silence-hit-tag.trigger { background: var(--accent-glow); color: var(--accent); }
-.silence-hit-tag.success { background: var(--green-bg); color: var(--green); }
-.silence-hit-tag.error { background: rgba(255,80,80,0.15); color: var(--red); }
-.silence-hit-tag.cycle { background: rgba(255,255,255,0.06); color: var(--text-muted); }
-.silence-hit-tag.summary { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
-.silence-hit-tag.startup { background: var(--purple-bg, rgba(139,92,246,0.15)); color: var(--purple, #8b5cf6); }
-.silence-hit-tag.config { background: rgba(255,255,255,0.04); color: var(--text-muted); }
-.silence-hit-tag.cleanup { background: rgba(255,255,255,0.04); color: var(--text-muted); }
-.silence-hit-detail { font-size: 0.62rem; color: var(--text-muted); margin-left: 6px; }
-.silence-hit-detail .pos-label { color: var(--yellow); }
-
-.alert-time {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  white-space: nowrap;
-  min-width: 150px;
-  padding-top: 1px;
-}
-.alert-msg {
-  color: var(--text-secondary);
-  word-break: break-all;
-  line-height: 1.4;
-}
 
 /* ── Section Divider ────────────────────────────── */
 .section-divider {
@@ -1723,6 +2814,61 @@ body.glass-off .td-group-header {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
+.table-scroll-v {
+  overflow: auto;
+  max-height: 420px;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll-v::-webkit-scrollbar { width: 5px; height: 5px; }
+.table-scroll-v::-webkit-scrollbar-track { background: transparent; }
+.table-scroll-v::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.table-scroll-v::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem;
+}
+.filter-bar .filter-label {
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.filter-bar .filter-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+.filter-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.65rem;
+  transition: all 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.filter-btn:hover { border-color: var(--border-light); color: var(--text-primary); }
+.filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.filter-btn.sort-btn { padding-right: 4px; }
+.filter-btn .sort-arrow { font-size: 0.55rem; margin-left: 2px; opacity: 0.35; }
+.filter-btn .sort-arrow.on { opacity: 1; }
 
 /* ═══════════════════════════════════════════════════
    Rule Table
@@ -1774,6 +2920,13 @@ body.glass-off .td-group-header {
 .pm2-card .meters { display: flex; gap: 16px; font-size: 0.76rem; color: var(--text-secondary); flex-wrap: wrap; }
 .pm2-status-online { color: var(--green); font-weight: 600; }
 .pm2-status-offline { color: var(--red); font-weight: 600; }
+.pm2-status-cron { color: var(--accent); font-weight: 600; }
+
+/* PM2 scrollable list */
+#pm2-cron-grid::-webkit-scrollbar { width: 5px; }
+#pm2-cron-grid::-webkit-scrollbar-track { background: transparent; }
+#pm2-cron-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#pm2-cron-grid::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
 
 .sys-file-card {
   background: var(--bg-card-alt);
@@ -2254,6 +3407,22 @@ select:focus { border-color:var(--accent); }
 #zhuang-risk-modal-overlay.active { opacity: 1; pointer-events: auto; }
 #zhuang-risk-modal-overlay #risk-modal { border-color: var(--red); box-shadow: 0 0 40px rgba(248,113,113,0.2); }
 #zhuang-risk-modal-overlay #risk-modal h3 { color: var(--red); }
+#tp-shift-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99992;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+#tp-shift-modal-overlay.active { opacity: 1; pointer-events: auto; }
+#tp-shift-modal-overlay #risk-modal { border-color: var(--accent); box-shadow: 0 0 40px rgba(96,165,250,0.2); }
+#tp-shift-modal-overlay #risk-modal h3 { color: var(--accent); }
+#sl-shift-modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99993;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+#sl-shift-modal-overlay.active { opacity: 1; pointer-events: auto; }
+#sl-shift-modal-overlay #risk-modal { border-color: var(--red); box-shadow: 0 0 40px rgba(248,113,113,0.2); }
+#sl-shift-modal-overlay #risk-modal h3 { color: var(--red); }
 
 /* ── 杠杆确认弹窗 ── */
 #lever-confirm-overlay {
@@ -2310,7 +3479,7 @@ select:focus { border-color:var(--accent); }
   <div class="header-inner">
     <div class="logo">
       <span class="dot" id="engine-dot"></span>
-      <span class="title-text">七月-V0.1.2 Agent量化平台</span>
+      <span class="title-text">七月-V0.1.3 Agent量化平台</span>
     </div>
     <div class="refresh-info" id="refresh-info">
       <div class="refresh-left">
@@ -2381,6 +3550,19 @@ select:focus { border-color:var(--accent); }
         <div class="mb-quick">
           <div class="mb-fg" id="mb-fg"></div>
           <div class="mb-deriv" id="mb-deriv"></div>
+        </div>
+      </div>
+      <!-- BTC 展望 -->
+      <div class="mb-outlook-row" id="mb-outlook-row">
+        <div class="mb-outlook-card" id="mb-outlook-4h">
+          <div class="mb-outlook-hd"><span class="label">BTC 4H</span><span class="badge" id="mb-ol4h-badge">--</span></div>
+          <div class="mb-outlook-reason" id="mb-ol4h-reason">--</div>
+          <div class="mb-outlook-lvls" id="mb-ol4h-lvls"></div>
+        </div>
+        <div class="mb-outlook-card" id="mb-outlook-24h">
+          <div class="mb-outlook-hd"><span class="label">BTC 24H</span><span class="badge" id="mb-ol24h-badge">--</span></div>
+          <div class="mb-outlook-reason" id="mb-ol24h-reason">--</div>
+          <div class="mb-outlook-lvls" id="mb-ol24h-lvls"></div>
         </div>
       </div>
       <!-- 底部: 板块树图(左) + 新闻(右) -->
@@ -2464,9 +3646,20 @@ select:focus { border-color:var(--accent); }
       💰 实盘仓位
       <span style="font-weight:400;color:var(--text-muted);font-size:0.65rem;margin-left:4px;" id="pos-count-info"></span>
       <button class="btn btn-sm btn-ghost" onclick="refreshPositionsCard()" style="padding:2px 6px;font-size:0.6rem;vertical-align:middle;margin-left:8px" title="手动刷新">🔄</button>
+      <button class="btn btn-sm btn-ghost" id="mirror-toggle-btn" onclick="toggleMirrorMode()" style="padding:2px 8px;font-size:0.6rem;vertical-align:middle;margin-left:4px;border:1px solid var(--border-light);border-radius:4px;" title="切换镜像账户仓位">🪞 镜像</button>
       <span style="margin-left:auto;font-size:0.6rem;color:var(--text-muted);" id="pos-refresh-time"></span>
     </div>
     <div class="info-panel-body" style="padding:8px 12px;">
+      <!-- 模式栏 -->
+      <div class="poslog-mode-bar" id="poslog-mode-bar">
+        <button class="poslog-mode-pill active" data-mode="positions" onclick="setPoslogMode('positions')">📊 持仓</button>
+        <button class="poslog-mode-pill" data-mode="reports" onclick="setPoslogMode('reports')">📋 审计报告</button>
+        <button class="poslog-mode-pill" data-mode="log" onclick="setPoslogMode('log')">📄 审计日志</button>
+      </div>
+      <!-- 持仓视图 -->
+      <div class="poslog-inner">
+        <div class="poslog-positions-col">
+      <div id="poslog-positions-view">
       <!-- 排序栏 -->
       <div class="pos-sort-bar" id="pos-sort-bar">
         <span style="font-size:0.6rem;color:var(--text-muted);">排序:</span>
@@ -2479,6 +3672,24 @@ select:focus { border-color:var(--accent); }
       <div class="pos-list-scroll" id="pos-list">
         <div class="pos-empty">加载中...</div>
       </div>
+      </div>
+      <!-- 审计报告视图 -->
+      <div class="pos-list-scroll" id="poslog-reports-view" style="display:none;">
+        <div class="pos-empty">加载中...</div>
+      </div>
+      <!-- 审计日志视图 -->
+      <div class="pos-list-scroll" id="poslog-log-view" style="display:none;">
+        <div class="pos-empty">加载中...</div>
+      </div>
+        </div><!-- /poslog-positions-col -->
+        <!-- 组合暴露风险 -->
+        <div class="poslog-exposure-col" id="exposure-panel">
+          <div style="font-size:0.68rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px;">📊 组合暴露风险 <span style="font-weight:400;font-size:0.58rem;color:var(--text-muted);">(15m/1H 跟踪)</span><button class="expo-help-btn" onclick="openExpoHelp()" title="什么是暴露风险？">❓</button></div>
+          <div id="exposure-content">
+            <div class="exposure-empty">加载中...</div>
+          </div>
+        </div>
+      </div><!-- /poslog-inner -->
     </div>
   </div>
 
@@ -2496,6 +3707,9 @@ select:focus { border-color:var(--accent); }
         <button class="scanlog-mode-pill active" data-mode="hits" onclick="setScanLogMode('hits')">📋 结构化</button>
         <button class="scanlog-mode-pill" data-mode="raw" onclick="setScanLogMode('raw')">📄 原始日志</button>
         <button class="scanlog-mode-pill" data-mode="silence" onclick="setScanLogMode('silence')">🔕 静默监控</button>
+        <button class="scanlog-mode-pill" data-mode="onchain" onclick="setScanLogMode('onchain')">🔗 链上刷新</button>
+        <button class="scanlog-mode-pill" data-mode="archiver" onclick="setScanLogMode('archiver')">🗄️ 周期归档</button>
+        <button class="scanlog-mode-pill" data-mode="mirror" onclick="setScanLogMode('mirror')">🪞 镜像日志</button>
         <input type="text" class="scanlog-search" id="scanlog-search" placeholder="搜索币种..." oninput="onScanLogSearch()" autocomplete="off" spellcheck="false">
       </div>
       <!-- 结构化命中列表 -->
@@ -2506,12 +3720,20 @@ select:focus { border-color:var(--accent); }
       <div class="scanlog-raw-list" id="scanlog-raw-list" style="display:none;">
         <div class="scanlog-empty">加载中...</div>
       </div>
-      <!-- 静默监控列表 -->
-      <div class="scanlog-hits-list" id="silence-hits-list" style="display:none;">
-        <div style="text-align:right;padding:2px 6px;"><button id="silence-raw-toggle" onclick="toggleSilenceRaw()" style="font-size:0.6rem;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:3px;padding:1px 6px;cursor:pointer;">📄 原始</button></div>
+      <!-- 静默监控日志 -->
+      <div class="scanlog-raw-list" id="silence-raw-list" style="display:none;">
         <div class="scanlog-empty">加载中...</div>
       </div>
-      <div class="scanlog-raw-list" id="silence-raw-list" style="display:none;">
+      <!-- 链上刷新日志 -->
+      <div class="scanlog-raw-list" id="onchain-raw-list" style="display:none;">
+        <div class="scanlog-empty">加载中...</div>
+      </div>
+      <!-- 周期归档日志 -->
+      <div class="scanlog-raw-list" id="archiver-raw-list" style="display:none;">
+        <div class="scanlog-empty">加载中...</div>
+      </div>
+      <!-- 镜像日志视图 -->
+      <div class="scanlog-raw-list" id="mirror-raw-list" style="display:none;">
         <div class="scanlog-empty">加载中...</div>
       </div>
     </div>
@@ -2529,15 +3751,55 @@ select:focus { border-color:var(--accent); }
     <div class="price-vis-body" id="price-vis-body"></div>
   </div>
 
-  <!-- Trade Decision Cards -->
-  <div class="info-panel" style="margin-bottom:18px;" id="trade-decision-panel">
+  <!-- Trade Decision Cards + Cooldown Table -->
+  <div class="td-cooldown-row">
+  <div class="info-panel td-main-panel" id="trade-decision-panel">
     <div class="info-panel-header">
       📋 开仓决策
       <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="td-status"></span>
       <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="td-info"></span>
+      <span style="font-size:0.6rem;color:var(--text-muted);margin-left:6px;" id="td-refresh-time"></span>
+      <button class="btn btn-sm btn-ghost" onclick="loadTradeDecisions()" style="padding:2px 6px;font-size:0.6rem;vertical-align:middle;margin-left:4px;" title="刷新">🔄</button>
+      <button class="btn btn-sm btn-ghost" id="td-review-toggle" onclick="toggleSupervisorReviews()" style="font-size:0.7rem;padding:2px 8px;" title="查看监督者审查记录">🔍 审查记录</button>
     </div>
     <input type="text" class="td-search-bar" id="td-search" placeholder="搜索币种..." oninput="filterTradeDecisions()" style="display:none;">
     <div class="td-card-list" id="td-card-list"></div>
+    <div class="td-card-list" id="sr-card-list" style="display:none;"></div>
+  </div>
+
+  <!-- Coin Cooldown Table -->
+  <div class="info-panel cd-panel" id="coin-cooldown-panel">
+    <div class="info-panel-header">
+      🧊 冷却名单
+      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="cd-status"></span>
+      <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="cd-info"></span>
+      <button class="btn btn-sm btn-ghost" onclick="loadCoinCooldown()" style="padding:2px 6px;font-size:0.6rem;vertical-align:middle;margin-left:6px;" title="刷新">🔄</button>
+    </div>
+    <div class="cd-table-scroll">
+      <table class="cd-table">
+        <thead><tr>
+          <th style="width:14%;">币种</th>
+          <th style="width:16%;">剩余</th>
+          <th style="width:22%;">到期</th>
+          <th style="width:38%;">原因</th>
+          <th style="width:10%;"></th>
+        </tr></thead>
+        <tbody id="cd-tbody">
+          <tr><td colspan="5" class="cd-empty">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div><!-- /td-cooldown-row -->
+
+  <!-- Pending Trade Lessons Card -->
+  <div class="info-panel" style="margin-bottom:18px;" id="pending-lessons-panel">
+    <div class="info-panel-header">
+      📝 待审教训
+      <span style="font-weight:400;color:var(--text-muted);font-size:0.7rem;margin-left:6px;" id="pl-status"></span>
+      <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="pl-info"></span>
+    </div>
+    <div class="pl-card-list" id="pl-card-list"></div>
   </div>
 
 
@@ -2596,6 +3858,7 @@ select:focus { border-color:var(--accent); }
       <span style="font-weight:400;font-size:0.7rem;color:var(--text-muted);margin-left:4px;" id="dispatcher-status-text">检测中...</span>
       <span style="font-weight:400;font-size:0.65rem;color:var(--text-muted);margin-left:8px;" id="dispatcher-stats-text"></span>
       <button class="btn btn-sm btn-accent" onclick="spinRefresh(this, loadDispatcher)" style="margin-left:auto">🔄 刷新</button>
+      <button class="btn btn-sm btn-danger" onclick="clearDispatcherQueue(this)" style="margin-left:6px;" id="btn-clear-queue">🗑️ 清空队列</button>
     </div>
     <div style="padding:10px 14px;" id="dispatcher-content">
       <span style="color:var(--text-muted)">加载中...</span>
@@ -2605,9 +3868,23 @@ select:focus { border-color:var(--accent); }
   <div class="info-panel" style="margin-bottom:14px">
     <div class="info-panel-header">
       ⏱ Cron 任务管理
+      <span style="font-weight:400;font-size:0.7rem;color:var(--text-muted);margin-left:6px;" id="cron-count"></span>
       <button class="btn btn-sm btn-accent" onclick="spinRefresh(this, loadCronJobsLive)" style="margin-left:auto">🔄 刷新</button>
     </div>
-    <div class="table-scroll" style="padding:0;">
+    <div class="filter-bar" id="cron-filter-bar">
+      <span class="filter-label">类型</span>
+      <button class="filter-btn active" onclick="setCronFilter('type','all',this)">全部</button>
+      <button class="filter-btn" onclick="setCronFilter('type','oneshot',this)">一次性</button>
+      <button class="filter-btn" onclick="setCronFilter('type','recurring',this)">循环</button>
+      <span class="filter-sep"></span>
+      <span class="filter-label">排序</span>
+      <button class="filter-btn sort-btn" onclick="setCronSort('name',this)">名称<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setCronSort('nextRun',this)">下次运行<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setCronSort('status',this)">状态<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setCronSort('errors',this)">错误<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setCronSort('duration',this)">耗时<span class="sort-arrow">↕</span></button>
+    </div>
+    <div class="table-scroll-v" style="padding:0;">
       <table class="rule-table" id="cron-table">
         <thead><tr>
           <th>名称</th><th>Agent</th><th>调度</th><th>状态</th><th>下次运行</th><th>上次运行</th><th>耗时</th><th>错误</th><th>操作</th>
@@ -2619,9 +3896,20 @@ select:focus { border-color:var(--accent); }
   <div class="info-panel" style="margin-bottom:14px">
     <div class="info-panel-header">
       🖥️ 系统 Crontab
+      <span style="font-weight:400;font-size:0.7rem;color:var(--text-muted);margin-left:6px;" id="sys-cron-count"></span>
       <button class="btn btn-sm btn-accent" onclick="spinRefresh(this, loadSystemCrontab)" style="margin-left:auto">🔄 刷新</button>
     </div>
-    <div class="table-scroll" style="padding:0;">
+    <div class="filter-bar" id="sys-cron-filter-bar">
+      <span class="filter-label">状态</span>
+      <button class="filter-btn active" onclick="setSysCronFilter('status','all',this)">全部</button>
+      <button class="filter-btn" onclick="setSysCronFilter('status','active',this)">活跃</button>
+      <button class="filter-btn" onclick="setSysCronFilter('status','paused',this)">已暂停</button>
+      <span class="filter-sep"></span>
+      <span class="filter-label">排序</span>
+      <button class="filter-btn sort-btn" onclick="setSysCronSort('schedule',this)">时间<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setSysCronSort('script',this)">脚本<span class="sort-arrow">↕</span></button>
+    </div>
+    <div class="table-scroll-v" style="padding:0;">
       <table class="rule-table" id="sys-cron-table">
         <thead><tr>
           <th>状态</th><th>调度</th><th>时间表达式</th><th>脚本</th><th>说明</th><th>操作</th>
@@ -2633,9 +3921,17 @@ select:focus { border-color:var(--accent); }
   <div class="info-panel" style="margin-bottom:14px">
     <div class="info-panel-header">
       ⚙️ PM2 进程
+      <span style="font-weight:400;font-size:0.7rem;color:var(--text-muted);margin-left:6px;" id="pm2-count"></span>
       <button class="btn btn-sm btn-accent" onclick="spinRefresh(this, loadPm2Processes)" style="margin-left:auto">🔄 刷新</button>
     </div>
-    <div style="padding:10px 14px;" id="pm2-cron-grid">
+    <div class="filter-bar" id="pm2-filter-bar">
+      <span class="filter-label">排序</span>
+      <button class="filter-btn sort-btn" onclick="setPm2Sort('name',this)">名称<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setPm2Sort('status',this)">状态<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setPm2Sort('cpu',this)">CPU<span class="sort-arrow">↕</span></button>
+      <button class="filter-btn sort-btn" onclick="setPm2Sort('memory',this)">内存<span class="sort-arrow">↕</span></button>
+    </div>
+    <div style="padding:10px 14px;max-height:380px;overflow-y:auto;" id="pm2-cron-grid">
       <span style="color:var(--text-muted)">加载中...</span>
     </div>
   </div>
@@ -2773,6 +4069,108 @@ select:focus { border-color:var(--accent); }
         </div>
       </div>
 
+      <!-- ── 止盈偏移百分比 ── -->
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">🎯 止盈偏移系数</span>
+          <span style="font-weight:400;font-size:0.72rem;color:var(--accent);">TP</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;">
+          <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">收近</label>
+          <span style="font-size:1.1rem;font-weight:700;font-family:var(--font-mono);min-width:42px;text-align:right;" id="setting-tp-shift-val">5%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;">
+          <input type="range" id="setting-tp-shift-slider" min="0" max="15" value="5" step="1"
+            oninput="updateTpShiftPreview(this.value)"
+            onchange="saveTpShiftWithConfirm()"
+            style="flex:1;max-width:280px;accent-color:var(--accent);height:6px;">
+          <input type="number" id="setting-tp-shift-input" value="5" min="0" max="15" step="1"
+            onchange="updateTpShiftPreview(this.value); saveTpShiftWithConfirm()"
+            style="width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
+          <span style="font-size:0.7rem;color:var(--text-muted);" id="setting-tp-shift-saved"></span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;">
+          止盈价向入场价方向偏移百分比（0%=不偏移，15%=最多收近15%）。降低回撤风险但同时减少预期利润
+        </div>
+      </div>
+
+      <!-- ── 止损偏移百分比 ── -->
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">🛡️ 止损偏移系数</span>
+          <span style="font-weight:400;font-size:0.72rem;color:var(--orange);">SL</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;">
+          <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">放远</label>
+          <span style="font-size:1.1rem;font-weight:700;font-family:var(--font-mono);min-width:42px;text-align:right;" id="setting-sl-shift-val">5%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;">
+          <input type="range" id="setting-sl-shift-slider" min="0" max="15" value="5" step="1"
+            oninput="updateSlShiftPreview(this.value)"
+            onchange="saveSlShiftWithConfirm()"
+            style="flex:1;max-width:280px;accent-color:var(--orange);height:6px;">
+          <input type="number" id="setting-sl-shift-input" value="5" min="0" max="15" step="1"
+            onchange="updateSlShiftPreview(this.value); saveSlShiftWithConfirm()"
+            style="width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
+          <span style="font-size:0.7rem;color:var(--text-muted);" id="setting-sl-shift-saved"></span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;">
+          止损价向远离入场价方向偏移百分比（0%=不偏移，15%=最多放远15%）。减少揉搓线误触发但放大单笔亏损
+        </div>
+      </div>
+
+      <!-- ── 监督者触发阈值 ── -->
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">🛡️ 监督者触发阈值</span>
+          <span style="font-weight:400;font-size:0.72rem;color:var(--accent);">持仓门限</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;">
+          <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">最低持仓数</label>
+          <span style="font-size:1.1rem;font-weight:700;font-family:var(--font-mono);min-width:42px;text-align:right;" id="setting-supervisor-pos-val">5</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;">
+          <input type="range" id="setting-supervisor-pos-slider" min="0" max="20" value="5" step="1"
+            oninput="updateSupervisorPosPreview(this.value)"
+            onchange="saveSupervisorMinPositions()"
+            style="flex:1;max-width:280px;accent-color:var(--accent);height:6px;">
+          <input type="number" id="setting-supervisor-pos-input" value="5" min="0" max="50" step="1"
+            onchange="updateSupervisorPosPreview(this.value); saveSupervisorMinPositions()"
+            style="width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
+          <span style="font-size:0.7rem;color:var(--text-muted);" id="setting-supervisor-pos-saved"></span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;">
+          全周期持仓总数 ≤ 此值时，跳过监督者审查（避免小仓位过度拦截）。0=始终触发，默认 5
+        </div>
+      </div>
+
+      <!-- ── 镜像仓位倍率 ── -->
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">🪞 镜像仓位倍率</span>
+          <span style="font-weight:400;font-size:0.72rem;color:var(--accent);">反向账户</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:8px;">
+          <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">开仓倍率</label>
+          <span style="font-size:1.1rem;font-weight:700;font-family:var(--font-mono);min-width:42px;text-align:right;" id="setting-mirror-mult-val">1×</span>
+          <span style="color:var(--text-muted);font-size:0.72rem;">=</span>
+          <span style="font-family:var(--font-mono);font-size:0.85rem;color:var(--accent);" id="setting-mirror-mult-nominal">-- U</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap;">
+          <input type="range" id="setting-mirror-mult-slider" min="0.5" max="10" value="1" step="0.1"
+            oninput="updateMirrorMultPreview(this.value)"
+            onchange="saveMirrorMult()"
+            style="flex:1;max-width:280px;accent-color:var(--accent);height:6px;">
+          <input type="number" id="setting-mirror-mult-input" value="1" min="0.5" max="10" step="0.1"
+            onchange="updateMirrorMultPreview(this.value); saveMirrorMult()"
+            style="width:60px;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
+          <span style="font-size:0.7rem;color:var(--text-muted);" id="setting-mirror-mult-saved"></span>
+        </div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;">
+          七月实盘仓位张数 × 此倍率 = 镜像账户反向开仓张数。范围 0.5× ~ 10×，默认 1×
+        </div>
+      </div>
+
       <!-- ── 强庄山寨仓位倍率 ── -->
       <div>
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
@@ -2799,20 +4197,27 @@ select:focus { border-color:var(--accent); }
         <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">庄币默认倍率 0.8×（24U），因庄币波动更大，建议保守仓位</div>
       </div>
 
-      <!-- ── 交易策略 ── -->
-      <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-          <span style="font-weight:600;color:var(--text-primary);font-size:0.85rem;">🧪 交易策略</span>
+      <!-- ── 组合暴露风险上限 ── -->
+      <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+        <div style="font-weight:600;color:var(--text-primary);font-size:0.85rem;margin-bottom:6px;">📊 组合风险全局上限</div>
+        <div style="font-size:0.7rem;color:var(--text-muted);margin-bottom:10px;">组合风险评分超过此值时，拒绝增加风险的新开仓请求；同时触发风险审计</div>
+
+        <!-- 风险阈值 -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:0.75rem;color:var(--text-secondary);white-space:nowrap;">上限值</span>
+          <input type="range" id="setting-riskthreshold-slider" min="30" max="90" value="60" step="5"
+            oninput="document.getElementById('setting-riskthreshold-val').textContent=this.value+'/100'"
+            onchange="saveRiskThreshold(this.value)"
+            style="flex:1;max-width:200px;accent-color:var(--accent);height:4px;">
+          <span style="font-weight:700;font-family:var(--font-mono);min-width:50px;text-align:right;color:var(--text-primary);font-size:0.9rem;" id="setting-riskthreshold-val">60/100</span>
+          <span style="font-size:0.65rem;color:var(--text-muted);" id="setting-riskthreshold-desc">≥ 此值时硬拒绝 + 触发审计</span>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">当前模式</label>
-          <select id="setting-stage2-mode" onchange="saveSettingStage2()" style="flex:1;max-width:200px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
-            <option value="normal">正常版</option>
-            <option value="aggressive">激进版</option>
-          </select>
-          <span style="font-size:0.7rem;color:var(--text-muted);" id="setting-stage2-saved"></span>
+        <div style="font-size:0.65rem;color:var(--text-muted);margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;">
+          <span>🟢 20-40 中等</span>
+          <span>🟡 41-60 偏高</span>
+          <span>🟠 61-80 高风险</span>
+          <span>🔴 81-100 极高</span>
         </div>
-        <div style="font-size:0.7rem;color:var(--text-muted);margin-top:6px;">控制阶段二 LLM 分析的决策倾向：正常版偏保守，激进版放宽入场门槛</div>
       </div>
 
     </div>
@@ -2833,6 +4238,7 @@ select:focus { border-color:var(--accent); }
       <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
         <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">扫描频率</label>
         <select id="setting-scanner-interval" onchange="saveSettingScannerInterval()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
+          <option value="15">每 15 分钟</option>
           <option value="30">每 30 分钟</option>
           <option value="60">每 1 小时</option>
           <option value="120">每 2 小时</option>
@@ -2842,7 +4248,7 @@ select:focus { border-color:var(--accent); }
         <span style="font-size:0.75rem;color:var(--text-muted);" id="setting-interval-current">—</span>
         <span style="font-size:0.75rem;" id="setting-interval-saved"></span>
       </div>
-      <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">系统 crontab 每 30 分钟触发 runner，runner 根据此频率判断是否实际执行扫描</div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">系统 crontab 每 15 分钟触发 runner，runner 根据此频率判断是否实际执行扫描</div>
     </div>
   </div>
 
@@ -2854,12 +4260,13 @@ select:focus { border-color:var(--accent); }
         <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">周期上限</label>
         <span style="font-size:0.75rem;color:var(--text-muted);background:var(--bg-card);padding:6px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);" id="setting-zhuang-scanner-current">—</span>
         <span style="color:var(--text-muted);">→</span>
-        <input type="number" id="setting-zhuang-scanner-limit" value="3" min="1" max="50" style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
+        <input type="number" id="setting-zhuang-scanner-limit" value="20" min="1" max="50" style="width:80px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;text-align:center;">
         <button class="btn btn-sm btn-accent" onclick="saveSettingZhuangScannerLimit()">确认修改</button>
       </div>
       <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
         <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">扫描频率</label>
         <select id="setting-zhuang-scanner-interval" onchange="saveSettingZhuangScannerInterval()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
+          <option value="15">每 15 分钟</option>
           <option value="30">每 30 分钟</option>
           <option value="60">每 1 小时</option>
           <option value="120">每 2 小时</option>
@@ -3049,41 +4456,47 @@ select:focus { border-color:var(--accent); }
       <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);cursor:pointer;" onclick="loadSelfHeal()" title="刷新">🔄</span>
     </div>
     <!-- 统计卡片 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px;padding:10px 14px 6px;" id="sh-stats">
-      <div class="hero-card" style="padding:8px 10px;">
-        <div class="label" style="font-size:0.62rem;">A/B类修复</div>
-        <div class="value accent" style="font-size:1.1rem;" id="sh-fix-count">--</div>
-        <div class="sub" id="sh-fix-sub" style="font-size:0.58rem;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;gap:4px;padding:10px 14px 6px;" id="sh-stats">
+      <div class="hero-card" style="padding:6px 8px;">
+        <div class="label" style="font-size:0.60rem;">代码修复</div>
+        <div class="value accent" style="font-size:1.0rem;" id="sh-fix-count">--</div>
+        <div class="sub" id="sh-fix-sub" style="font-size:0.55rem;"></div>
       </div>
-      <div class="hero-card" style="padding:8px 10px;">
-        <div class="label" style="font-size:0.62rem;">C类间隔翻倍</div>
-        <div class="value accent" style="font-size:1.1rem;" id="sh-interval-count">--</div>
-        <div class="sub" id="sh-interval-sub" style="font-size:0.58rem;"></div>
+      <div class="hero-card" style="padding:6px 8px;">
+        <div class="label" style="font-size:0.60rem;">LLM调整</div>
+        <div class="value accent" style="font-size:1.0rem;" id="sh-interval-count">--</div>
+        <div class="sub" id="sh-interval-sub" style="font-size:0.55rem;"></div>
       </div>
-      <div class="hero-card" style="padding:8px 10px;">
-        <div class="label" style="font-size:0.62rem;">已恢复</div>
-        <div class="value green" style="font-size:1.1rem;" id="sh-restored-count">--</div>
-        <div class="sub" id="sh-restored-sub" style="font-size:0.58rem;"></div>
+      <div class="hero-card" style="padding:6px 8px;">
+        <div class="label" style="font-size:0.60rem;">引擎调整</div>
+        <div class="value" style="font-size:1.0rem;color:#fb923c;" id="sh-netadj-count">--</div>
+        <div class="sub" id="sh-netadj-sub" style="font-size:0.55rem;"></div>
       </div>
-      <div class="hero-card" style="padding:8px 10px;">
-        <div class="label" style="font-size:0.62rem;">规则归档</div>
-        <div class="value accent" style="font-size:1.1rem;" id="sh-archive-count">--</div>
-        <div class="sub" id="sh-archive-sub" style="font-size:0.58rem;"></div>
+      <div class="hero-card" style="padding:6px 8px;">
+        <div class="label" style="font-size:0.60rem;">自动恢复</div>
+        <div class="value green" style="font-size:1.0rem;" id="sh-restored-count">--</div>
+        <div class="sub" id="sh-restored-sub" style="font-size:0.55rem;"></div>
       </div>
-      <div class="hero-card" style="padding:8px 10px;">
-        <div class="label" style="font-size:0.62rem;">币种诊断</div>
-        <div class="value accent" style="font-size:1.1rem;" id="sh-diag-count">--</div>
-        <div class="sub" id="sh-diag-sub" style="font-size:0.58rem;"></div>
+      <div class="hero-card" style="padding:6px 8px;">
+        <div class="label" style="font-size:0.60rem;">规则归档</div>
+        <div class="value accent" style="font-size:1.0rem;" id="sh-archive-count">--</div>
+        <div class="sub" id="sh-archive-sub" style="font-size:0.55rem;"></div>
+      </div>
+      <div class="hero-card" style="padding:6px 8px;">
+        <div class="label" style="font-size:0.60rem;">币种诊断</div>
+        <div class="value accent" style="font-size:1.0rem;" id="sh-diag-count">--</div>
+        <div class="sub" id="sh-diag-sub" style="font-size:0.55rem;"></div>
       </div>
     </div>
        <!-- 逐日趋势图 -->
     <div style="padding:4px 14px 6px;display:none;" id="sh-chart-wrap">
       <!-- 图例 -->
-      <div style="display:flex;align-items:center;gap:14px;padding:2px 4px 6px;font-size:0.65rem;color:var(--text-secondary);flex-wrap:wrap;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(52,211,153,0.6);display:inline-block;"></span> 修复</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(251,191,36,0.6);display:inline-block;"></span> 间隔调整</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(125,211,252,0.6);display:inline-block;"></span> 已恢复</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:9px;height:9px;border-radius:2px;background:rgba(248,113,113,0.6);display:inline-block;"></span> 归档</span>
+      <div style="display:flex;align-items:center;gap:10px;padding:2px 4px 6px;font-size:0.62rem;color:var(--text-secondary);flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(52,211,153,0.6);display:inline-block;"></span>代码修复</span>
+        <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(251,191,36,0.6);display:inline-block;"></span>LLM调整</span>
+        <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(251,146,60,0.6);display:inline-block;"></span>引擎调整</span>
+        <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(125,211,252,0.6);display:inline-block;"></span>自动恢复</span>
+        <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:rgba(248,113,113,0.6);display:inline-block;"></span>归档</span>
         <span style="flex:1;"></span>
         <!-- 统一时间范围按钮（同时控制两张图） -->
         <span class="sh-range-pills" style="display:flex;gap:4px;">
@@ -3094,46 +4507,29 @@ select:focus { border-color:var(--accent); }
         </span>
       </div>
       <div style="position:relative;">
-        <canvas id="sh-chart" height="80" style="width:100%;display:block;"></canvas>
+        <canvas id="sh-chart" height="160" style="width:100%;display:block;"></canvas>
         <div id="sh-tooltip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity 0.1s;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;padding:6px 10px;font-size:0.7rem;font-family:var(--font-mono);white-space:nowrap;z-index:50;box-shadow:var(--shadow-lg);"></div>
       </div>
     </div>
 
     <!-- 第二张图: 警报引擎活动（含统计卡片） -->
     <div id="aa-section" style="display:none;">
-      <!-- 统计卡片（4个紧凑卡片） -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;padding:2px 14px 4px;">
-        <div class="hero-card" style="padding:4px 8px;">
-          <div class="label" style="font-size:0.55rem;">检查</div>
+      <!-- 统计卡片（仅触发比） -->
+      <div style="display:flex;gap:4px;padding:2px 14px 4px;">
+        <div class="hero-card" style="padding:4px 10px;flex:1;">
+          <div class="label" style="font-size:0.55rem;">触发比</div>
           <div class="value accent" style="font-size:0.95rem;" id="aa-checks">--</div>
           <div class="sub" id="aa-checks-sub" style="font-size:0.55rem;"></div>
-        </div>
-        <div class="hero-card" style="padding:4px 8px;">
-          <div class="label" style="font-size:0.55rem;">触发</div>
-          <div class="value green" style="font-size:0.95rem;" id="aa-triggers">--</div>
-          <div class="sub" id="aa-triggers-sub" style="font-size:0.55rem;"></div>
-        </div>
-        <div class="hero-card" style="padding:4px 8px;">
-          <div class="label" style="font-size:0.55rem;">调整</div>
-          <div class="value" style="font-size:0.95rem;color:#fbbf24;" id="aa-adjust">--</div>
-          <div class="sub" id="aa-adjust-sub" style="font-size:0.55rem;"></div>
-        </div>
-        <div class="hero-card" style="padding:4px 8px;">
-          <div class="label" style="font-size:0.55rem;">恢复</div>
-          <div class="value" style="font-size:0.95rem;color:#7dd3fc;" id="aa-restore">--</div>
-          <div class="sub" id="aa-restore-sub" style="font-size:0.55rem;"></div>
         </div>
       </div>
       <!-- 图例 + 图表 -->
       <div style="padding:2px 14px 6px;" id="aa-chart-wrap">
         <div style="display:flex;align-items:center;gap:10px;padding:2px 4px 4px;font-size:0.6rem;color:var(--text-secondary);flex-wrap:wrap;">
-          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent);display:inline-block;"></span> 检查</span>
-          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--green);display:inline-block;"></span> 触发</span>
-          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#fbbf24;display:inline-block;"></span> 调整</span>
-          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:#7dd3fc;display:inline-block;"></span> 恢复</span>
+          <span style="display:flex;align-items:center;gap:3px;"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent);display:inline-block;"></span> 触发比(%)</span>
+          <span id="aa-ma7-legend" style="display:none;align-items:center;gap:3px;"><span style="width:12px;height:0;border-top:1.5px dashed var(--accent);display:inline-block;"></span> MA7</span>
         </div>
         <div style="position:relative;">
-          <canvas id="aa-chart" height="80" style="width:100%;display:block;"></canvas>
+          <canvas id="aa-chart" height="160" style="width:100%;display:block;"></canvas>
           <div id="aa-tooltip" style="position:absolute;pointer-events:none;opacity:0;transition:opacity 0.1s;background:var(--bg-card);border:1px solid var(--border-light);border-radius:6px;padding:6px 10px;font-size:0.7rem;font-family:var(--font-mono);white-space:nowrap;z-index:50;box-shadow:var(--shadow-lg);"></div>
         </div>
       </div>
@@ -3162,7 +4558,7 @@ select:focus { border-color:var(--accent); }
     <!-- 规则恢复列表 -->
     <div class="collapsible-section">
       <div class="collapsible-header" onclick="toggleSHCollapsible(this, 'restore')">
-        <span class="arrow">▶</span> 间隔恢复记录
+        <span class="arrow">▶</span> 自动恢复记录
         <span style="margin-left:auto;font-size:0.65rem;color:var(--text-muted);" id="sh-restore-header-label"></span>
       </div>
       <div class="collapsible-body" id="sh-restore-body">
@@ -3228,6 +4624,42 @@ select:focus { border-color:var(--accent); }
 <div id="pnl-tooltip" style="display:none;position:fixed;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:8px 12px;font-size:0.75rem;pointer-events:none;z-index:9999;box-shadow:var(--shadow-lg);max-width:280px;"></div>
 <div id="toast-container"></div>
 
+<!-- ═══ 止盈偏移风险确认弹窗 ═══ -->
+<div id="tp-shift-modal-overlay">
+  <div id="risk-modal">
+    <h3>🎯 止盈偏移参数修改确认</h3>
+    <p>你即将将止盈偏移系数从 <span class="risk-highlight" id="tp-shift-risk-old">5%</span> 修改为 <span class="risk-highlight" id="tp-shift-risk-new">5%</span></p>
+    <p style="color:var(--orange);">⚠ 这会改变所有新开仓单的止盈价格计算方法。</p>
+    <p style="font-size:0.78rem;color:var(--text-secondary);line-height:1.6;">
+      止盈偏移规则：<b>阶段二给出的止盈价位 → 向入场价方向偏移指定百分比</b>，
+      降低利润目标以更快落袋。提高偏移百分比 = 止盈更快被触发 = 利润更小但更确定。
+      设为 0% 则不偏移，使用阶段二的原始止盈价位。
+    </p>
+    <div class="risk-actions">
+      <button class="btn-cancel" onclick="closeTpShiftModal()">取消</button>
+      <button class="btn-confirm" onclick="doSaveTpShift()">确认修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 止损偏移风险确认弹窗 ═══ -->
+<div id="sl-shift-modal-overlay">
+  <div id="risk-modal">
+    <h3>🛡️ 止损偏移参数修改确认</h3>
+    <p>你即将将止损偏移系数从 <span class="risk-highlight" id="sl-shift-risk-old">5%</span> 修改为 <span class="risk-highlight" id="sl-shift-risk-new">5%</span></p>
+    <p style="color:var(--red);">⚠ 这会改变所有新开仓单的止损价格计算方法，直接影响交易风险。</p>
+    <p style="font-size:0.78rem;color:var(--text-secondary);line-height:1.6;">
+      止损偏移规则：<b>阶段二给出的止损价位 → 向远离入场价方向偏移指定百分比</b>，
+      扩大止损缓冲以避免揉搓线/影线误触发。提高偏移百分比 = 止损更难被打到 = 但单笔亏损更大。
+      设为 0% 则不偏移，使用阶段二的原始止损价位。
+    </p>
+    <div class="risk-actions">
+      <button class="btn-cancel" onclick="closeSlShiftModal()">取消</button>
+      <button class="btn-confirm" onclick="doSaveSlShift()">确认修改</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ 仓位倍率风险确认弹窗 ═══ -->
 <div id="risk-modal-overlay">
   <div id="risk-modal">
@@ -3284,12 +4716,6 @@ select:focus { border-color:var(--accent); }
   const diag = document.getElementById('js-diag');
   if (diag) diag.style.display = 'none';
 })();
-
-function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 // 通用刷新按钮动画：手动点击时旋转，自动刷新不触发
 async function spinRefresh(btn, fn) {
@@ -3533,29 +4959,6 @@ document.addEventListener('click', e => {
   }
 });
 
-// ── 设置页：阶段二模式 ────────────────────────────
-async function saveSettingStage2() {
-  const sel = document.getElementById('setting-stage2-mode');
-  const saved = document.getElementById('setting-stage2-saved');
-  if (!sel || !saved) return;
-  try {
-    const res = await fetch('/api/stage2-mode', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode: sel.value })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      saved.textContent = '已保存';
-      setTimeout(() => { saved.textContent = ''; }, 2000);
-    } else {
-      saved.textContent = '失败';
-    }
-  } catch(e) {
-    saved.textContent = '错误';
-  }
-}
-
 // ── 市场环境对冲开关 ──────────────────────────
 async function saveHedgeEnabled() {
   const cb = document.getElementById('setting-hedge');
@@ -3617,6 +5020,19 @@ function initHedgeToggle(on) {
     label.textContent = '关闭';
     label.style.color = 'var(--text-muted)';
   }
+}
+
+// ── 组合风险全局上限 ─────────────────────────
+async function saveRiskThreshold(val) {
+  const desc = document.getElementById('setting-riskthreshold-desc');
+  try {
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portfolioRiskThreshold: parseInt(val) })
+    });
+    if (desc) { desc.textContent = '已保存 ✓'; setTimeout(() => { desc.textContent = '≥ 此值时硬拒绝 + 触发审计'; }, 1500); }
+  } catch (_) {}
 }
 
 // ── 开仓杠杆 ──────────────────────────────────
@@ -3738,11 +5154,6 @@ function applyBackground(src) {
 }
 
 function loadSettings() {
-  fetch('/api/stage2-mode').then(r => r.json()).then(data => {
-    const sel = document.getElementById('setting-stage2-mode');
-    if (sel) sel.value = data.mode || 'normal';
-  }).catch(() => {});
-
   fetch('/api/settings').then(r => r.json()).then(data => {
     const inp = document.getElementById('setting-scanner-limit');
     const current = document.getElementById('setting-scanner-current');
@@ -3772,16 +5183,36 @@ function loadSettings() {
     // 庄币扫描器配置
     const zhuangLimit = document.getElementById('setting-zhuang-scanner-limit');
     const zhuangLimitCur = document.getElementById('setting-zhuang-scanner-current');
-    if (zhuangLimit && data.zhuangScannerLimit) zhuangLimit.value = data.zhuangScannerLimit;
-    if (zhuangLimitCur && data.zhuangScannerLimit) zhuangLimitCur.textContent = data.zhuangScannerLimit;
+    if (zhuangLimit && data.zhuangScannerLimit !== undefined) zhuangLimit.value = data.zhuangScannerLimit;
+    if (zhuangLimitCur && data.zhuangScannerLimit !== undefined) zhuangLimitCur.textContent = data.zhuangScannerLimit;
     const zhuangIntv = document.getElementById('setting-zhuang-scanner-interval');
     const zhuangIntvCur = document.getElementById('setting-zhuang-interval-current');
-    if (zhuangIntv && data.zhuangScannerIntervalMin) zhuangIntv.value = data.zhuangScannerIntervalMin;
-    if (zhuangIntvCur && data.zhuangScannerIntervalMin) zhuangIntvCur.textContent = formatInterval(data.zhuangScannerIntervalMin);
+    if (zhuangIntv && data.zhuangScannerIntervalMin !== undefined) zhuangIntv.value = data.zhuangScannerIntervalMin;
+    if (zhuangIntvCur && data.zhuangScannerIntervalMin !== undefined) zhuangIntvCur.textContent = formatInterval(data.zhuangScannerIntervalMin);
     // 庄币仓位倍率
     var zhuangMult = parseFloat(data.zhuangPositionMultiplier) || 0.8;
     currentZhuangMultValue = zhuangMult;
     updateZhuangMultPreview(zhuangMult);
+    // 止盈止损偏移
+    var tpShift = parseInt(data.tpShiftPercent);
+    if (!isNaN(tpShift)) { currentTpShift = Math.max(0, Math.min(15, tpShift)); updateTpShiftPreview(currentTpShift); }
+    var slShift = parseInt(data.slShiftPercent);
+    if (!isNaN(slShift)) { currentSlShift = Math.max(0, Math.min(15, slShift)); updateSlShiftPreview(currentSlShift); }
+    // 监督者触发阈值
+    var supPos = parseInt(data.supervisorMinPositions);
+    if (!isNaN(supPos)) { currentSupervisorMinPositions = Math.max(0, Math.min(50, supPos)); updateSupervisorPosPreview(currentSupervisorMinPositions); }
+    // 镜像仓位倍率
+    var mirrorMult = parseFloat(data.mirrorValueMultiplier) || 1;
+    currentMirrorMult = mirrorMult;
+    updateMirrorMultPreview(mirrorMult);
+    // 组合暴露风险上限
+    var riskThr = parseInt(data.portfolioRiskThreshold);
+    if (!isNaN(riskThr)) {
+      const slider = document.getElementById('setting-riskthreshold-slider');
+      const val = document.getElementById('setting-riskthreshold-val');
+      if (slider) slider.value = riskThr;
+      if (val) val.textContent = riskThr + '/100';
+    }
   }).catch(() => {});
 
   loadScannerLists();
@@ -3928,6 +5359,10 @@ let pendingMultValue = 1;
 let currentMultValue = 1;
 let pendingZhuangMultValue = 0.8;
 let currentZhuangMultValue = 0.8;
+let currentTpShift = 5;
+let pendingTpShift = 5;
+let currentSlShift = 5;
+let pendingSlShift = 5;
 
 function toggleMultHelp() {
   var panel = document.getElementById('mult-help-panel');
@@ -3988,6 +5423,187 @@ async function doSaveMult() {
     if (data.ok) {
       currentMultValue = valueToSave;
       updateMultPreview(currentMultValue);
+      saved.textContent = '✅';
+      saved.style.color = 'var(--green)';
+      setTimeout(function() { saved.textContent = ''; }, 3000);
+    } else {
+      saved.textContent = '❌ ' + (data.error || '保存失败');
+      saved.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    saved.textContent = '❌';
+    saved.style.color = 'var(--red)';
+  }
+}
+
+// ── 止盈偏移 ──
+function updateTpShiftPreview(val) {
+  val = Math.max(0, Math.min(15, parseInt(val) || 5));
+  pendingTpShift = val;
+  document.getElementById('setting-tp-shift-slider').value = val;
+  document.getElementById('setting-tp-shift-input').value = val;
+  document.getElementById('setting-tp-shift-val').textContent = val + '%';
+}
+
+function saveTpShiftWithConfirm() {
+  var val = parseInt(document.getElementById('setting-tp-shift-input').value) || 5;
+  val = Math.max(0, Math.min(15, val));
+  pendingTpShift = val;
+  updateTpShiftPreview(val);
+  if (val === currentTpShift) return;
+  document.getElementById('tp-shift-risk-old').textContent = currentTpShift + '%';
+  document.getElementById('tp-shift-risk-new').textContent = val + '%';
+  document.getElementById('tp-shift-modal-overlay').classList.add('active');
+}
+
+function closeTpShiftModal() {
+  document.getElementById('tp-shift-modal-overlay').classList.remove('active');
+  updateTpShiftPreview(currentTpShift);
+}
+
+async function doSaveTpShift() {
+  var valueToSave = pendingTpShift;
+  closeTpShiftModal();
+  var saved = document.getElementById('setting-tp-shift-saved');
+  try {
+    var res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tpShiftPercent: valueToSave })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      currentTpShift = valueToSave;
+      updateTpShiftPreview(currentTpShift);
+      saved.textContent = '✅';
+      saved.style.color = 'var(--green)';
+      setTimeout(function() { saved.textContent = ''; }, 3000);
+    } else {
+      saved.textContent = '❌ ' + (data.error || '保存失败');
+      saved.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    saved.textContent = '❌';
+    saved.style.color = 'var(--red)';
+  }
+}
+
+// ── 止损偏移 ──
+function updateSlShiftPreview(val) {
+  val = Math.max(0, Math.min(15, parseInt(val) || 5));
+  pendingSlShift = val;
+  document.getElementById('setting-sl-shift-slider').value = val;
+  document.getElementById('setting-sl-shift-input').value = val;
+  document.getElementById('setting-sl-shift-val').textContent = val + '%';
+}
+
+function saveSlShiftWithConfirm() {
+  var val = parseInt(document.getElementById('setting-sl-shift-input').value) || 5;
+  val = Math.max(0, Math.min(15, val));
+  pendingSlShift = val;
+  updateSlShiftPreview(val);
+  if (val === currentSlShift) return;
+  document.getElementById('sl-shift-risk-old').textContent = currentSlShift + '%';
+  document.getElementById('sl-shift-risk-new').textContent = val + '%';
+  document.getElementById('sl-shift-modal-overlay').classList.add('active');
+}
+
+function closeSlShiftModal() {
+  document.getElementById('sl-shift-modal-overlay').classList.remove('active');
+  updateSlShiftPreview(currentSlShift);
+}
+
+async function doSaveSlShift() {
+  var valueToSave = pendingSlShift;
+  closeSlShiftModal();
+  var saved = document.getElementById('setting-sl-shift-saved');
+  try {
+    var res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slShiftPercent: valueToSave })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      currentSlShift = valueToSave;
+      updateSlShiftPreview(currentSlShift);
+      saved.textContent = '✅';
+      saved.style.color = 'var(--green)';
+      setTimeout(function() { saved.textContent = ''; }, 3000);
+    } else {
+      saved.textContent = '❌ ' + (data.error || '保存失败');
+      saved.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    saved.textContent = '❌';
+    saved.style.color = 'var(--red)';
+  }
+}
+
+// ── 监督者触发阈值 ──
+let currentSupervisorMinPositions = 5;
+
+function updateSupervisorPosPreview(val) {
+  val = Math.max(0, Math.min(50, parseInt(val) || 5));
+  document.getElementById('setting-supervisor-pos-slider').value = val;
+  document.getElementById('setting-supervisor-pos-input').value = val;
+  document.getElementById('setting-supervisor-pos-val').textContent = val;
+}
+
+async function saveSupervisorMinPositions() {
+  var val = parseInt(document.getElementById('setting-supervisor-pos-input').value) || 5;
+  val = Math.max(0, Math.min(50, val));
+  updateSupervisorPosPreview(val);
+  if (val === currentSupervisorMinPositions) return;
+  var saved = document.getElementById('setting-supervisor-pos-saved');
+  try {
+    var res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ supervisorMinPositions: val })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      currentSupervisorMinPositions = val;
+      saved.textContent = '✅';
+      saved.style.color = 'var(--green)';
+      setTimeout(function() { saved.textContent = ''; }, 3000);
+    } else {
+      saved.textContent = '❌ ' + (data.error || '保存失败');
+      saved.style.color = 'var(--red)';
+    }
+  } catch(e) {
+    saved.textContent = '❌';
+    saved.style.color = 'var(--red)';
+  }
+}
+
+// ── 镜像仓位倍率 ──
+let currentMirrorMult = 1.0;
+
+function updateMirrorMultPreview(val) {
+  val = Math.max(0.5, Math.min(10, parseFloat(val) || 1));
+  document.getElementById('setting-mirror-mult-slider').value = val;
+  document.getElementById('setting-mirror-mult-input').value = val;
+  document.getElementById('setting-mirror-mult-val').textContent = val.toFixed(1).replace(/\.0$/, '') + '×';
+}
+
+async function saveMirrorMult() {
+  var val = parseFloat(document.getElementById('setting-mirror-mult-input').value) || 1;
+  val = Math.max(0.5, Math.min(10, val));
+  updateMirrorMultPreview(val);
+  if (val === currentMirrorMult) return;
+  var saved = document.getElementById('setting-mirror-mult-saved');
+  try {
+    var res = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mirrorValueMultiplier: val })
+    });
+    var data = await res.json();
+    if (data.ok) {
+      currentMirrorMult = val;
+      updateMirrorMultPreview(currentMirrorMult);
       saved.textContent = '✅';
       saved.style.color = 'var(--green)';
       setTimeout(function() { saved.textContent = ''; }, 3000);
@@ -4251,8 +5867,8 @@ function renderPoolConfig(el) {
       </div>`;
   }).join('');
 
-  const levelColors = { high:'#ef4444', med:'#3b82f6', low:'#9ca3af' };
-  const routingRows = ['high','med','low'].map(lv => `
+  const levelColors = { pro:'#a855f7', high:'#ef4444', med:'#3b82f6', low:'#9ca3af' };
+  const routingRows = ['pro','high','med','low'].map(lv => `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:0.7rem;">
       <span style="color:${levelColors[lv]};font-weight:600;width:30px;">${lv.toUpperCase()}</span>
       <span style="color:var(--text-muted);">→</span>
@@ -4433,6 +6049,10 @@ async function loadMarketBrief() {
     if (news.length) {
       ns.innerHTML = news.map(n => '<span class="mb-news-tag"><span class="cat">['+(n.category||'其他')+']</span> '+escHtml(n.title)+'</span>').join('');
     } else { ns.innerHTML = ''; }
+
+    // ── BTC 展望 ──
+    loadBtcOutlook();
+
     loading.style.display = 'none';
     content.style.display = 'block';
   } catch(e) {
@@ -4442,6 +6062,38 @@ async function loadMarketBrief() {
   refreshTimes.marketBrief = new Date();
   renderRefreshTimes();
 }
+async function loadBtcOutlook() {
+  const GRADE_LABEL = {
+    strong_bullish: '🔥 强烈看涨', likely_bullish: '📈 可能上涨',
+    neutral: '➖ 无明确信号',
+    likely_bearish: '📉 可能下跌', strong_bearish: '🧊 强烈看跌'
+  };
+
+  try {
+    const data = await API.get('/api/btc-outlook');
+    if (!data.found) { return; }
+
+    const row = document.getElementById('mb-outlook-row');
+    row.style.display = 'flex';
+
+    [['4h', data.outlook_4h], ['24h', data.outlook_24h]].forEach(([tf, outlook]) => {
+      if (!outlook) return;
+      const g = outlook.grade || 'neutral';
+      const card = document.getElementById('mb-outlook-' + tf);
+      card.className = 'mb-outlook-card ' + g;
+      document.getElementById('mb-ol' + tf + '-badge').textContent = GRADE_LABEL[g] || g;
+      document.getElementById('mb-ol' + tf + '-badge').className = 'badge ' + g;
+      document.getElementById('mb-ol' + tf + '-reason').textContent = outlook.reason || '';
+      const kl = outlook.key_levels || {};
+      document.getElementById('mb-ol' + tf + '-lvls').innerHTML =
+        (kl.support ? '<span>支撑: <span class="sup">$' + fmtNum(kl.support) + '</span></span>' : '') +
+        (kl.resistance ? '<span>阻力: <span class="res">$' + fmtNum(kl.resistance) + '</span></span>' : '');
+    });
+  } catch (e) {
+    console.error('[loadBtcOutlook] 加载失败:', e);
+  }
+}
+
 function escHtml(s) { return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
 function fmtNum(n) {
   if (n==null) return '--';
@@ -4618,10 +6270,26 @@ async function refreshOverview() {
     loadPriceVisualization();
 
     // ── Trade Decisions ──
-    loadTradeDecisions();
+    await loadTradeDecisions();
+
+    // ── Coin Cooldown ──
+    loadCoinCooldown();
+
+    // ── Pending Trade Lessons ──
+    loadPendingTradeLessons();
 
     // ★ Restore UI state after DOM rebuild
     restoreUIState(uiState);
+
+    // 兜底：确保渲染完成后卡片有内容
+    if (cachedTdData && cachedTdData.length > 0) {
+      const tdSearchEl = document.getElementById('td-search');
+      const query = tdSearchEl ? tdSearchEl.value.trim().toLowerCase() : '';
+      const filtered = query ? cachedTdData.filter(d => (d.coin || '').toLowerCase().includes(query)) : cachedTdData;
+      renderTdCards(document.getElementById('td-card-list'), filtered);
+      const tdInfo = document.getElementById('td-info');
+      if (tdInfo) tdInfo.textContent = filtered.length + '/' + cachedTdData.length + ' 条';
+    }
 
     setRefreshTime('overview');
     LoadingBar.done(`已加载 ${dash.summary.activeCycles.total} 个周期`);
@@ -4633,7 +6301,11 @@ async function refreshOverview() {
 
 // ── 价格柱可视化 ────────────────────────────────────
 function formatPrice(v) {
+  // 兼容对象格式 {price: 0.00796, pct: 7.95, ...}
+  if (v && typeof v === 'object' && v.price != null) v = v.price;
   if (v == null) return '--';
+  v = Number(v);
+  if (isNaN(v)) return '--';
   if (v >= 100) return v.toFixed(2);
   if (v >= 1) return v.toFixed(4);
   if (v >= 0.1) return v.toFixed(5);
@@ -5594,8 +7266,8 @@ document.getElementById('archived-search').addEventListener('input', function() 
 // ═══════════════════════════════════════════════════
 
 // ── 调度器状态 ──
-const PRIORITY_NAMES = { 'high-3':'🔴H3','high-2':'🟠H2','high-1':'🟡H1','med-2':'🔵M2','med-1':'🩵M1','low-2':'⚪L2','low-1':'⬜L1' };
-const PRIORITY_COLORS = { high:'#ef4444', med:'#3b82f6', low:'#9ca3af' };
+const PRIORITY_NAMES = { 'pro':'🟣PRO','high-3':'🔴H3','high-2':'🟠H2','high-1':'🟡H1','med-2':'🔵M2','med-1':'🩵M1','low-2':'⚪L2','low-1':'⬜L1' };
+const PRIORITY_COLORS = { pro:'#a855f7', high:'#ef4444', med:'#3b82f6', low:'#9ca3af' };
 
 async function loadDispatcher() {
   const content = document.getElementById('dispatcher-content');
@@ -5623,19 +7295,19 @@ async function loadDispatcher() {
 
     const queues = data.queue || {};
     const models = data.models || [];
-    const levelRouting = data.level_routing || { high:'-', med:'-', low:'-' };
-    const queueByLevel = { high:0, med:0, low:0 };
+    const levelRouting = data.level_routing || { pro:'-', high:'-', med:'-', low:'-' };
+    const queueByLevel = { pro:0, high:0, med:0, low:0 };
     for (const [k,v] of Object.entries(queues)) {
       const lv = k.split('-')[0];
       queueByLevel[lv] = (queueByLevel[lv]||0) + v;
     }
-    const totalQueue = queueByLevel.high + queueByLevel.med + queueByLevel.low;
+    const totalQueue = queueByLevel.pro + queueByLevel.high + queueByLevel.med + queueByLevel.low;
 
     // 获取明细数据（用于展开详情）
     let details = null;
     try { details = await API.get('/api/dispatcher/details'); } catch(e) {}
 
-    const queueBars = ['high','med','low'].map(lv => {
+    const queueBars = ['pro','high','med','low'].map(lv => {
       const v = queueByLevel[lv];
       const color = PRIORITY_COLORS[lv];
       const maxW = totalQueue > 0 ? Math.max((v/totalQueue)*100, v>0?8:0) : 0;
@@ -5652,7 +7324,7 @@ async function loadDispatcher() {
         if (tasks.length > 0) {
           detailHTML = `<div class="disp-queue-detail" id="disp-queue-detail-${lv}" style="display:none;margin:4px 0 4px 18px;padding:4px 8px;background:var(--bg-primary);border-radius:4px;border:1px solid var(--border);font-size:0.6rem;max-height:200px;overflow-y:auto;">` +
             tasks.map(t => {
-              const srcColor = { instant:'#ff6b6b', scanner:'#4ecdc4', review:'#45b7d1', selfheal:'#f9ca24', stage4:'#a29bfe' }[t.source] || '#888';
+              const srcColor = { instant:'#ff6b6b', scanner:'#4ecdc4', review:'#45b7d1', selfheal:'#f9ca24', stage4:'#a29bfe', supervisor:'#a855f7' }[t.source] || '#888';
               return `<div style="display:flex;gap:4px;padding:2px 0;align-items:center;border-bottom:1px solid rgba(255,255,255,0.03);">
                 <span style="color:${srcColor};font-weight:600;min-width:38px;">${t.coin||'-'}</span>
                 <span style="color:var(--text-secondary);min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.name||'-'}</span>
@@ -5867,6 +7539,28 @@ function toggleDispModelDetail(safeId) {
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
+// ── 清空队列 ──
+async function clearDispatcherQueue(btn) {
+  if (!confirm('确认清空所有排队任务？此操作不可撤销。')) return;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '⏳ 清空中...';
+  btn.disabled = true;
+  try {
+    const result = await API.post('/api/dispatcher/clear-queue');
+    if (result.error) {
+      alert('清空失败：' + result.error);
+    } else {
+      btn.innerHTML = '✅ 已清空';
+      setTimeout(() => { btn.innerHTML = originalHtml; btn.disabled = false; }, 2000);
+      loadDispatcher(); // 刷新卡片
+    }
+  } catch (e) {
+    alert('清空请求失败：' + e.message);
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }
+}
+
 // ── 原始日志 ──
 async function loadDispatcherLogs() {
   const logEl = document.getElementById('dispatcher-log-raw');
@@ -5918,39 +7612,85 @@ async function loadCronJobsLive() {
 async function loadPm2Processes() {
   try {
     const d = await API.post('/api/pm2/list',{});
-    const grid = document.getElementById('pm2-cron-grid');
-    if (!d.processes || d.processes.length === 0) {
-      grid.innerHTML = '<span style="color:var(--text-muted);">无 PM2 进程</span>';
-      return;
+    pm2ProcessesData = d.processes || [];
+    _renderPm2Filtered();
+  } catch(e) {
+    document.getElementById('pm2-cron-grid').innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
+  }
+}
+
+function _renderPm2Filtered() {
+  let procs = [...pm2ProcessesData];
+  const grid = document.getElementById('pm2-cron-grid');
+  const countEl = document.getElementById('pm2-count');
+
+  if (procs.length === 0) {
+    grid.innerHTML = '<span style="color:var(--text-muted);">无 PM2 进程</span>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+
+  // ── 排序 ──
+  const asc = pm2Sort.asc ? 1 : -1;
+  procs.sort((a, b) => {
+    switch (pm2Sort.sort) {
+      case 'status': {
+        const rank = p => p.status === 'online' ? 2 : 1;
+        return (rank(a) - rank(b)) * asc;
+      }
+      case 'cpu':
+        return ((a.cpu || 0) - (b.cpu || 0)) * asc;
+      case 'memory':
+        return ((a.memory || 0) - (b.memory || 0)) * asc;
+      case 'name':
+      default:
+        return (a.name || '').localeCompare(b.name || '') * asc;
     }
-    // ── PM2 进程功能描述映射 ──
-    const PM2_DESC = {
-      'btc-alert': '🔔 警报引擎 — 价格触达时触发即时分析',
-      'cron-dispatcher': '📋 Cron 调度器 — 优先级队列 + 模型负载感知派发',
-      'cron-name-cache': '🗂️ Cron 名称缓存 — cron job 名称本地缓存服务',
-      'july-dashboard': '📊 监控面板 — Web 状态面板 + 配置管理',
-      'july-report-monitor': '📝 报告监控 — 报告生成状态追踪',
-      'silence-monitor': '🔇 静默监控 — 检测调度器/警报器静默异常',
-    };
-    grid.innerHTML = d.processes.map(p => {
+  });
+
+  if (countEl) countEl.textContent = `(${procs.length})`;
+
+  // ── PM2 进程功能描述映射 ──
+  const PM2_DESC = {
+    'btc-alert': '🔔 警报引擎 — 价格触达时触发即时分析',
+    'cron-dispatcher': '📋 Cron 调度器 — 优先级队列 + 模型负载感知派发',
+    'cron-name-cache': '🗂️ Cron 名称缓存 — cron job 名称本地缓存服务',
+    'cycle-auto-archiver': '🗄️ 周期自动归档 — 每 15min 扫描僵尸周期并归档',
+    'july-dashboard': '📊 监控面板 — Web 状态面板 + 配置管理',
+    'july-report-monitor': '📝 报告监控 — 报告生成状态追踪',
+    'position-monitor': '🔍 持仓审计 — 每 3h 检查实盘持仓 + 派发审计任务',
+    'silence-monitor': '🔇 静默监控 — 检测调度器/警报器静默异常',
+  };
+  grid.innerHTML = procs.map(p => {
       const isOnline = p.status === 'online';
-      const statusBadge = isOnline
-        ? '<span class="rule-status-active">● 在线</span>'
-        : '<span style="color:var(--red);">● 离线</span>';
+      const isCron = !!p.cronRestart;
+      let statusBadge;
+      if (isCron) {
+        // Cron 定时进程：显示为定时调度状态
+        const cronLabel = p.cronRestart.replace(/\*/g, '×');
+        statusBadge = `<span style="color:var(--accent);">⏰ 定时 ${cronLabel}</span>`;
+      } else if (isOnline) {
+        statusBadge = '<span class="rule-status-active">● 在线</span>';
+      } else {
+        statusBadge = '<span style="color:var(--red);">● 离线</span>';
+      }
       const up = p.uptime ? formatDuration(Date.now() - p.uptime) : '-';
       const desc = PM2_DESC[p.name] || '';
       return `<div class="pm2-card" style="display:flex;justify-content:space-between;align-items:center;">
         <div>
-          <div class="name" style="margin-bottom:2px;">${p.name}</div>
+          <div class="name" style="margin-bottom:2px;">${p.name}${isCron ? ' <span style="font-size:0.6rem;color:var(--accent);">[cron]</span>' : ''}</div>
           ${desc ? `<div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:3px;">${desc}</div>` : ''}
           <div class="meters" style="font-size:0.7rem;">
-            ${statusBadge} &nbsp; PID:${p.pid||'-'} &nbsp; CPU:${p.cpu}% &nbsp; MEM:${p.memory}MB &nbsp; 重启:${p.restarts} &nbsp; 运行:${up}
+            ${statusBadge} &nbsp; PID:${p.pid||'-'} &nbsp; CPU:${p.cpu}% &nbsp; MEM:${p.memory}MB &nbsp; 执行:${p.restarts}次 &nbsp; 运行:${up}
           </div>
         </div>
         <div style="white-space:nowrap;">
           ${isOnline
             ? `<button class="btn btn-sm" onclick="pm2Action('${p.name}','restart')" title="重启" style="font-size:0.65rem;">🔄</button>`
-            : `<button class="btn btn-sm" onclick="pm2Action('${p.name}','start')" title="启动" style="font-size:0.65rem;color:var(--green);">▶</button>`
+            : (isCron
+              ? `<button class="btn btn-sm" onclick="pm2Action('${p.name}','restart')" title="重启定时" style="font-size:0.65rem;">🔄</button>`
+              : `<button class="btn btn-sm" onclick="pm2Action('${p.name}','start')" title="启动" style="font-size:0.65rem;color:var(--green);">▶</button>`
+            )
           }
           ${isOnline
             ? `<button class="btn btn-sm btn-danger" onclick="pm2Action('${p.name}','stop')" title="停止" style="font-size:0.65rem;">⏹</button>`
@@ -5959,9 +7699,6 @@ async function loadPm2Processes() {
         </div>
       </div>`;
     }).join('');
-  } catch(e) {
-    document.getElementById('pm2-cron-grid').innerHTML = `<span style="color:var(--red)">${e.message}</span>`;
-  }
 }
 
 async function pm2Action(name, action) {
@@ -5985,16 +7722,53 @@ async function loadSystemCrontab() {
 
 let sysCronEntries = [];
 
+// ── Cron 过滤器状态 ──
+let cronFilter = { type: 'all', sort: 'nextRun', asc: true };
+let sysCronFilter = { status: 'all', sort: 'schedule', asc: true };
+let pm2Sort = { sort: 'name', asc: true };
+let cronJobsData = [];
+let pm2ProcessesData = [];
+
 function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function renderSystemCrontab(entries) {
   sysCronEntries = entries;
+  _renderSysCronFiltered();
+}
+
+function _renderSysCronFiltered() {
+  let entries = [...sysCronEntries];
   const tbody = document.getElementById('sys-cron-tbody');
+  const countEl = document.getElementById('sys-cron-count');
+
+  // ── 状态过滤 ──
+  if (sysCronFilter.status === 'active') entries = entries.filter(e => e.status !== 'paused');
+  else if (sysCronFilter.status === 'paused') entries = entries.filter(e => e.status === 'paused');
+
+  // ── 排序 ──
+  const asc = sysCronFilter.asc ? 1 : -1;
+  entries.sort((a, b) => {
+    let va, vb;
+    if (sysCronFilter.sort === 'script') {
+      va = (a.cmdBrief || '').toLowerCase();
+      vb = (b.cmdBrief || '').toLowerCase();
+      return va < vb ? -asc : va > vb ? asc : 0;
+    }
+    // default: schedule
+    va = a.schedule || '';
+    vb = b.schedule || '';
+    return va < vb ? -asc : va > vb ? asc : 0;
+  });
+
+  if (countEl) countEl.textContent = `(${entries.length}/${sysCronEntries.length})`;
+  const origIndices = entries.map(e => sysCronEntries.indexOf(e));
+
   if (!entries || entries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">无系统 crontab 条目</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;">无匹配的条目</td></tr>';
     return;
   }
-  tbody.innerHTML = entries.map((e, i) => {
+  tbody.innerHTML = entries.map((e, idx) => {
+    const i = origIndices[idx];
     const isPaused = e.status === 'paused';
     const statusBadge = isPaused
       ? '<span style="color:var(--text-muted)">⏸ 已暂停</span>'
@@ -6047,9 +7821,53 @@ async function sysCronDelete(i) {
 }
 
 function renderCronTable(jobs) {
+  cronJobsData = jobs;
+  _renderCronFiltered();
+}
+
+function _renderCronFiltered() {
+  let jobs = [...cronJobsData];
   const tbody = document.getElementById('cron-tbody');
+  const countEl = document.getElementById('cron-count');
+
+  // ── 类型过滤 ──
+  if (cronFilter.type === 'oneshot') jobs = jobs.filter(j => j.deleteAfterRun);
+  else if (cronFilter.type === 'recurring') jobs = jobs.filter(j => !j.deleteAfterRun);
+
+  // ── 排序 ──
+  const asc = cronFilter.asc ? 1 : -1;
+  const sortBy = cronFilter.sort;
+  jobs.sort((a, b) => {
+    let va, vb;
+    switch (sortBy) {
+      case 'name':
+        va = (a.name || a.id || '').toLowerCase(); vb = (b.name || b.id || '').toLowerCase();
+        return va < vb ? -asc : va > vb ? asc : 0;
+      case 'status': {
+        const rank = j => { const s = j.state || {}; return s.runningAtMs ? 3 : j.enabled ? 2 : 1; };
+        return (rank(a) - rank(b)) * asc;
+      }
+      case 'errors':
+        va = ((a.state || {}).consecutiveErrors || 0); vb = ((b.state || {}).consecutiveErrors || 0);
+        return (va - vb) * asc;
+      case 'duration':
+        va = ((a.state || {}).lastDurationMs || 0); vb = ((b.state || {}).lastDurationMs || 0);
+        return (va - vb) * asc;
+      case 'nextRun':
+      default:
+        va = ((a.state || {}).nextRunAtMs || 0); vb = ((b.state || {}).nextRunAtMs || 0);
+        // 0 = no next run → put at end
+        if (!va && !vb) return 0;
+        if (!va) return asc;
+        if (!vb) return -asc;
+        return (va - vb) * asc;
+    }
+  });
+
+  if (countEl) countEl.textContent = `(${jobs.length}/${cronJobsData.length})`;
+
   if (jobs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">无 Cron 任务</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">无匹配的 Cron 任务</td></tr>';
     return;
   }
   tbody.innerHTML = jobs.map((j, idx) => {
@@ -6166,6 +7984,83 @@ async function deleteCronJob(id, name) {
   catch(e) { showToast(e.message, 'err'); }
 }
 
+// ── Cron 过滤器/排序处理器 ──
+function setCronFilter(category, value, btn) {
+  cronFilter[category] = value;
+  // Update active button styles
+  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => {
+    if (b.classList.contains('sort-btn')) return;
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  _renderCronFiltered();
+}
+
+function setCronSort(field, btn) {
+  if (cronFilter.sort === field) {
+    cronFilter.asc = !cronFilter.asc;
+  } else {
+    cronFilter.sort = field;
+    cronFilter.asc = true;
+  }
+  // Update sort arrows
+  btn.parentElement.querySelectorAll('.sort-btn').forEach(b => {
+    b.classList.remove('active');
+    const arr = b.querySelector('.sort-arrow');
+    if (arr) arr.classList.remove('on');
+  });
+  btn.classList.add('active');
+  const arr = btn.querySelector('.sort-arrow');
+  if (arr) { arr.classList.add('on'); arr.textContent = cronFilter.asc ? '↑' : '↓'; }
+  _renderCronFiltered();
+}
+
+function setSysCronFilter(category, value, btn) {
+  sysCronFilter[category] = value;
+  btn.parentElement.querySelectorAll('.filter-btn').forEach(b => {
+    if (b.classList.contains('sort-btn')) return;
+    b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  renderSystemCrontab(sysCronEntries);
+}
+
+function setSysCronSort(field, btn) {
+  if (sysCronFilter.sort === field) {
+    sysCronFilter.asc = !sysCronFilter.asc;
+  } else {
+    sysCronFilter.sort = field;
+    sysCronFilter.asc = true;
+  }
+  btn.parentElement.querySelectorAll('.sort-btn').forEach(b => {
+    b.classList.remove('active');
+    const arr = b.querySelector('.sort-arrow');
+    if (arr) arr.classList.remove('on');
+  });
+  btn.classList.add('active');
+  const arr = btn.querySelector('.sort-arrow');
+  if (arr) { arr.classList.add('on'); arr.textContent = sysCronFilter.asc ? '↑' : '↓'; }
+  renderSystemCrontab(sysCronEntries);
+}
+
+function setPm2Sort(field, btn) {
+  if (pm2Sort.sort === field) {
+    pm2Sort.asc = !pm2Sort.asc;
+  } else {
+    pm2Sort.sort = field;
+    pm2Sort.asc = true;
+  }
+  btn.parentElement.querySelectorAll('.sort-btn').forEach(b => {
+    b.classList.remove('active');
+    const arr = b.querySelector('.sort-arrow');
+    if (arr) arr.classList.remove('on');
+  });
+  btn.classList.add('active');
+  const arr = btn.querySelector('.sort-arrow');
+  if (arr) { arr.classList.add('on'); arr.textContent = pm2Sort.asc ? '↑' : '↓'; }
+  _renderPm2Filtered();
+}
+
 /** Cron 执行历史（已完成的任务） */
 async function loadCronHistory() {
   const tbody = document.getElementById('cron-hist-tbody');
@@ -6230,22 +8125,32 @@ async function loadSystem() {
       'btc-alert': '🔔 警报引擎 — 价格触达时触发即时分析',
       'cron-dispatcher': '📋 Cron 调度器 — 优先级队列 + 模型负载感知派发',
       'cron-name-cache': '🗂️ Cron 名称缓存 — cron job 名称本地缓存服务',
+      'cycle-auto-archiver': '🗄️ 周期自动归档 — 每 15min 扫描僵尸周期并归档',
       'july-dashboard': '📊 监控面板 — Web 状态面板 + 配置管理',
       'july-report-monitor': '📝 报告监控 — 报告生成状态追踪',
+      'position-monitor': '🔍 持仓审计 — 每 3h 检查实盘持仓 + 派发审计任务',
       'silence-monitor': '🔇 静默监控 — 检测调度器/警报器静默异常',
+      'mirror-bot': '🪞 反向镜像引擎 — 全币种镜像七月实盘，方向/TP/SL 反转',
     };
     document.getElementById('pm2-grid').innerHTML = d.pm2.map(p => {
-      const statusClass = p.status === 'online' ? 'pm2-status-online' : 'pm2-status-offline';
+      const isCron = !!p.cronRestart;
+      let statusHtml;
+      if (isCron) {
+        statusHtml = `<span style="color:var(--accent);font-weight:600;">⏰ 定时 ${p.cronRestart.replace(/\*/g,'×')}</span>`;
+      } else {
+        const cls = p.status === 'online' ? 'pm2-status-online' : 'pm2-status-offline';
+        statusHtml = `<span class="${cls}">${p.status||'unknown'}</span>`;
+      }
       const uptime = p.uptime ? formatDuration(Date.now() - p.uptime) : '-';
       const desc = PM2_DESC_SYS[p.name] || '';
       return `<div class="pm2-card">
-        <div class="name">${p.name}</div>
+        <div class="name">${p.name}${isCron ? ' <span style="font-size:0.6rem;color:var(--accent);">[cron]</span>' : ''}</div>
         ${desc ? `<div style="font-size:0.65rem;color:var(--text-muted);margin-bottom:3px;">${desc}</div>` : ''}
         <div class="meters">
-          <span>状态: <span class="${statusClass}">${p.status||'unknown'}</span></span>
+          <span>状态: ${statusHtml}</span>
           <span>CPU: ${p.cpu||0}%</span>
           <span>MEM: ${p.memory||0}MB</span>
-          <span>重启: ${p.restarts||0}</span>
+          <span>${isCron ? '执行' : '重启'}: ${p.restarts||0}${isCron ? '次' : ''}</span>
           <span>运行: ${uptime}</span>
         </div>
       </div>`;
@@ -6982,6 +8887,7 @@ let posSortField = 'uplRatio';
 let posSortDesc = true;
 let positionsTimer = null;
 let positionsData = null;
+let mirrorMode = false;
 
 function setPosSort(field) {
   posSortField = field;
@@ -7000,8 +8906,9 @@ async function refreshPositionsCard() {
   const listEl = document.getElementById('pos-list');
   const countEl = document.getElementById('pos-count-info');
   const timeEl = document.getElementById('pos-refresh-time');
+  const apiPath = mirrorMode ? '/api/mirror-positions' : '/api/positions-detail';
   try {
-    const data = await API.get('/api/positions-detail');
+    const data = await API.get(apiPath);
     positionsData = data;
     if (countEl) countEl.textContent = data.count ? `(${data.count} 个)` : '';
     if (timeEl) {
@@ -7016,6 +8923,29 @@ async function refreshPositionsCard() {
       timeEl.textContent = (timeEl.textContent || '').replace(/.*$/, '') + ' · 刷新失败';
     }
   }
+  // 同步加载组合暴露度(仅主账户)
+  if (!mirrorMode) loadExposure();
+}
+
+function toggleMirrorMode() {
+  mirrorMode = !mirrorMode;
+  const btn = document.getElementById('mirror-toggle-btn');
+  if (mirrorMode) {
+    btn.style.background = 'var(--accent-dim)';
+    btn.style.color = '#fff';
+    btn.innerHTML = '🪞 镜像(开)';
+    const header = document.getElementById('positions-panel').querySelector('.info-panel-header');
+    if (header && header.firstChild) header.firstChild.textContent = '🪞 镜像仓位';
+    document.getElementById('exposure-panel').style.display = 'none';
+  } else {
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.innerHTML = '🪞 镜像';
+    const header = document.getElementById('positions-panel').querySelector('.info-panel-header');
+    if (header && header.firstChild) header.firstChild.textContent = '💰 实盘仓位';
+    document.getElementById('exposure-panel').style.display = '';
+  }
+  refreshPositionsCard();
 }
 
 function renderPositionsCard() {
@@ -7105,7 +9035,379 @@ function togglePosCard(card) {
 function startPositionsTimer() {
   if (positionsTimer) clearInterval(positionsTimer);
   refreshPositionsCard();
-  positionsTimer = setInterval(refreshPositionsCard, 30000);
+  positionsTimer = setInterval(() => {
+    // 只在当前可见视图刷新
+    if (poslogMode === 'positions') refreshPositionsCard();
+    else if (poslogMode === 'reports') refreshAuditReports(false);
+    else if (poslogMode === 'log') refreshAuditLog(false);
+    // 镜像模式下隐藏暴露度面板已在 toggleMirrorMode 处理
+  }, 30000);
+}
+
+// ── 实盘仓位卡片：审计报告 / 日志 模式切换 ─────────
+let poslogMode = 'positions';
+let auditReportsData = null;
+let auditLogData = null;
+let auditReportCache = {}; // { file: content }
+
+// ── 组合暴露风险面板 ──────────────────────────
+async function loadExposure() {
+  const el = document.getElementById('exposure-content');
+  if (!el) return;
+  try {
+    const data = await API.get('/api/portfolio-exposure');
+    if (data.error) { el.innerHTML = '<div class="exposure-empty">获取失败</div>'; return; }
+    renderExposure(data);
+  } catch (e) {
+    el.innerHTML = '<div class="exposure-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+  }
+}
+
+
+function renderExposure(data) {
+  const el = document.getElementById('exposure-content');
+  if (!el) return;
+  const p = data.portfolio;
+  if (!p || !data.position_count) {
+    el.innerHTML = '<div class="exposure-empty">暂无持仓</div>';
+    return;
+  }
+
+  const riskLevel = p.risk_level || 'low';
+  const riskClass = 'risk-' + riskLevel;
+  const clusters = p.clusters || [];
+  const maxCluster = clusters.length ? Math.max(...clusters.map(c => c.effective_nav_pct || c.nav_pct || 0)) : 0;
+  const cm = data.coin_metrics || {};
+
+  // 压力测试双向
+  let bestPnL = null, worstPnLNeg = null, bestLabel = '', worstNegLabel = '';
+  if (p.stress_test) {
+    for (const [k, v] of Object.entries(p.stress_test)) {
+      const val = v.est_pnl_pct || 0;
+      if (val > (bestPnL ?? -Infinity)) { bestPnL = val; bestLabel = k; }
+      if (val < (worstPnLNeg ?? Infinity)) { worstPnLNeg = val; worstNegLabel = k; }
+    }
+  }
+
+  // ── 颜色辅助函数 ──
+  function corrColor(v) {
+    if (v == null) return '#555';
+    const a = Math.abs(v);
+    if (a > 0.7) return '#34d399';
+    if (a > 0.4) return '#fbbf24';
+    if (a > 0.2) return '#f97316';
+    return '#ef4444';
+  }
+  function corrFill(v) {
+    const c = corrColor(v);
+    return 'linear-gradient(90deg,' + c + ',' + c + '88)';
+  }
+  function corrWidth(v) {
+    if (v == null) return 0;
+    // 中心对齐时最大 50%，用 46 留边距。corr=1 → 46%, corr=0.5 → 23%
+    return Math.min(Math.abs(v) * 46, 46);
+  }
+  // 风险评分环形颜色
+  function riskDialColor(score) {
+    if (score >= 80) return '#dc2626';
+    if (score >= 60) return '#ef4444';
+    if (score >= 40) return '#f97316';
+    if (score >= 20) return '#fbbf24';
+    return '#34d399';
+  }
+
+  // ── 风险评分环形进度条 ──
+  const score = p.risk_score || 0;
+  const dialColor = riskDialColor(score);
+  const r = 14; // radius
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(score, 100) / 100) * circ;
+  const dialSvg = '<svg width="36" height="36" style="transform:rotate(-90deg);">'
+    + '<circle cx="18" cy="18" r="' + r + '" fill="none" stroke="var(--bg-hover)" stroke-width="3"/>'
+    + '<circle cx="18" cy="18" r="' + r + '" fill="none" stroke="' + dialColor + '" stroke-width="3" stroke-linecap="round"'
+    + ' stroke-dasharray="' + circ.toFixed(2) + '" stroke-dashoffset="' + offset.toFixed(2) + '"'
+    + ' style="transition:stroke-dashoffset 0.5s ease;"/>'
+    + '</svg>';
+
+  // ── 组合仪表盘横向条 ──
+  let html = '<div class="expo-dashbar">';
+  // 风险评分（环形进度条）
+  html += '<div class="expo-dash-item">';
+  html += '<div style="position:relative;width:36px;height:36px;">' + dialSvg;
+  html += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.62rem;font-weight:700;font-family:var(--font-mono);color:' + dialColor + ';">' + score + '</div>';
+  html += '</div>';
+  html += '<div class="expo-dash-sub">' + riskLevel + '</div>';
+  html += '</div>';
+  // 加权 Corr
+  html += '<div class="expo-dash-item">';
+  html += '<div class="expo-dash-label">加权 Corr</div>';
+  html += '<div class="expo-dash-value">' + ((p.weighted_corr != null) ? p.weighted_corr.toFixed(2) : 'N/A') + '</div>';
+  html += '</div>';
+  // 加权 Beta
+  html += '<div class="expo-dash-item">';
+  html += '<div class="expo-dash-label">加权 Beta</div>';
+  html += '<div class="expo-dash-value">' + ((p.weighted_beta != null) ? p.weighted_beta.toFixed(2) : 'N/A') + '</div>';
+  html += '</div>';
+  // 压力测试（双向）
+  if (bestPnL !== null || worstPnLNeg !== null) {
+    html += '<div class="expo-dash-item">';
+    html += '<div class="expo-dash-label">压力测试</div>';
+    html += '<div class="expo-dash-stress">';
+    if (bestPnL !== null) {
+      html += '<div class="expo-stress-up">';
+      html += '<div class="expo-stress-val" style="color:var(--green);">↑' + bestPnL.toFixed(1) + '%</div>';
+      html += '<div class="expo-stress-label" title="' + bestLabel + '">' + bestLabel + '</div>';
+      html += '</div>';
+    }
+    if (worstPnLNeg !== null) {
+      html += '<div class="expo-stress-down">';
+      html += '<div class="expo-stress-val" style="color:var(--red);">↓' + worstPnLNeg.toFixed(1) + '%</div>';
+      html += '<div class="expo-stress-label" title="' + worstNegLabel + '">' + worstNegLabel + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    html += '</div>';
+  }
+  // 最大集群
+  if (maxCluster > 0) {
+    const bigCluster = clusters.reduce((a, b) => ((a.effective_nav_pct || a.nav_pct || 0) > (b.effective_nav_pct || b.nav_pct || 0)) ? a : b, clusters[0]);
+    html += '<div class="expo-dash-item">';
+    html += '<div class="expo-dash-label">最大集群</div>';
+    html += '<div class="expo-dash-value">' + maxCluster.toFixed(0) + '%</div>';
+    html += '<div class="expo-dash-sub">' + (bigCluster.coins || []).join('/') + '</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // ── 逐币预测度详情 ──
+  const positions = data.positions || [];
+  const coinsWithTracking = positions.filter(pos => cm[pos.coin] && cm[pos.coin].tracking);
+
+  if (coinsWithTracking.length > 0) {
+    html += '<div class="expo-coin-section">';
+    html += '<div class="section-title">📊 逐币 BTC 跟踪度 (15m / 1H)</div>';
+
+    for (const pos of positions) {
+      const coin = pos.coin || '?';
+      const tracking = cm[coin]?.tracking;
+      if (!tracking) continue;
+
+      const dir = pos.direction === 'long' ? 'L' : 'S';
+      const dirClass = pos.direction === 'long' ? 'long' : 'short';
+      const notional = pos.notionalUsd ? '$' + (parseFloat(pos.notionalUsd) < 1000 ? parseFloat(pos.notionalUsd).toFixed(1) : (parseFloat(pos.notionalUsd) / 1000).toFixed(1) + 'k') : '';
+      const cluster = pos.clusters && pos.clusters.length ? '🔗 ' + pos.clusters[0] : '';
+
+      const tf1 = tracking['15m'] || {};
+      const tf4 = tracking['1H'] || {};
+
+      html += '<div class="expo-coin-card">';
+
+      // Header
+      html += '<div class="expo-coin-header">';
+      html += '<span class="expo-coin-name">' + coin + '</span>';
+      html += '<span class="expo-coin-dir ' + dirClass + '">' + dir + '</span>';
+      html += '<span class="expo-coin-cluster">' + cluster + '</span>';
+      html += '<span class="expo-coin-notional">' + notional + '</span>';
+      html += '</div>';
+
+      // ── Corr 双条（1H / 4H 上下排列） ──
+      const c1Val = tf1.corr;
+      const c4Val = tf4.corr;
+      const c1Side = c1Val != null && c1Val < 0 ? 'left' : 'right';
+      const c4Side = c4Val != null && c4Val < 0 ? 'left' : 'right';
+      html += '<div class="expo-metric-row">';
+      html += '<span class="expo-metric-label">Corr</span>';
+      html += '<div class="expo-corr-bars">';
+      // 15m
+      html += '<div class="expo-corr-bar-line">';
+      html += '<span class="tf-label">15m</span>';
+      html += '<div class="expo-corr-track">';
+      html += '<div class="expo-corr-fill ' + c1Side + '" style="width:' + corrWidth(c1Val).toFixed(0) + '%;background:' + corrFill(c1Val) + ';"></div>';
+      html += '</div>';
+      html += '<span class="corr-num" style="color:' + corrColor(c1Val) + ';">' + (c1Val != null ? c1Val.toFixed(2) : 'N/A') + '</span>';
+      html += '</div>';
+      // 1H
+      html += '<div class="expo-corr-bar-line">';
+      html += '<span class="tf-label">1H</span>';
+      html += '<div class="expo-corr-track">';
+      html += '<div class="expo-corr-fill ' + c4Side + '" style="width:' + corrWidth(c4Val).toFixed(0) + '%;background:' + corrFill(c4Val) + ';"></div>';
+      html += '</div>';
+      html += '<span class="corr-num" style="color:' + corrColor(c4Val) + ';">' + (c4Val != null ? c4Val.toFixed(2) : 'N/A') + '</span>';
+      html += '</div>';
+      html += '</div>';
+      html += '</div>';
+
+      // ── 跟涨 / 跟跌 Beta (中心分散) ──
+      html += '<div class="expo-metric-row">';
+      html += '<span class="expo-metric-label">跟涨/跌</span>';
+      html += '<div class="expo-dual-bar">';
+      html += '<div class="expo-dual-track">';
+      const ubVal = tf4.upside_beta != null ? tf4.upside_beta : (tf1.upside_beta != null ? tf1.upside_beta : null);
+      const dbVal = tf4.downside_beta != null ? tf4.downside_beta : (tf1.downside_beta != null ? tf1.downside_beta : null);
+      const maxBetaRef = 1.2;
+      const ubHalfW = ubVal != null ? Math.min(Math.abs(ubVal) / maxBetaRef * 46, 46) : 0;
+      const dbHalfW = dbVal != null ? Math.min(Math.abs(dbVal) / maxBetaRef * 46, 46) : 0;
+      html += '<div class="expo-dual-fill up" style="width:' + ubHalfW.toFixed(0) + '%;"></div>';
+      html += '<div class="expo-dual-fill down" style="width:' + dbHalfW.toFixed(0) + '%;"></div>';
+      html += '</div>';
+      html += '</div>';
+      html += '<span class="expo-bar-val label-sm">↑' + (ubVal != null ? ubVal.toFixed(2) : 'N/A') + ' ↓' + (dbVal != null ? dbVal.toFixed(2) : 'N/A') + '</span>';
+      html += '</div>';
+
+      // ── Beta 贡献 ──
+      const contrib = pos.beta_contrib || 0;
+      const positionsAll = data.positions || [];
+      const maxContrib = Math.max(...positionsAll.map(p => Math.abs(p.beta_contrib || 0)), 1);
+      const absC = Math.abs(contrib);
+      const halfW = Math.max(2, (absC / maxContrib) * 50); // 从中心到边缘的百分比
+      const fillSide = contrib < 0 ? 'left' : 'right'; // 负=绿色向左(对冲), 正=红色向右(增加暴露)
+
+      html += '<div class="expo-contrib-row">';
+      html += '<span class="expo-contrib-label">Beta 贡献</span>';
+      html += '<div class="expo-contrib-track">';
+      html += '<span class="expo-contrib-fill ' + fillSide + '" style="width:' + halfW.toFixed(0) + '%;"></span>';
+      html += '</div>';
+      html += '<span class="expo-contrib-val" style="color:' + (contrib < 0 ? 'var(--green)' : 'var(--red)') + ';">' + (contrib >= 0 ? '+' : '') + contrib.toFixed(1) + '</span>';
+      html += '</div>';
+
+      html += '</div>'; // .expo-coin-card
+    }
+    html += '</div>'; // .expo-coin-section
+  }
+
+  // 告警
+  if (p.warnings && p.warnings.length > 0) {
+    html += '<div class="exposure-warnings">';
+    for (const w of p.warnings.slice(0, 3)) {
+      html += '<div>⚠ ' + w + '</div>';
+    }
+    if (p.warnings.length > 3) html += '<div>... 还有 ' + (p.warnings.length - 3) + ' 条</div>';
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function setPoslogMode(mode) {
+  poslogMode = mode;
+  document.querySelectorAll('.poslog-mode-pill').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('poslog-positions-view').style.display = mode === 'positions' ? '' : 'none';
+  document.getElementById('poslog-reports-view').style.display = mode === 'reports' ? '' : 'none';
+  document.getElementById('poslog-log-view').style.display = mode === 'log' ? '' : 'none';
+  if (mode === 'reports') refreshAuditReports(false);
+  else if (mode === 'log') refreshAuditLog(false);
+}
+
+async function refreshAuditReports(showLoading = true) {
+  const viewEl = document.getElementById('poslog-reports-view');
+  try {
+    if (showLoading && !auditReportsData) {
+      viewEl.innerHTML = '<div class="pos-empty">加载中...</div>';
+    }
+    const data = await API.get('/api/position-monitor/reports');
+    auditReportsData = data;
+    renderAuditReports();
+  } catch (e) {
+    if (!auditReportsData) {
+      viewEl.innerHTML = '<div class="pos-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+    }
+  }
+}
+
+function renderAuditReports() {
+  const viewEl = document.getElementById('poslog-reports-view');
+  const data = auditReportsData;
+  if (!data || !viewEl) return;
+  if (!data.files || data.files.length === 0) {
+    viewEl.innerHTML = '<div class="pos-empty">暂无审计报告</div>';
+    return;
+  }
+
+  // 保持展开状态
+  const expandedSet = new Set();
+  viewEl.querySelectorAll('.audit-report-card.expanded').forEach(c => expandedSet.add(c.dataset.file));
+
+  viewEl.innerHTML = data.files.map(r => {
+    const tags = [];
+    if (r.hold > 0) tags.push(`<span class="audit-report-tag hold">HOLD ${r.hold}</span>`);
+    if (r.reduce > 0) tags.push(`<span class="audit-report-tag reduce">REDUCE ${r.reduce}</span>`);
+    if (r.add > 0) tags.push(`<span class="audit-report-tag add">ADD ${r.add}</span>`);
+    if (r.close > 0) tags.push(`<span class="audit-report-tag close">CLOSE ${r.close}</span>`);
+    if (r.hasActions) tags.push(`<span class="audit-report-tag action">已操作</span>`);
+
+    const isExpanded = expandedSet.has(r.file);
+    const expClass = isExpanded ? ' expanded' : '';
+    return `
+<div class="audit-report-card${expClass}" data-file="${r.file}" onclick="toggleAuditReport(this)">
+  <div class="audit-report-header">
+    <span class="audit-report-time">${r.time}</span>
+    <span class="audit-report-count">${r.total} 个持仓 · ${r.size < 1024 ? r.size + 'B' : (r.size / 1024).toFixed(1) + 'KB'}</span>
+    <span class="audit-report-tags">${tags.join('')}</span>
+    <span class="audit-report-arrow">▼</span>
+  </div>
+  <div class="audit-report-detail" id="detail-${r.file}">
+    ${auditReportCache[r.file] || '<div class="audit-report-detail-loading">点击展开查看完整报告...</div>'}
+  </div>
+</div>`;
+  }).join('');
+}
+
+async function toggleAuditReport(card) {
+  const file = card.dataset.file;
+  const isExpanded = card.classList.contains('expanded');
+
+  if (!isExpanded) {
+    // 展开：获取报告内容
+    if (!auditReportCache[file]) {
+      const detailEl = document.getElementById('detail-' + file);
+      if (detailEl) detailEl.innerHTML = '<div class="audit-report-detail-loading">加载中...</div>';
+      try {
+        const data = await API.get('/api/position-monitor/reports/' + file);
+        auditReportCache[file] = data.content;
+        if (detailEl) detailEl.innerHTML = data.content;
+      } catch (e) {
+        if (detailEl) detailEl.innerHTML = '<div class="audit-report-detail-loading">加载失败: ' + (e.message || '未知错误') + '</div>';
+      }
+    }
+    card.classList.add('expanded');
+  } else {
+    card.classList.remove('expanded');
+  }
+}
+
+async function refreshAuditLog(showLoading = true) {
+  const viewEl = document.getElementById('poslog-log-view');
+  try {
+    if (showLoading && !auditLogData) {
+      viewEl.innerHTML = '<div class="pos-empty">加载中...</div>';
+    }
+    const data = await API.get('/api/position-monitor/log?lines=200');
+    auditLogData = data;
+    renderAuditLog();
+  } catch (e) {
+    if (!auditLogData) {
+      viewEl.innerHTML = '<div class="pos-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+    }
+  }
+}
+
+function renderAuditLog() {
+  const viewEl = document.getElementById('poslog-log-view');
+  const data = auditLogData;
+  if (!data || !viewEl) return;
+  if (!data.lines || data.lines.length === 0) {
+    viewEl.innerHTML = '<div class="pos-empty">暂无审计日志</div>';
+    return;
+  }
+
+  viewEl.innerHTML = data.lines.map(l => `
+<div class="audit-log-entry">
+  <span class="audit-log-time">${l.time}</span>
+  ${l.text}
+</div>`).join('');
+
+  // 自动滚动到底部（最新日志）
+  viewEl.scrollTop = 0;
 }
 
 // ── 扫描日志卡片 ──────────────────────────────────
@@ -7113,6 +9415,8 @@ let scanLogMode = 'hits';
 let scanLogTimer = null;
 let scanLogData = null;
 let silenceLogData = null;
+let onchainLogData = null;
+let archiverLogData = null;
 let scanLogSearchTimer = null;
 
 function setScanLogMode(mode) {
@@ -7120,46 +9424,30 @@ function setScanLogMode(mode) {
   document.querySelectorAll('.scanlog-mode-pill').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
   const isScanner = (mode === 'hits' || mode === 'raw');
   const isSilence = (mode === 'silence');
+  const isOnchain = (mode === 'onchain');
+  const isArchiver = (mode === 'archiver');
+  const isMirror = (mode === 'mirror');
   document.getElementById('scanlog-hits-list').style.display = isScanner && mode === 'hits' ? '' : 'none';
   document.getElementById('scanlog-raw-list').style.display = isScanner && mode === 'raw' ? '' : 'none';
-  document.getElementById('silence-hits-list').style.display = isSilence ? '' : 'none';
-  document.getElementById('silence-raw-list').style.display = 'none';
-  document.getElementById('silence-raw-toggle').style.display = isSilence ? '' : 'none';
-  if (isSilence) { refreshSilenceLog(); } else { renderScanLog(); }
-}
-
-function toggleSilenceRaw() {
-  const hitsEl = document.getElementById('silence-hits-list');
-  const rawEl = document.getElementById('silence-raw-list');
-  const btn = document.getElementById('silence-raw-toggle');
-  const showingRaw = rawEl.style.display !== 'none';
-  if (showingRaw) {
-    hitsEl.style.display = ''; rawEl.style.display = 'none';
-    btn.textContent = '📄 原始';
-  } else {
-    hitsEl.style.display = 'none'; rawEl.style.display = '';
-    btn.textContent = '📋 结构化';
-    renderSilenceRaw();
-  }
-}
-
-function renderSilenceRaw() {
-  const rawEl = document.getElementById('silence-raw-list');
-  if (rawEl && silenceLogData) {
-    if (!silenceLogData.rawLines || silenceLogData.rawLines.length === 0) {
-      rawEl.innerHTML = '<div class="scanlog-empty">暂无日志</div>';
-    } else {
-      rawEl.innerHTML = silenceLogData.rawLines.map(l =>
-        `<div class="scanlog-raw-line">${escapeHtml(l.text)}</div>`
-      ).join('');
-    }
-  }
+  document.getElementById('silence-raw-list').style.display = isSilence ? '' : 'none';
+  document.getElementById('onchain-raw-list').style.display = isOnchain ? '' : 'none';
+  document.getElementById('archiver-raw-list').style.display = isArchiver ? '' : 'none';
+  document.getElementById('mirror-raw-list').style.display = isMirror ? '' : 'none';
+  if (isSilence) { renderSilenceLog(); }
+  else if (isOnchain) { renderOnchainLog(); }
+  else if (isArchiver) { renderArchiverLog(); }
+  else if (isMirror) { refreshMirrorLog(); }
+  else { renderScanLog(); }
 }
 
 function onScanLogSearch() {
   if (scanLogSearchTimer) clearTimeout(scanLogSearchTimer);
   scanLogSearchTimer = setTimeout(() => {
-    if (scanLogMode === 'silence') refreshSilenceLog(); else refreshScanLog();
+    if (scanLogMode === 'silence') refreshSilenceLog();
+    else if (scanLogMode === 'onchain') refreshOnchainLog();
+    else if (scanLogMode === 'archiver') refreshArchiverLog();
+    else if (scanLogMode === 'mirror') refreshMirrorLog();
+    else refreshScanLog();
   }, 300);
 }
 
@@ -7182,61 +9470,117 @@ async function refreshScanLog() {
 }
 
 async function refreshSilenceLog() {
-  const countEl = document.getElementById('scanlog-count-info');
-  const timeEl = document.getElementById('scanlog-refresh-time');
-  const search = document.getElementById('scanlog-search')?.value?.trim() || '';
   try {
-    const params = new URLSearchParams({ lines: '500' });
-    if (search) params.set('search', search);
-    const data = await API.get('/api/silence-monitor-logs?' + params.toString());
+    const data = await API.get('/api/silence-monitor-logs?lines=500');
     silenceLogData = data;
-    if (countEl) countEl.textContent = data.hitCount ? `(${data.hitCount} 条记录)` : '';
-    if (timeEl) timeEl.textContent = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     renderSilenceLog();
   } catch (e) {
-    const hitsEl = document.getElementById('silence-hits-list');
-    if (hitsEl) hitsEl.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+    const el = document.getElementById('silence-raw-list');
+    if (el) el.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
   }
 }
 
 function renderSilenceLog() {
   const data = silenceLogData;
-  if (!data) return;
-
-  // 静默监控结构化
-  const hitsEl = document.getElementById('silence-hits-list');
-  if (hitsEl) {
-    if (!data.hits || data.hits.length === 0) {
-      hitsEl.innerHTML = '<div class="scanlog-empty">暂无静默监控记录</div>';
-    } else {
-      hitsEl.innerHTML = data.hits.map(h => {
-        const tagLabels = { trigger: '触发', success: '✅ 完成', error: '❌ 失败', cycle: '周期', summary: '汇总', startup: '启动', config: '配置', cleanup: '清理' };
-        const tagLabel = tagLabels[h.type] || h.type;
-        let detailHtml = '';
-        if (h.silenceHours !== undefined) {
-          detailHtml += `<span class="silence-hit-detail">静默 ${h.silenceHours}h</span>`;
-          if (h.posCount > 0) detailHtml += `<span class="silence-hit-detail"><span class="pos-label">持仓 ${h.posCount}</span></span>`;
-          detailHtml += `<span class="silence-hit-detail">阈值 ${h.threshold}h</span>`;
-        }
-        if (h.contractOk !== undefined) {
-          detailHtml += `<span class="silence-hit-detail" style="color:${h.contractOk?'var(--green)':'var(--red)'}">合约:${h.contractOk?'OK':'FAIL'}</span>`;
-        }
-        if (h.reportCount !== undefined) {
-          detailHtml += `<span class="silence-hit-detail">报告:${h.reportCount}篇</span>`;
-        }
-        if (h.reason) detailHtml += `<span class="silence-hit-detail" style="color:var(--red)">${h.reason}</span>`;
-        const resultHtml = h.result ? `<span class="scanlog-hit-result">${h.result}</span>` : '';
-        return `
-<div class="scanlog-hit-row">
-  <span class="scanlog-hit-time">${h.time || ''}</span>
-  <span class="silence-hit-tag ${h.type}">${tagLabel}</span>
-  <span class="scanlog-hit-coin">${h.coin || ''}</span>
-  ${detailHtml}
-  ${resultHtml}
-</div>`;
-      }).join('');
-    }
+  const el = document.getElementById('silence-raw-list');
+  if (!el || !data) return;
+  const lines = data.rawLines || [];
+  if (lines.length === 0) {
+    el.innerHTML = '<div class="scanlog-empty">暂无静默监控日志</div>';
+    return;
   }
+  el.innerHTML = lines.map(l =>
+    `<div class="scanlog-raw-line">${escapeHtml(l.text)}</div>`
+  ).join('');
+}
+
+async function refreshOnchainLog() {
+  const timeEl = document.getElementById('scanlog-refresh-time');
+  const countEl = document.getElementById('scanlog-count-info');
+  try {
+    const data = await API.get('/api/onchain-refresh-logs?lines=300');
+    onchainLogData = data;
+    if (countEl) countEl.textContent = data.totalLines ? `(${data.totalLines} 条)` : '';
+    if (timeEl) timeEl.textContent = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    renderOnchainLog();
+  } catch (e) {
+    const el = document.getElementById('onchain-raw-list');
+    if (el) el.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+  }
+}
+
+function renderOnchainLog() {
+  const data = onchainLogData;
+  const el = document.getElementById('onchain-raw-list');
+  if (!el || !data) return;
+  if (!data.lines || data.lines.length === 0) {
+    el.innerHTML = '<div class="scanlog-empty">暂无链上刷新日志</div>';
+    return;
+  }
+  el.innerHTML = data.lines.map(l =>
+    `<div class="scanlog-raw-line">${escapeHtml(l.text)}</div>`
+  ).join('');
+}
+
+async function refreshArchiverLog() {
+  try {
+    const data = await API.get('/api/auto-archiver-logs?lines=300');
+    archiverLogData = data;
+    renderArchiverLog();
+  } catch (e) {
+    const el = document.getElementById('archiver-raw-list');
+    if (el) el.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+  }
+}
+
+function renderArchiverLog() {
+  const data = archiverLogData;
+  const el = document.getElementById('archiver-raw-list');
+  if (!el || !data) return;
+  if (!data.lines || data.lines.length === 0) {
+    el.innerHTML = '<div class="scanlog-empty">暂无周期归档日志</div>';
+    return;
+  }
+  el.innerHTML = data.lines.map(l =>
+    `<div class="scanlog-raw-line">${escapeHtml(l.text)}</div>`
+  ).join('');
+}
+
+let mirrorLogData = null;
+
+async function refreshMirrorLog() {
+  const timeEl = document.getElementById('scanlog-refresh-time');
+  const countEl = document.getElementById('scanlog-count-info');
+  try {
+    const data = await API.get('/api/mirror-bot-logs?lines=300');
+    mirrorLogData = data;
+    if (countEl) countEl.textContent = data.totalLines ? `(${data.totalLines} 条)` : '';
+    if (timeEl) timeEl.textContent = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    renderMirrorLog();
+  } catch (e) {
+    const el = document.getElementById('mirror-raw-list');
+    if (el) el.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+  }
+}
+
+function renderMirrorLog() {
+  const data = mirrorLogData;
+  const el = document.getElementById('mirror-raw-list');
+  if (!el || !data) return;
+  if (!data.lines || data.lines.length === 0) {
+    el.innerHTML = '<div class="scanlog-empty">暂无镜像引擎日志</div>';
+    return;
+  }
+  // 高亮关键操作
+  el.innerHTML = data.lines.map(l => {
+    let cls = '';
+    const t = l.text || '';
+    if (t.includes('🔴') || t.includes('ERROR')) cls = 'style="color:var(--red);"';
+    else if (t.includes('🟢') || t.includes('📌')) cls = 'style="color:var(--green);"';
+    else if (t.includes('🔄') || t.includes('📐')) cls = 'style="color:var(--accent);"';
+    else if (t.includes('🗑️') || t.includes('🧹')) cls = 'style="color:var(--orange);"';
+    return `<div class="scanlog-raw-line" ${cls}>${escapeHtml(l.text)}</div>`;
+  }).join('');
 }
 
 function renderScanLog() {
@@ -7250,7 +9594,8 @@ function renderScanLog() {
       hitsEl.innerHTML = '<div class="scanlog-empty">暂无扫描命中记录</div>';
     } else {
       hitsEl.innerHTML = data.hits.map(h => {
-        const tagLabel = { hit: '命中', screening: '筛选', dispatch: '派发' }[h.type] || h.type;
+        const tagLabel = { hit: '命中', screening: '筛选', dispatch: '派发', 'stage1-start': '启动', 'stage1-done': '预处理' }[h.type] || h.type;
+        const profileTag = h.profile === 'zhuang' ? `<span class="scanlog-profile-tag zhuang">庄</span>` : (h.profile === 'altcoin' ? `<span class="scanlog-profile-tag alt">寨</span>` : '');
         let detailHtml = '';
         if (h.change) {
           const isUp = h.change.startsWith('+');
@@ -7262,6 +9607,7 @@ function renderScanLog() {
         return `
 <div class="scanlog-hit-row">
   <span class="scanlog-hit-time">${h.time}</span>
+  ${profileTag}
   <span class="scanlog-hit-tag ${h.type}">${tagLabel}</span>
   <span class="scanlog-hit-coin">${h.coin}</span>
   <span class="scanlog-hit-detail">${detailHtml}</span>
@@ -7294,7 +9640,15 @@ function escapeHtml(str) {
 function startScanLogTimer() {
   if (scanLogTimer) clearInterval(scanLogTimer);
   refreshScanLog();
-  scanLogTimer = setInterval(refreshScanLog, 60000);
+  refreshSilenceLog();   // 页面加载时拉取静默监控数据
+  refreshOnchainLog();   // 页面加载时拉取链上数据
+  refreshArchiverLog();  // 页面加载时拉取周期归档数据
+  scanLogTimer = setInterval(() => {
+    refreshScanLog();
+    refreshSilenceLog();
+    refreshOnchainLog();
+    refreshArchiverLog();
+  }, 60000);
 }
 
 function startLivePnlTimer() {
@@ -7591,6 +9945,7 @@ function boot() {
     startLivePnlTimer();   // 自动刷新 60s: 获取余额+未实现盈亏
     startPositionsTimer(); // 自动刷新 30s: 实盘仓位卡片
     startScanLogTimer();   // 自动刷新 60s: 扫描日志
+    startTdAutoRefresh();  // 自动刷新 60s: 开仓决策卡片
     loadBalanceHistory();  // 余额图表（默认模式）
     loadRealizedPnl();     // 预加载已实现盈亏（切换时无需等待）
   } catch (e) {
@@ -8060,29 +10415,47 @@ async function loadPriceVisualization() {
 
 
 
-const ACTION_ZH = { open: '开仓', add: '加仓', reduce: '减仓', close: '平仓', adjust: '调盈损', hold: '观望', wait: '等待条件' };
+const ACTION_ZH = { open: '开仓', add: '加仓', reduce: '减仓', close: '平仓', adjust: '调盈损', hold: '观望', wait: '等待条件', abort: '归档' };
+const ORDER_TYPE_ZH = { market: '市价单', limit: '限价单', conditional: '条件单' };
 const DIR_ZH = { long: '做多', short: '做空' };
+
+let _tdAutoTimer = null;
+
+function startTdAutoRefresh() {
+  stopTdAutoRefresh();
+  _tdAutoTimer = setInterval(loadTradeDecisions, 60000);
+}
+function stopTdAutoRefresh() {
+  if (_tdAutoTimer) { clearInterval(_tdAutoTimer); _tdAutoTimer = null; }
+}
 
 async function loadTradeDecisions() {
   const list = document.getElementById('td-card-list');
   const status = document.getElementById('td-status');
   const info = document.getElementById('td-info');
+  const refreshTime = document.getElementById('td-refresh-time');
   if (!list) return;
+
   try {
-    const data = await (await fetch('/api/trade-decisions')).json();
+    const data = await API.get('/api/trade-decisions');
+    if (!Array.isArray(data)) {
+      console.error('[loadTradeDecisions] API 返回非数组:', typeof data, data);
+      throw new Error('API 响应格式错误');
+    }
     cachedTdData = data;
 
     const tdSearch = document.getElementById('td-search');
-    if (!data || data.length === 0) {
+    if (data.length === 0) {
       list.innerHTML = ''; expandedTdIdx = null;
       if (status) status.textContent = '—— 暂无决策';
       if (info) info.textContent = '';
-      tdSearch.style.display = 'none';
+      if (tdSearch) tdSearch.style.display = 'none';
+      if (refreshTime) refreshTime.textContent = '';
       return;
     }
 
-    tdSearch.style.display = 'block';
-    const query = tdSearch.value.trim().toLowerCase();
+    if (tdSearch) tdSearch.style.display = 'block';
+    const query = tdSearch ? tdSearch.value.trim().toLowerCase() : '';
     const filtered = query ? data.filter(d => (d.coin || '').toLowerCase().includes(query)) : data;
 
     const counts = {};
@@ -8092,10 +10465,19 @@ async function loadTradeDecisions() {
     if (info) info.textContent = `${filtered.length}/${data.length} 条`;
 
     renderTdCards(list, filtered);
-  } catch {
-    if (!cachedTdData) {
-      if (status) status.textContent = '—— 加载失败';
+
+    if (refreshTime) {
+      const t = new Date();
+      refreshTime.textContent = t.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
+  } catch (e) {
+    console.error('[loadTradeDecisions] 加载失败:', e);
+    if (!cachedTdData) {
+      list.innerHTML = '';
+      if (status) status.textContent = '—— 加载失败';
+      if (info) info.textContent = e.message || '未知错误';
+    }
+    if (refreshTime) refreshTime.textContent = '';
   }
 }
 
@@ -8190,6 +10572,11 @@ function renderTdDetail(d) {
   }
 
   if (d.nominal_base) rows.push(tdRow('建议仓位', `${d.nominal_base} USDT`));
+  if (d.order_type && d.order_type !== 'market') {
+    rows.push(tdRow('开仓方式', ORDER_TYPE_ZH[d.order_type] || d.order_type, 'blue'));
+    if (d.trigger_price) rows.push(tdRow('触发价', `$${formatPrice(d.trigger_price)}`, 'blue'));
+    if (d.limit_price) rows.push(tdRow('挂单价', `$${formatPrice(d.limit_price)}`, 'blue'));
+  }
   if (d.stop_loss) {
     const slDir = d.direction === 'long' ? 'red' : 'green';
     rows.push(tdRow('止损', `$${formatPrice(d.stop_loss)}`, slDir));
@@ -8254,6 +10641,121 @@ function toggleTdGroup(coin) {
   }
 }
 
+// ── 监督者审查记录 ──────────────────────────────────
+let cachedSrData = null;
+let expandedSrIdx = null;
+let showSupervisorReviews = false;
+
+async function toggleSupervisorReviews() {
+  showSupervisorReviews = !showSupervisorReviews;
+  const btn = document.getElementById('td-review-toggle');
+  const tdList = document.getElementById('td-card-list');
+  const srList = document.getElementById('sr-card-list');
+  const search = document.getElementById('td-search');
+
+  if (showSupervisorReviews) {
+    btn.classList.add('active');
+    btn.textContent = '📋 返回决策';
+    tdList.style.display = 'none';
+    srList.style.display = 'flex';
+    if (search) search.style.display = 'none';
+    await loadSupervisorReviews();
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '🔍 审查记录';
+    tdList.style.display = 'flex';
+    srList.style.display = 'none';
+    if (search && cachedTdData && cachedTdData.length > 0) search.style.display = 'block';
+  }
+}
+
+async function loadSupervisorReviews() {
+  const list = document.getElementById('sr-card-list');
+  if (!list) return;
+  try {
+    const data = await API.get('/api/supervisor-reviews');
+    if (!Array.isArray(data) || data.length === 0) {
+      list.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-size:0.78rem;text-align:center;">暂无审查记录</div>';
+      return;
+    }
+    cachedSrData = data;
+    renderSrCards(list, data);
+  } catch (e) {
+    console.error('[loadSupervisorReviews] 加载失败:', e);
+    list.innerHTML = '<div style="padding:12px;color:var(--red);font-size:0.78rem;">加载失败</div>';
+  }
+}
+
+function renderSrCards(container, data) {
+  let idx = 0;
+  const verdictZh = { 'PASS': '✅ PASS', 'BLOCK': '❌ BLOCK', 'DELAY': '⏳ DELAY', 'ARCHIVE': '📦 ARCHIVE' };
+  const verdictClass = { 'PASS': 'pass', 'BLOCK': 'block', 'DELAY': 'delay', 'ARCHIVE': 'archive' };
+
+  const html = data.map(d => {
+    const i = idx++;
+    const v = d.verdict || 'UNKNOWN';
+    const vBase = v.split(' ')[0]; // PASS, BLOCK, DELAY, ARCHIVE
+    const vLabel = verdictZh[v] || verdictZh[vBase] || v;
+    const vCls = verdictClass[v] || verdictClass[vBase] || '';
+    const locTag = d.location === 'archived' ? ' 归' : '';
+    const timeLabel = d.file_time || '--';
+
+    return `<div class="sr-card" data-idx="${i}" onclick="toggleSrCard(${i}, '${encodeURIComponent(d.file_path)}')">
+      <div class="sr-card-summary">
+        <span class="sr-card-time">${timeLabel} ${locTag}</span>
+        <span class="sr-card-coin">${d.coin}</span>
+        <span class="sr-card-verdict ${vCls}">${vLabel}</span>
+        <span class="sr-card-preview">${escHtml(d.preview || '')}</span>
+        <span class="sr-card-arrow">▶</span>
+      </div>
+      <div class="sr-card-detail" id="sr-detail-${i}">
+        <span style="color:var(--text-muted);">加载中...</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+async function toggleSrCard(idx, filePath) {
+  // 收起已展开的
+  if (expandedSrIdx !== null && expandedSrIdx !== idx) {
+    const prevDetail = document.getElementById('sr-detail-' + expandedSrIdx);
+    const prevCard = document.querySelector(`.sr-card[data-idx="${expandedSrIdx}"]`);
+    if (prevDetail) prevDetail.innerHTML = '<span style="color:var(--text-muted);">加载中...</span>';
+    if (prevCard) prevCard.classList.remove('expanded');
+  }
+
+  const card = document.querySelector(`.sr-card[data-idx="${idx}"]`);
+  const detail = document.getElementById('sr-detail-' + idx);
+  if (!card || !detail) return;
+
+  if (expandedSrIdx === idx) {
+    // 收起当前
+    card.classList.remove('expanded');
+    expandedSrIdx = null;
+    return;
+  }
+
+  // 展开
+  expandedSrIdx = idx;
+  card.classList.add('expanded');
+
+  // 加载完整报告
+  try {
+    const decoded = decodeURIComponent(filePath);
+    const resp = await API.get('/api/report?path=' + encodeURIComponent(decoded));
+    if (resp && resp.content) {
+      detail.innerHTML = escHtml(resp.content);
+    } else {
+      detail.innerHTML = '<span style="color:var(--red);">报告内容为空</span>';
+    }
+  } catch (e) {
+    detail.innerHTML = `<span style="color:var(--red);">加载失败: ${escHtml(e.message || '')}</span>`;
+  }
+}
+
+
 // ── 搜索过滤 ──────────────────────────────────────
 function filterTradeDecisions() {
   const query = document.getElementById('td-search').value.trim().toLowerCase();
@@ -8265,19 +10767,262 @@ function filterTradeDecisions() {
   renderTdCards(list, filtered);
 }
 
+// ── Coin Cooldown Table ───────────────────────────
+async function loadCoinCooldown() {
+  const tbody = document.getElementById('cd-tbody');
+  const status = document.getElementById('cd-status');
+  const info = document.getElementById('cd-info');
+  if (!tbody) return;
+
+  try {
+    const data = await API.get('/api/coin-cooldown');
+    const now = new Date();
+    const entries = data.entries || [];
+
+    if (status) status.textContent = `(${data.activeCount})`;
+    if (info) info.textContent = `更新于 ${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+
+    if (entries.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="cd-empty">✅ 无冷却币种</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = entries.map(e => {
+      // 剩余时间格式化
+      let remText, remClass;
+      if (e.remainingH < 1) {
+        remText = `${Math.max(1, Math.round(e.remainingH * 60))}分钟`;
+        remClass = 'soon';
+      } else if (e.remainingH < 12) {
+        remText = `${Math.round(e.remainingH * 10) / 10}小时`;
+        remClass = 'soon';
+      } else if (e.remainingH < 48) {
+        remText = `${Math.round(e.remainingD * 10) / 10}天`;
+        remClass = 'mid';
+      } else {
+        remText = `${Math.round(e.remainingD * 10) / 10}天`;
+        remClass = 'long';
+      }
+
+      const expireTime = new Date(e.cooldown_until).toLocaleString('zh-CN', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+
+      return `<tr>
+        <td class="cd-coin" title="${escHtml(e.coin)}">${escHtml(e.coin)}</td>
+        <td class="cd-remaining ${remClass}">${remText}</td>
+        <td style="font-size:0.62rem;color:var(--text-muted);">${expireTime}</td>
+        <td class="cd-reason" title="${escHtml(e.reason)}">${escHtml(e.reason).slice(0, 18)}${e.reason.length > 18 ? '…' : ''}</td>
+        <td style="text-align:center;padding:1px 2px;"><button class="cd-rm-btn" onclick="removeCoinCooldown('${escHtml(e.coin)}')" title="${escHtml(e.coin)} 移出冷却">✕</button></td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('[loadCoinCooldown] 加载失败:', e);
+    tbody.innerHTML = '<tr><td colspan="5" class="cd-empty">⚠️ 加载失败</td></tr>';
+  }
+}
+
+async function removeCoinCooldown(coin) {
+  if (!confirm(`确定将 ${coin} 提前移出冷却名单？\n\n该币种将重新进入扫描候选池。`)) return;
+
+  try {
+    const btn = document.querySelector(`.cd-rm-btn[onclick*="${coin}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+
+    const res = await API.del(`/api/coin-cooldown/${coin}`);
+    if (res.success) {
+      loadCoinCooldown();
+    } else {
+      alert(`移除失败: ${res.error || '未知错误'}`);
+      if (btn) { btn.disabled = false; btn.textContent = '✕'; }
+    }
+  } catch (e) {
+    console.error('[removeCoinCooldown] 失败:', e);
+    alert(`移除失败: ${e.message}`);
+    loadCoinCooldown();
+  }
+}
+
+// ── 待审教训卡片 ──────────────────────────────────
+let cachedPlData = null;
+let expandedPlIdx = null;
+
+async function loadPendingTradeLessons() {
+  const list = document.getElementById('pl-card-list');
+  const status = document.getElementById('pl-status');
+  const info = document.getElementById('pl-info');
+  if (!list) return;
+  try {
+    const data = await API.get('/api/pending-trade-lessons');
+    if (!Array.isArray(data)) {
+      console.error('[loadPendingTradeLessons] API 返回非数组:', typeof data, data);
+      throw new Error('API 响应格式错误');
+    }
+    cachedPlData = data;
+
+    if (data.length === 0) {
+      list.innerHTML = '';
+      expandedPlIdx = null;
+      if (status) status.textContent = '—— 暂无记录';
+      if (info) info.textContent = '';
+      return;
+    }
+
+    if (status) status.textContent = `${data.length} 条待审`;
+    if (info) info.textContent = data.map(d => d.date).sort().reverse()[0] || '';
+
+    let html = '';
+    data.forEach((d, idx) => {
+      const cycleShort = d.sourceCycle ? (d.sourceCycle.replace(/^(alt-|cycle-)/, '') || d.sourceCycle) : '--';
+      const dateLabel = d.date || '--';
+      html += `<div class="pl-card" data-idx="${idx}" onclick="togglePlCard(${idx})">
+        <div class="pl-card-summary">
+          <span class="pl-card-date">${dateLabel}</span>
+          <span class="pl-card-title">${escHtml(d.title || '--')}</span>
+          <span class="pl-card-cycle">${escHtml(cycleShort)}</span>
+          <span class="pl-card-arrow">▶</span>
+        </div>
+        <div class="pl-card-detail" id="pl-detail-${idx}">
+          <div class="pl-detail-meta">
+            <span>📋 ${escHtml(d.sourceReview || '--')}</span>
+            <span>🔗 ${escHtml(d.sourceCycle || '--')}</span>
+          </div>
+          ${d.trigger ? `<div class="pl-detail-section">
+            <div class="pl-detail-label">⚡ 触发事件</div>
+            <div class="pl-detail-text">${escHtml(d.trigger)}</div>
+          </div>` : ''}
+          ${d.calibration ? `<div class="pl-detail-section">
+            <div class="pl-detail-label">📐 校准分析</div>
+            <div class="pl-detail-text">${escHtml(d.calibration)}</div>
+          </div>` : ''}
+          ${d.selfCheckQuestions && d.selfCheckQuestions.length > 0 ? `<div class="pl-detail-section">
+            <div class="pl-detail-label">🛡️ 自检问题</div>
+            ${d.selfCheckQuestions.map(q => `<div class="pl-detail-q">${escHtml(q)}</div>`).join('')}
+          </div>` : ''}
+        </div>
+      </div>`;
+    });
+    list.innerHTML = html;
+  } catch {
+    if (!cachedPlData) {
+      if (status) status.textContent = '—— 加载失败';
+    }
+  }
+}
+
+function togglePlCard(idx) {
+  const card = document.querySelector(`.pl-card[data-idx="${idx}"]`);
+  if (!card) return;
+  const wasExpanded = card.classList.contains('expanded');
+  // Collapse all
+  document.querySelectorAll('.pl-card.expanded').forEach(c => c.classList.remove('expanded'));
+  expandedPlIdx = wasExpanded ? null : idx;
+  if (!wasExpanded) card.classList.add('expanded');
+}
+
 function renderFilteredAlerts(alerts) {
   const query = document.getElementById('alert-search').value.trim().toLowerCase();
-  const filtered = query ? alerts.filter(a => (a.rule || '').toLowerCase().includes(query)) : alerts;
+  const filtered = query ? alerts.filter(a => (a.rule || '').toLowerCase().includes(query) || (a.coin || '').toLowerCase().includes(query)) : alerts;
   const el = document.getElementById('recent-alerts');
   if (filtered.length === 0) {
     el.innerHTML = `<div style="padding:20px 18px;text-align:center;color:var(--text-muted);font-size:0.82rem;">🔕 ${query ? '无匹配警报' : '近 24 小时无触发警报'}</div>`;
     return;
   }
-  el.innerHTML = filtered.map(a => `
+
+  // 将同一币种的连续警报折叠成组
+  const typeStyle = {
+    'per-level':    { icon: '⚡', label: '分级', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    'record':       { icon: '📝', label: '记录', color: '#6b7280', bg: 'rgba(107,114,128,0.10)' },
+    'level-consumed':{ icon: '🗑️', label: '消费', color: '#9ca3af', bg: 'rgba(156,163,175,0.08)' },
+    'cache':        { icon: '💾', label: '缓存', color: '#8b5cf6', bg: 'rgba(139,92,246,0.10)' },
+    'completed':    { icon: '✅', label: '完成', color: '#10b981', bg: 'rgba(16,185,129,0.10)' },
+    'trigger':      { icon: '🔔', label: '触发', color: '#ef4444', bg: 'rgba(239,68,68,0.10)' },
+  };
+
+  // 分组：连续相同币种归为一组
+  const groups = [];
+  let current = null;
+  for (const a of filtered) {
+    const coin = a.coin || '—';
+    if (current && current.coin === coin) {
+      current.items.push(a);
+    } else {
+      if (current) groups.push(current);
+      current = { coin, items: [a] };
+    }
+  }
+  if (current) groups.push(current);
+
+  el.innerHTML = groups.map((g, gi) => {
+    const groupId = `alert-group-${gi}`;
+    const ts = typeStyle;
+    
+    if (g.items.length === 1) {
+      // 单独一条：保持精简单行
+      const a = g.items[0];
+      const t = a.eventType && ts[a.eventType] ? ts[a.eventType] : ts.trigger;
+      return `
     <div class="alert-item">
-      <span class="alert-time">${formatTimeAbs(a.time)} ${formatTime(a.time)}</span>
-      <span class="alert-msg">${escHtml(a.rule)}</span>
-    </div>`).join('');
+      <div class="alert-row1">
+        <span class="alert-badge" style="background:${t.bg};color:${t.color};border:1px solid ${t.color}33">${t.icon} ${t.label}</span>
+        ${a.coin ? `<span class="alert-coin">${escHtml(a.coin)}</span>` : ''}
+        <span class="alert-time">${formatTime(a.time)}</span>
+      </div>
+      <div class="alert-row2">
+        <span class="alert-rule">${escHtml(a.rule)}</span>
+        ${a.detail ? `<span class="alert-detail">${escHtml(a.detail)}</span>` : ''}
+      </div>
+    </div>`;
+    }
+
+    // 多条同币种：折叠卡片
+    // 收集不重复的事件类型图标
+    const seenTypes = new Set();
+    const badges = [];
+    for (const a of g.items) {
+      const et = a.eventType || 'trigger';
+      if (!seenTypes.has(et)) {
+        seenTypes.add(et);
+        const t = ts[et] || ts.trigger;
+        badges.push(`<span class="alert-badge" style="background:${t.bg};color:${t.color};border:1px solid ${t.color}33">${t.icon} ${t.label}</span>`);
+      }
+    }
+
+    return `
+    <div class="alert-item alert-group" id="${groupId}">
+      <div class="alert-row1 alert-group-header" onclick="toggleAlertGroup('${groupId}')">
+        <span class="alert-coin">${escHtml(g.coin)}</span>
+        <span class="alert-group-count">${g.items.length} 个事件</span>
+        ${badges.join('')}
+        <span class="alert-time" style="margin-left:auto">${formatTime(g.items[0].time)}</span>
+        <span class="alert-expand" id="${groupId}-arrow">▼</span>
+      </div>
+      <div class="alert-group-body" id="${groupId}-body" style="display:none">
+        ${g.items.map(a => {
+          const t = a.eventType && ts[a.eventType] ? ts[a.eventType] : ts.trigger;
+          return `
+        <div class="alert-subitem">
+          <span class="alert-badge" style="background:${t.bg};color:${t.color};border:1px solid ${t.color}33">${t.icon} ${t.label}</span>
+          <span class="alert-time">${formatTime(a.time)}</span>
+          <span class="alert-rule">${escHtml(a.rule)}</span>
+          ${a.detail ? `<span class="alert-detail">${escHtml(a.detail)}</span>` : ''}
+        </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleAlertGroup(id) {
+  const body = document.getElementById(id + '-body');
+  const arrow = document.getElementById(id + '-arrow');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    arrow.textContent = '▲';
+  } else {
+    body.style.display = 'none';
+    arrow.textContent = '▼';
+  }
 }
 
 function filterAlerts() {
@@ -8645,27 +11390,31 @@ let shTimeRange = '24h'; // 24h | 7d | all
 function updateSHStats(filtered, isHourly) {
   const fixCount = document.getElementById('sh-fix-count');
   const intervalCount = document.getElementById('sh-interval-count');
+  const netAdjCount = document.getElementById('sh-netadj-count');
   const archiveCount = document.getElementById('sh-archive-count');
   const diagCount = document.getElementById('sh-diag-count');
   if (!fixCount) return;
 
-  let fixes = 0, intervals = 0, archives = 0, diags = 0, restores = 0;
+  let fixes = 0, intervals = 0, archives = 0, diags = 0, restores = 0, netAdjusts = 0;
   for (const d of filtered) {
     fixes += d.fixes || 0;
     intervals += d.intervals || 0;
     archives += d.archives || 0;
     diags += d.coinDiags || 0;
     restores += d.restores || 0;
+    netAdjusts += d.netAdjusts || 0;
   }
 
   const label = isHourly ? '（近24h）' : shTimeRange === '7d' ? '（近7天）' : '（全部）';
 
   fixCount.textContent = fixes;
-  document.getElementById('sh-fix-sub').textContent = '已自动修复' + label;
+  document.getElementById('sh-fix-sub').textContent = 'LLM自动修复' + label;
   intervalCount.textContent = intervals;
-  document.getElementById('sh-interval-sub').textContent = '间隔已翻倍' + label;
+  document.getElementById('sh-interval-sub').textContent = 'LLM诊断翻倍' + label;
+  netAdjCount.textContent = netAdjusts;
+  document.getElementById('sh-netadj-sub').textContent = '引擎自动翻倍' + label;
   document.getElementById('sh-restored-count').textContent = restores;
-  document.getElementById('sh-restored-sub').textContent = '已自动恢复' + label;
+  document.getElementById('sh-restored-sub').textContent = '引擎自动恢复' + label;
   archiveCount.textContent = archives;
   document.getElementById('sh-archive-sub').textContent = '规则已归档' + label;
   diagCount.textContent = diags;
@@ -8719,12 +11468,17 @@ async function loadSelfHeal() {
       return;
     }
 
-    if (status) status.textContent = `${data.summary.fixes} 修复 · ${data.summary.intervals} 间隔 · ${data.summary.coinDiags} 诊断`;
+    if (status) status.textContent = `${data.summary.fixes} 修复 · ${data.summary.intervals} LLM · ${data.summary.netAdjusts||0} 引擎 · ${data.summary.coinDiags} 诊断`;
 
-    // 已恢复数量
+    // 引擎自动调整数量
+    const netAdjInfo = data.netAdjustSummary || {};
+    document.getElementById('sh-netadj-count').textContent = netAdjInfo.count || 0;
+    document.getElementById('sh-netadj-sub').textContent = (netAdjInfo.count || 0) > 0 ? '引擎自动翻倍' : '无';
+
+    // 自动恢复数量
     const restoredInfo = data.restoredSummary || {};
     document.getElementById('sh-restored-count').textContent = restoredInfo.count || 0;
-    document.getElementById('sh-restored-sub').textContent = (restoredInfo.count || 0) > 0 ? '已自动恢复' : '无';
+    document.getElementById('sh-restored-sub').textContent = (restoredInfo.count || 0) > 0 ? '引擎自动恢复' : '无';
 
     // 规则恢复列表
     const restoreRules = data.restoredRules || [];
@@ -8929,10 +11683,10 @@ function _drawSHChart(daily, animProgress) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   canvas.width = rect.width * dpr;
-  canvas.height = 80 * dpr;
+  canvas.height = 160 * dpr;
   ctx.scale(dpr, dpr);
   const W = rect.width;
-  const H = 80;
+  const H = 160;
   const padL = 30;
   const barW = Math.max(4, ((W - 30 - 16) / filtered.length) * 0.5);
   const padR = Math.max(16, barW);
@@ -8940,7 +11694,7 @@ function _drawSHChart(daily, animProgress) {
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  const maxVal = Math.max(1, ...filtered.map(d => Math.max(d.fixes, d.intervals, d.restores || 0, d.archives)));
+  const maxVal = Math.max(1, ...filtered.map(d => Math.max(d.fixes, d.intervals, d.restores || 0, d.archives, d.netAdjusts || 0)));
 
   ctx.clearRect(0, 0, W, H);
 
@@ -8972,10 +11726,11 @@ function _drawSHChart(daily, animProgress) {
       ctx.fillRect(x, cy - curH, barW, curH);
       cy -= curH;
     };
-    // 从底部到顶部: 修复 → 间隔调整 → 已恢复 → 归档
+    // 从底部到顶部: 代码修复 → LLM调整 → 引擎调整 → 自动恢复 → 归档
     drawPartial(d.fixes, 'rgba(52,211,153,0.5)');
     drawPartial(d.intervals, 'rgba(251,191,36,0.5)');
-    drawPartial(d.restores || 0, 'rgba(125,211,252,0.5)');   // 已恢复: 浅蓝色
+    drawPartial(d.netAdjusts || 0, 'rgba(251,146,60,0.5)');   // 引擎调整: 橙色
+    drawPartial(d.restores || 0, 'rgba(125,211,252,0.5)');    // 自动恢复: 浅蓝色
     drawPartial(d.archives, 'rgba(248,113,113,0.5)');
   }
 
@@ -9044,7 +11799,8 @@ function _drawSHChart(daily, animProgress) {
 
       const parts = [];
       if (d.fixes > 0) parts.push(`🟢修复:${d.fixes}`);
-      if (d.intervals > 0) parts.push(`🟡间隔:${d.intervals}`);
+      if (d.intervals > 0) parts.push(`🟡LLM:${d.intervals}`);
+      if ((d.netAdjusts || 0) > 0) parts.push(`🟠引擎:${d.netAdjusts}`);
       if ((d.restores || 0) > 0) parts.push(`🔵恢复:${d.restores}`);
       if (d.archives > 0) parts.push(`🔴归档:${d.archives}`);
 
@@ -9322,20 +12078,18 @@ let aaAnimProgress = 1;
 let aaAnimFrame = null;
 
 function renderAAStats(data, filtered, isHourly) {
-  // 表格 4 个小卡片（检查/触发/调整/恢复）
+  // 仅触发比卡片
   const lbl = isHourly ? '（近24h）' : shTimeRange === '3h' ? '（近3h）' : shTimeRange === '7d' ? '（近7天）' : '（全部）';
-  document.getElementById('aa-checks').textContent = data.summary.checks.toLocaleString();
-  document.getElementById('aa-triggers').textContent = data.summary.triggers.toLocaleString();
-  document.getElementById('aa-adjust').textContent = data.summary.adjust;
-  document.getElementById('aa-restore').textContent = data.summary.restore;
-  let ck = 0, tr = 0, ad = 0, rs = 0;
+  const totalChecks = data.summary.checks || 0;
+  const totalTriggers = data.summary.triggers || 0;
+  const triggerRatio = totalChecks > 0 ? (totalTriggers / totalChecks * 100).toFixed(1) : '0.0';
+  document.getElementById('aa-checks').textContent = triggerRatio + '%';
+  let ck = 0, tr = 0;
   for (const d of filtered) {
-    ck += d.checks || 0; tr += d.triggers || 0; ad += d.adjust || 0; rs += d.restore || 0;
+    ck += d.checks || 0; tr += d.triggers || 0;
   }
-  document.getElementById('aa-checks-sub').textContent = ck.toLocaleString() + lbl;
-  document.getElementById('aa-triggers-sub').textContent = tr + lbl;
-  document.getElementById('aa-adjust-sub').textContent = ad + lbl;
-  document.getElementById('aa-restore-sub').textContent = rs + lbl;
+  const filteredRatio = ck > 0 ? (tr / ck * 100).toFixed(1) : '0.0';
+  document.getElementById('aa-checks-sub').textContent = filteredRatio + '%' + lbl;
 }
 
 async function loadAlertActivity() {
@@ -9347,7 +12101,7 @@ async function loadAlertActivity() {
       if (status) status.textContent = '—— 无日志';
       return;
     }
-    if (status) status.textContent = `${data.summary.checks.toLocaleString()} 检查 · ${data.summary.triggers} 触发`;
+    if (status) status.textContent = `${(data.summary.checks > 0 ? (data.summary.triggers / data.summary.checks * 100).toFixed(1) : '0.0')}% 触发比 · ${data.summary.triggers} 触发`;
     animateAARChart();
   } catch (e) {
     if (status) status.textContent = '—— 加载失败';
@@ -9406,16 +12160,18 @@ function drawAARChart(animProgress) {
   const rect = canvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   canvas.width = rect.width * dpr;
-  canvas.height = 80 * dpr;
+  canvas.height = 160 * dpr;
   ctx.scale(dpr, dpr);
-  const W = rect.width, H = 80;
+  const W = rect.width, H = 160;
   const padL = 28, padT = 6, padB = 16;
   const barW = Math.max(4, ((W - 28 - 16) / filtered.length) * 0.5);
   const padR = Math.max(16, barW);
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
-  const maxVal = Math.max(1, ...filtered.map(d => Math.max(d.checks || 0, d.triggers || 0, d.adjust || 0, d.restore || 0)));
+  const maxVal = Math.max(1, ...filtered.map(d => {
+    return (d.checks || 0) > 0 ? (d.triggers || 0) / (d.checks || 0) * 100 : 0;
+  }));
 
   ctx.clearRect(0, 0, W, H);
 
@@ -9430,23 +12186,16 @@ function drawAARChart(animProgress) {
   }
   ctx.globalAlpha = 1;
 
-  // 堆叠柱: checks → triggers → adjust → restore
+  // 单柱: 仅触发比(%)
   for (let i = 0; i < filtered.length; i++) {
     const x = xScale(i) - barW / 2;
     const d = filtered[i];
-    let cy = bottomY;
-    const drawSeg = (val, color) => {
-      if (val <= 0) return;
-      const fh = (val / maxVal) * plotH;
-      const ch = fh * animProgress;
-      ctx.fillStyle = color;
-      ctx.fillRect(x, cy - ch, barW, ch);
-      cy -= ch;
-    };
-    drawSeg(d.checks || 0, 'rgba(79,140,255,0.45)');
-    drawSeg(d.triggers || 0, 'rgba(52,211,153,0.45)');
-    drawSeg(d.adjust || 0, 'rgba(251,191,36,0.45)');
-    drawSeg(d.restore || 0, 'rgba(125,211,252,0.45)');
+    const triggerRatio = (d.checks || 0) > 0 ? (d.triggers || 0) / (d.checks || 0) * 100 : 0;
+    if (triggerRatio <= 0) continue;
+    const fh = (triggerRatio / maxVal) * plotH;
+    const ch = fh * animProgress;
+    ctx.fillStyle = 'rgba(79,140,255,0.45)';
+    ctx.fillRect(x, bottomY - ch, barW, ch);
   }
 
   // X 标签
@@ -9472,6 +12221,63 @@ function drawAARChart(animProgress) {
   }
   ctx.globalAlpha = 1;
 
+  // ═══ MA7 移动均线（仅 24h 尺度） ═══
+  if (shTimeRange === '24h' && filtered.length >= 7) {
+    // 显示 MA7 图例
+    const ma7Legend = document.getElementById('aa-ma7-legend');
+    if (ma7Legend) ma7Legend.style.display = 'flex';
+
+    const triggerRatios = filtered.map(d => (d.checks || 0) > 0 ? (d.triggers || 0) / (d.checks || 0) * 100 : 0);
+    const ma7 = triggerRatios.map((_, i) => {
+      if (i < 6) return NaN;
+      let sum = 0;
+      for (let j = i - 6; j <= i; j++) sum += triggerRatios[j];
+      return sum / 7;
+    });
+
+    const yForMA = v => padT + plotH - (v / maxVal) * plotH;
+    const bottomY_m = padT + plotH;
+    const yScaleMA = v => isNaN(v) ? bottomY_m : (bottomY_m - ((bottomY_m - yForMA(v)) * animProgress));
+
+    ctx.save();
+    ctx.strokeStyle = '#4f8cff';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([3, 3]);
+    ctx.globalAlpha = 0.7 * animProgress;
+
+    let prevX = null, prevY = null;
+    for (let i = 0; i < ma7.length; i++) {
+      if (isNaN(ma7[i])) continue;
+      const cx = xScale(i);
+      const cy = yScaleMA(ma7[i]);
+      if (prevX !== null) {
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+      }
+      prevX = cx;
+      prevY = cy;
+    }
+
+    // 末端标签
+    const lastIdx = ma7.length - 1;
+    if (!isNaN(ma7[lastIdx])) {
+      const lx = xScale(lastIdx);
+      const ly = yScaleMA(ma7[lastIdx]);
+      ctx.font = '7.5px monospace';
+      ctx.fillStyle = '#4f8cff';
+      ctx.textAlign = 'left';
+      ctx.fillText('MA7 ' + ma7[lastIdx].toFixed(1) + '%', lx + 3, ly - 3);
+    }
+
+    ctx.restore();
+  } else {
+    // 非 24h 尺度则隐藏 MA7 图例
+    const ma7Legend = document.getElementById('aa-ma7-legend');
+    if (ma7Legend) ma7Legend.style.display = 'none';
+  }
+
   // Tooltip
   const barPos = filtered.map((d, i) => ({ i, d, x: xScale(i) - barW / 2, w: barW, y: padT, h: plotH }));
   const tooltip = document.getElementById('aa-tooltip');
@@ -9492,11 +12298,21 @@ function drawAARChart(animProgress) {
         return (d.date || '');
       }
       const timeLabel = getAALabel(d);
+      const triggerRatio = (d.checks || 0) > 0 ? ((d.triggers || 0) / (d.checks || 0) * 100).toFixed(1) : '0.0';
       const parts = [];
-      if (d.checks) parts.push('🔵检查:' + d.checks);
-      if (d.triggers) parts.push('🟢触发:' + d.triggers);
-      if (d.adjust) parts.push('🟡调整:' + d.adjust);
-      if (d.restore) parts.push('🔵恢复:' + d.restore);
+      parts.push('🔵触发比:' + triggerRatio + '% (检查:' + (d.checks || 0) + ' 触发:' + (d.triggers || 0) + ')');
+
+      // MA7 提示
+      if (shTimeRange === '24h' && filtered.length >= 7) {
+        const triggerRatios = filtered.map(d2 => (d2.checks || 0) > 0 ? (d2.triggers || 0) / (d2.checks || 0) * 100 : 0);
+        if (hit.i >= 6) {
+          let sum = 0;
+          for (let j = hit.i - 6; j <= hit.i; j++) sum += triggerRatios[j];
+          const ma = (sum / 7).toFixed(1);
+          parts.push('MA7:' + ma + '%');
+        }
+      }
+
       tooltip.innerHTML = '<strong>' + timeLabel + '</strong><br>' + parts.join(' · ');
       tooltip.style.opacity = '1';
       let tx = mx + 12, ty = my - 8;
@@ -9748,8 +12564,54 @@ document.addEventListener('click', e => {
   }
 });
 
+// ── 暴露风险帮助弹窗 ──
+function openExpoHelp() {
+  const overlay = document.getElementById('expo-help-overlay');
+  if (overlay) overlay.classList.add('active');
+}
+function closeExpoHelp() {
+  const overlay = document.getElementById('expo-help-overlay');
+  if (overlay) overlay.classList.remove('active');
+}
+document.addEventListener('click', function(e) {
+  const overlay = document.getElementById('expo-help-overlay');
+  if (overlay && overlay.classList.contains('active') && e.target === overlay) {
+    closeExpoHelp();
+  }
+});
+
 // 初始化
 setTimeout(loadAlertActivity, 800);
 </script>
+
+<!-- 暴露风险帮助弹窗 -->
+<div class="expo-help-overlay" id="expo-help-overlay" onclick="if(event.target===this)closeExpoHelp()">
+  <div class="expo-help-modal">
+    <button class="expo-help-close" onclick="closeExpoHelp()">✕</button>
+    <h3>📊 组合暴露风险</h3>
+    <p>暴露风险（Exposure Risk）衡量的是<strong>组合整体对 BTC 价格波动的敏感度</strong>——即 BTC 涨跌时，你的整个仓位会跟随波动的程度。</p>
+
+    <h4>为什么需要暴露风险？</h4>
+    <p>你的组合里可能有多个币种、不同方向（多/空）。它们对 BTC 的跟踪度各不相同。有些币跟 BTC 高度正相关（BTC 涨它也涨），有些币跟 BTC 弱相关甚至负相关。暴露风险把这些关联度<strong>按仓位权重加权</strong>，算出一个整体敏感度。这样你就能一眼看出：如果 BTC 涨跌 5%，组合大概会怎么动。</p>
+
+    <h4>核心指标</h4>
+    <p><code>风险评分</code> 综合方向暴露、Beta 暴露幅度、集群集中度（仅计与 BTC 共振的集群）、绝对相关幅度、压力测试五大因子加权，给出 0-100 的评分。分数越高，组合对 BTC 的暴露越敏感。评分低不代表没仓位，只是仓位独立于 BTC 走势运行。</p>
+    <p><code>加权 Corr</code> 各币种与 BTC 的皮尔逊相关系数（15min K线，约 1 天窗口），按仓位权重加权。越接近 1，组合越像 BTC 的影子。</p>
+    <p><code>加权 Beta</code> 各币种对 BTC 的回归系数，按仓位权重加权。带方向符号（多正空负），反映组合跟 BTC 的同步方向。</p>
+    <p><code>Beta 暴露幅度</code> 各币种对 BTC 敏感度的平均值（不计多空方向）。两笔大额多单，一个正 Beta 一个负 Beta，传统 Beta 会抵消，暴露幅度如实反映大笔方向暴露的存在。</p>
+    <p><code>压力测试</code> 假设 BTC 涨跌 ±5% 时，用不对称 Beta 预测组合预估盈亏。双向分开显示，反映多/空仓位对涨跌的反应差异。</p>
+    <p><code>最大集群</code> 如果某一组币之间高度相关（互相关 >0.70）且与 BTC 共振（avg BTC corr ≥0.4），会在高亮提醒集中风险。不与 BTC 共振的独立集群不计入评分。</p>
+
+    <h4>逐币 BTC 跟踪度 (15m / 1H)</h4>
+    <p>每个持仓的 Corr 和 Beta 分别计算了 <code>15m</code> 和 <code>1H</code> 两个时间框架。<strong>短时间框架（15m）直接参与风险评分，</strong>取约 1 天窗口，更能捕捉日内动量。长时间框架（1H 约 4 天窗口）作为展示参考，两者对比可以看出跟踪行为的稳定性。</p>
+    <p><code>Corr（相关性）</code> 范围 [-1, 1]，绝对值越大越相关。绿色 = 高相关（>0.7），黄色 = 中等（0.4-0.7），橙色 = 弱相关（0.2-0.4），红色 = 几乎不相关（<0.2）。</p>
+    <p><code>跟涨/跌 Beta</code> 分别衡量 BTC 上涨时和下跌时该币的敏感度。如果「跟涨」远高于「跟跌」，说明上涨时它更猛，下跌时更抗跌——或反之。</p>
+    <p><code>Beta 贡献</code> 该仓位对组合总 Beta（带方向版本）的贡献值。正贡献 = 增加多头暴露，负贡献 = 对冲效果。红色条 = 增加暴露，绿色条 = 降低暴露。</p>
+
+    <h4>怎么用这些指标？</h4>
+    <p>• 风险评分 > 60 → 组合高度依赖 BTC 走势，趋势反转可能大面积回撤<br>• 加权 Corr > 0.7 → 组合基本跟 BTC 走，注意大盘风险<br>• Beta 暴露幅度 > 1.0 → 各仓位对 BTC 平均敏感度高，注意集中风险<br>• 压力测试损失 > 8% → 考虑减仓或对冲<br>• 某币 Corr < 0.2 → 它几乎不跟 BTC，如果是庄币，注意独立走势风险</p>
+  </div>
+</div>
+
 </body>
 </html>
