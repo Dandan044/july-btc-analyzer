@@ -31,7 +31,7 @@ const LOG_FILE = path.join(WORKSPACE, 'logs', 'cycle-auto-archiver.log');
 
 const SCAN_INTERVAL_MS = 15 * 60 * 1000;
 const MAX_AGE_HOURS = 24;
-const COOLDOWN_HOURS = 72;
+const COOLDOWN_HOURS = 18;
 
 function log(msg) {
   const ts = new Date(Date.now() + 8 * 3600000).toISOString().replace('T', ' ').slice(0, 19);

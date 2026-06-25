@@ -27,6 +27,7 @@ const CONFIG_FILE = path.join(WORKSPACE, 'data', 'mirror-bot-config.json');
 const CACHE_FILE = path.join(WORKSPACE, 'data', 'mirror-bot-cache.json');
 const LOG_FILE = path.join(WORKSPACE, 'logs', 'mirror-bot.log');
 const PROXY = path.join(WORKSPACE, 'scripts', 'okx-proxy.sh');
+const SHARED_POSITIONS_FILE = path.join(WORKSPACE, 'data', 'okx-positions-cache.json');
 
 // ═══ 默认配置 ═══
 const DEFAULT_CONFIG = {
@@ -139,6 +140,62 @@ function getAlgoOrders(profile) {
   }
 }
 
+// ═══ 从共享缓存构建源持仓快照（替代 buildSnapshot('live')） ═══
+function buildSourceSnapshotFromCache() {
+  try {
+    if (!fs.existsSync(SHARED_POSITIONS_FILE)) return null;
+    const cache = JSON.parse(fs.readFileSync(SHARED_POSITIONS_FILE, 'utf8'));
+    const positions = (cache.positions || []).filter(p => parseFloat(p.pos || 0) !== 0);
+    const algoOrders = (cache.algoOrders || []).filter(o => {
+      const type = o.ordType || '';
+      if (type === 'move_order_stop') return false;
+      return true;
+    });
+
+    if (positions.length === 0) return { snapshot: {}, rawPositions: [], rawAlgoOrders: algoOrders };
+
+    const snapshot = {};
+    for (const pos of positions) {
+      const instId = pos.instId;
+      const posSide = pos.posSide || 'net';
+      const key = `${instId}_${posSide}`;
+
+      let tpTriggerPx = null, tpOrdPx = null, slTriggerPx = null, slOrdPx = null;
+      let tpAlgoId = null, slAlgoId = null;
+
+      for (const order of algoOrders) {
+        if (order.instId !== instId) continue;
+        if (order.posSide && order.posSide !== posSide) continue;
+        const type = order.ordType || '';
+        if (type === 'conditional') {
+          if (order.slTriggerPx && parseFloat(order.slTriggerPx) > 0) {
+            slTriggerPx = order.slTriggerPx; slOrdPx = order.slOrdPx; slAlgoId = order.algoId;
+          }
+          if (order.tpTriggerPx && parseFloat(order.tpTriggerPx) > 0) {
+            tpTriggerPx = order.tpTriggerPx; tpOrdPx = order.tpOrdPx; tpAlgoId = order.algoId;
+          }
+        } else if (type === 'oco') {
+          tpTriggerPx = order.tpTriggerPx; tpOrdPx = order.tpOrdPx;
+          slTriggerPx = order.slTriggerPx; slOrdPx = order.slOrdPx;
+          tpAlgoId = order.algoId; slAlgoId = order.algoId;
+        }
+      }
+
+      snapshot[key] = {
+        instId, posSide, pos: pos.pos, avgPx: pos.avgPx,
+        lever: pos.lever, mgnMode: pos.mgnMode, notionalUsd: pos.notionalUsd,
+        markPx: pos.markPx, upl: pos.upl,
+        tpTriggerPx, tpOrdPx, slTriggerPx, slOrdPx, tpAlgoId, slAlgoId,
+      };
+    }
+
+    return { snapshot, rawPositions: positions, rawAlgoOrders: algoOrders };
+  } catch (e) {
+    log(`从缓存构建快照失败: ${e.message}`, 'WARN');
+    return null;
+  }
+}
+
 // ═══ 构建持仓快照(含TP/SL) ═══
 function buildSnapshot(profile) {
   const positions = getPositions(profile);
@@ -202,7 +259,7 @@ function buildSnapshot(profile) {
     };
   }
 
-  return snapshot;
+  return { snapshot, rawPositions: positions, rawAlgoOrders: algoOrders };
 }
 
 // ═══ 计算反向方向 ═══
@@ -329,17 +386,20 @@ function setAlgoOrder(instId, side, sz, targetTpPx, targetSlPx, existingAlgoId, 
 
 // ═══ 核心: 同步单次 ═══
 function syncOnce(config, cache) {
-  const sourceSnap = buildSnapshot(config.sourceProfile);
-  if (sourceSnap === null) {
-    log('源账户快照获取失败,跳过本轮', 'WARN');
+  // ── 从 data-monitor 共享缓存读取源账户仓位（不再直接调 OKX） ──
+  const sourceResult = buildSourceSnapshotFromCache();
+  if (sourceResult === null) {
+    log('源账户快照获取失败(缓存未就绪),跳过本轮', 'WARN');
     return cache;
   }
+  const sourceSnap = sourceResult.snapshot;
 
-  const targetSnap = buildSnapshot(config.targetProfile);
-  if (targetSnap === null) {
+  const targetResult = buildSnapshot(config.targetProfile);
+  if (targetResult === null) {
     log('目标账户快照获取失败,跳过本轮', 'WARN');
     return cache;
   }
+  const targetSnap = targetResult.snapshot;
 
   // 按coinFilter过滤源持仓
   let sourceKeys = Object.keys(sourceSnap);
@@ -463,7 +523,13 @@ function syncOnce(config, cache) {
       const cachedTargetSz = cached.targetSz || 0;
 
       if (targetSz < lotSz) {
-        // 源仓位已归零,平掉目标仓位
+        // 源仓位已归零,平掉目标仓位（先检查目标是否还有仓位）
+        const targetKey = `${src.instId}_${targetSide}`;
+        if (!targetSnap[targetKey]) {
+          log(`  源仓位归零,目标无仓位,跳过平仓`);
+          newPositions[key] = null;
+          continue;
+        }
         log(`  源仓位归零,平目标仓位`);
         closePosition(src.instId, targetSide, src.mgnMode);
         newPositions[key] = null;
@@ -477,16 +543,21 @@ function syncOnce(config, cache) {
           log(`  加仓: +${diff}张`);
           openPosition(src.instId, targetSide, diff, config.fixedLeverage, src.mgnMode);
         } else if (diff < 0) {
-          // 减仓: 反向市价单
-          log(`  减仓: ${diff}张`);
-          const reduceSide = targetSide === 'long' ? 'sell' : 'buy';
-          try {
-            okxRaw('mirror',
-              `swap place --instId ${src.instId} --side ${reduceSide} --ordType market --sz ${Math.abs(diff)} --tdMode ${src.mgnMode || 'cross'} --posSide ${targetSide} --reduceOnly`,
-              15000
-            );
-          } catch (e) {
-            log(`  减仓失败: ${e.message}`, 'ERROR');
+          // 减仓: 反向市价单（先检查目标是否还有仓位）
+          const targetKey = `${src.instId}_${targetSide}`;
+          if (!targetSnap[targetKey]) {
+            log(`  减仓跳过: 目标无仓位 (已在前序轮次平仓)`);
+          } else {
+            log(`  减仓: ${diff}张`);
+            const reduceSide = targetSide === 'long' ? 'sell' : 'buy';
+            try {
+              okxRaw('mirror',
+                `swap place --instId ${src.instId} --side ${reduceSide} --ordType market --sz ${Math.abs(diff)} --tdMode ${src.mgnMode || 'cross'} --posSide ${targetSide} --reduceOnly`,
+                15000
+              );
+            } catch (e) {
+              log(`  减仓失败: ${e.message}`, 'ERROR');
+            }
           }
         }
       }
@@ -546,6 +617,15 @@ function syncOnce(config, cache) {
     log(`🗑️ 源持仓已消失: ${key}, 平目标仓位`);
     const lastUnderscore = key.lastIndexOf('_');
     const realInstId = key.substring(0, lastUnderscore);
+    const targetKey = `${realInstId}_${cached.targetSide}`;
+
+    // 先检查目标是否还有仓位
+    if (!targetSnap[targetKey]) {
+      log(`  目标无仓位,跳过平仓`);
+      closedTargetKeys.add(targetKey);
+      newPositions[key] = null;
+      continue;
+    }
 
     const result = closePosition(realInstId, cached.targetSide, cached.mgnMode || 'cross');
     if (result) {

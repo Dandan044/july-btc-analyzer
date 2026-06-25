@@ -32,10 +32,8 @@
   {{#zhuang_stage}}
   "zhuang_stage": "launch",
   {{/zhuang_stage}}
-  "entry_mode": "full",
   "entry_condition": "immediate",
   "nominal_base": 30,
-  "head_ratio": null,
   "calc_position_input": {
     "entry": 0.15,
     "x": {{x_default}},
@@ -63,8 +61,7 @@
 
 > 🚫 **action 字段只能使用上述 8 个值之一，严格匹配大小写。禁止使用 `skip` / `watch` / `观望` / `skip_execution` / `none` / `pending` 等任何变体。不操作 = `wait`，持仓中不操作 = `hold`，首周期无法定向 = `abort`——没有其他名字。** |
 | `direction` | string | `long` / `short`（开仓/加仓时必填） |
-| `entry_mode` | string | `"full"`（常规全仓）\| `"head"`（头仓试探）。默认 `"full"` |
-| `head_ratio` | number/null | 头仓比例，0.25-0.50。full 模式为 null |
+
 {{#zhuang_stage}}
 | `zhuang_stage` | string | 庄家行为阶段：`accumulation` / `launch` / `distribution` / `crash` |
 {{/zhuang_stage}}
@@ -76,14 +73,13 @@
 | `take_profit1` | number | 止盈1价位 |
 | `take_profit2` | number/null | 止盈2价位（可选） |
 | `tp1_ratio` | number | TP1 平仓比例（默认 50） |
-| `trailing_callback_ratio` | number/null | 追踪止损回撤比例（小数，0.05=5%）。设置后阶段三会额外/替代创建 `swap algo trail` 订单。与 OCO 并存时为双重保护（追踪止损 + 固定止盈止损）。头仓模式为**必填**。null 表示不启用 |
+| `trailing_callback_ratio` | number/null | 追踪止损回撤比例（小数，0.05=5%）。设置后阶段三会额外/替代创建 `swap algo trail` 订单。与 OCO 并存时为双重保护（追踪止损 + 固定止盈止损）。null 表示不启用 |
 | `reject_reason` | string/null | 开仓被拒绝的原因（盈亏比不足/脚本REJECT等），null 表示允许 |
 | `reduce_ratio` | number/null | 减仓比例（如 50），仅 action=reduce 时需要 |
 | `observation_conditions` | string[] | 观望时列出的观察条件，只能使用合约数据面指标 |
 
 **字段选择规则：**
-- `action = open/add` + `entry_mode = "full"` → `direction`、`calc_position_input`、`stop_loss` 必填。`take_profit1` 为 null 时表示不设固定止盈（通常配合 `trailing_callback_ratio` 使用）
-- `action = open` + `entry_mode = "head"` → `direction`、`head_ratio`、`trailing_callback_ratio` 必填。实际开仓名义 = `nominal_base × head_ratio`。`calc_position_input`、`stop_loss`、`take_profit1` 均为 null。`take_profit2`、`tp1_ratio` 为 null
+- `action = open/add` → `direction`、`calc_position_input`、`stop_loss` 必填。`take_profit1` 为 null 时表示不设固定止盈（通常配合 `trailing_callback_ratio` 使用）
 - `action = reduce` → `reduce_ratio` 必填
 - `action = adjust` → `stop_loss`、`take_profit1` 填新价位
 - `action = close` → 只需 `action: "close"`
@@ -95,13 +91,12 @@
 
 **止盈止损组合模式（仅 market 生效）：**
 
-| entry_mode | take_profit1 | stop_loss | trailing_callback_ratio | 阶段三行为 |
-|:----------:|:-----------:|:---------:|:-----------------------:|-----------|
-| full | 有值 | 有值 | null | **OCO**（固定止盈止损）— 默认模式 |
-| full | null | 有值 | 有值 | **仅追踪止损**（不设固定止盈）— 追入模式 |
-| full | 有值 | 有值 | 有值 | **双重保护**（OCO + 追踪止损并存）— 灵活性最大 |
-| full | null | 有值 | null | 自动设默认 ±5% OCO 兜底 |
-| **head** | **null** | **null** | **有值（必填）** | **头仓试探**（纯追踪止损、不设 OCO、名义=nominal_base×head_ratio） |
+| take_profit1 | stop_loss | trailing_callback_ratio | 阶段三行为 |
+|:-----------:|:---------:|:-----------------------:|-----------|
+| 有值 | 有值 | null | **OCO**（固定止盈止损）— 默认模式 |
+| null | 有值 | 有值 | **仅追踪止损**（不设固定止盈）— 追入模式 |
+| 有值 | 有值 | 有值 | **双重保护**（OCO + 追踪止损并存）— 灵活性最大 |
+| null | 有值 | null | 自动设默认 ±5% OCO 兜底 |
 
 **日志记录：**
 ```

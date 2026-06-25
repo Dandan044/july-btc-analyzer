@@ -845,7 +845,8 @@ function evaluateCandidate(currentMetrics, candidateCoin, candidateDirection, ca
   }
 
   // ═══ 全局风险上限：评分超过上限 → 硬拒绝 ═══
-  if (globalThreshold !== null && newMetrics.risk_score > globalThreshold) {
+  // ⚠️ 前3笔免检：空仓/微仓时组合风险评分噪声大(方向集中度100%会将单币评分推至70-80+)，不应全局拦截
+  if (globalThreshold !== null && newMetrics.risk_score > globalThreshold && newCount > 3) {
     return {
       new_position_count: newCount,
       current_risk_score: currentMetrics.risk_score,

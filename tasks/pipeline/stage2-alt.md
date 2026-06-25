@@ -470,60 +470,6 @@ cat active/{CYCLE_DIR}/data-context/btc-tracking.json
 
 ---
 
-### 🔬 头仓试探模式
-
-> 不是每笔交易都需要全仓进场。当你的方向判断明确，但入场时机不完美时——头仓试探是第三种选择。
-
-**适用场景：**
-
-- 方向判断有清晰优势（利多/利空信号占优）
-- 但短期技术面处于极端区域（RSI 超买/超卖、K 线远离均线、关键位突破尚未确认）
-- 等回调怕踏空，全仓进又怕止损太宽——头仓试探给一个折中方案
-
-**头仓规则：**
-
-| 维度 | 规则 |
-|------|------|
-| 仓位 | 总计划仓位（nominal_base）的 **25%-50%**，由你对信号质量的信心决定。信号越强 → 比例越高 |
-| 止损 | **只用追踪止损**（移动止损），不设固定止损位。不跑 calc-position.js |
-| 止盈 | **不设固定止盈** |
-| 追踪回撤 | 3%-8%，根据该币种 4H ATR 评估。低波动 → 3-4%，中波动 → 5-6%，高波动 → 7-8% |
-
-**必须指定两个关键价位（写入阶段四警报规则）：**
-
-| 价位 | 方向 | 含义 | 触发后 |
-|------|------|------|--------|
-| `confirm_price`（证实位） | 顺着开仓方向 | 价格到达此位 = 你的判断被市场证实 | 拉起 LLM 做**加仓分析** |
-| `falsify_price`（证伪位） | 逆着开仓方向 | 价格到达此位 = 你的判断被市场证伪 | 拉起 LLM 做**归档判断**（追踪止损应已在此价位之前触发平仓） |
-
-> 做多时：confirm_price 在上方，falsify_price 在下方。做空时相反。
-
-**头仓试探 → 全仓的进阶路径：**
-
-```
-头仓试探确认正确
-  → confirm_price 触发警报
-  → LLM 被拉起分析
-  → 输出 action: "add"（全仓加至总计划仓位）
-  → 此时转向常规模式（固定止损 + 止盈、跑 calc-position.js）
-```
-
-头仓试探被证伪：
-```
-falsify_price 触发警报
-  → 此时追踪止损应已在更早的价格触发平仓
-  → LLM 被拉起做归档
-  → 周期结束，复盘 cron 创建
-```
-
-**头仓与其他决策的互斥关系：**
-
-| 头仓试探 | 全仓开仓 | wait | abort |
-|:-----:|:-----:|:----:|:-----:|
-| ✅ | ❌ 二选一 | ❌ 二选一 | ❌ 二选一 |
-
-头仓试探一旦选定，就是本周期的唯一开仓形态。不存在「先头仓再等回调补全仓」——那应该在 confirm_price 触发后的下一份报告中处理。
-
 **决策追溯要求：**
 
 每个开仓或观望决策必须**明确引用枚举的具体信号编号**。不允许出现「综合判断偏多」这样的模糊结论。
@@ -666,40 +612,6 @@ node scripts/calc-position.js \
 
 ---
 
-### 头仓试探模式（不执行 calc-position.js）
-
-> 方向判断明确但入场时机不完美时，以轻仓 + 追踪止损先探路。此模式下**跳过 calc-position.js**。
-
-**头仓模式表格：**
-
-| 项目 | 内容 |
-|------|------|
-| 操作类型 | 头仓试探 |
-| 方向 | 做多 / 做空 |
-| 入场位置 | $xxx |
-| 入场条件 | 立即以当前价格入场 |
-| 仓位 | nominal_base(30u) × head_ratio({25-50%}) = {7.5-15}u |
-| head_ratio | {0.25-0.50}，选择理由：对信号质量的信心评估 |
-| 止损 | 追踪止损（移动止损）— 不设固定止损位 |
-| 追踪回撤 | {3-8%}，选择理由：基于该币种 4H ATR 波动率 |
-| 止盈 | 不设（null） |
-| 证实位 | confirm_price=$xxx（顺着开仓方向，触发后加仓分析） |
-| 证伪位 | falsify_price=$xxx（逆着开仓方向，触发后归档） |
-| 盈亏比 | 不计算（无固定 TP） |
-| 风险 | 低（轻仓 + 追踪止损保护） |
-
-**追踪回撤选择指南：**
-
-| ATR(4H) 范围 | 建议回撤 | 说明 |
-|-------------|---------|------|
-| < 5% | 3-4% | 低波动币种，太宽的回撤失去保护意义 |
-| 5-10% | 5-6% | 中等波动，适度空间容纳正常回调 |
-| > 10% | 7-8% | 高波动币种，需要给价格足够呼吸空间 |
-
-> 🚫 追踪止损由阶段三的 `swap algo trail` 执行。无需 calc-position.js、无需盈亏比计算、无需固定止损位。证实位和证伪位写入 `alert-candidates.json`，由阶段四创建警报规则。
-
----
-
 **如果不入场：**
 
 明确列出需要观察的条件。什么情况出现会导致你做多？什么情况会导致你做空？下一次分析时应该关注什么变化？
@@ -790,10 +702,8 @@ node scripts/calc-position.js \
   "action": "open",
   "direction": "long",
   
-  "entry_mode": "full",
   "entry_condition": "immediate",
   "nominal_base": 30,
-  "head_ratio": null,
   "calc_position_input": {
     "entry": 0.15,
     "x": 1.8,
@@ -821,8 +731,7 @@ node scripts/calc-position.js \
 
 > 🚫 **action 字段只能使用上述 8 个值之一，严格匹配大小写。禁止使用 `skip` / `watch` / `观望` / `skip_execution` / `none` / `pending` 等任何变体。不操作 = `wait`，持仓中不操作 = `hold`，首周期无法定向 = `abort`——没有其他名字。** |
 | `direction` | string | `long` / `short`（开仓/加仓时必填） |
-| `entry_mode` | string | `"full"`（常规全仓）\| `"head"`（头仓试探）。默认 `"full"` |
-| `head_ratio` | number/null | 头仓比例，0.25-0.50。full 模式为 null |
+
 
 | `entry_condition` | string | `immediate`（立即执行）或描述等待触发的条件 |
 | `nominal_base` | number | 建议名义仓位（USDT），未指定则默认 30 |
@@ -832,14 +741,13 @@ node scripts/calc-position.js \
 | `take_profit1` | number | 止盈1价位 |
 | `take_profit2` | number/null | 止盈2价位（可选） |
 | `tp1_ratio` | number | TP1 平仓比例（默认 50） |
-| `trailing_callback_ratio` | number/null | 追踪止损回撤比例（小数，0.05=5%）。设置后阶段三会额外/替代创建 `swap algo trail` 订单。与 OCO 并存时为双重保护（追踪止损 + 固定止盈止损）。头仓模式为**必填**。null 表示不启用 |
+| `trailing_callback_ratio` | number/null | 追踪止损回撤比例（小数，0.05=5%）。设置后阶段三会额外/替代创建 `swap algo trail` 订单。与 OCO 并存时为双重保护（追踪止损 + 固定止盈止损）。null 表示不启用 |
 | `reject_reason` | string/null | 开仓被拒绝的原因（盈亏比不足/脚本REJECT等），null 表示允许 |
 | `reduce_ratio` | number/null | 减仓比例（如 50），仅 action=reduce 时需要 |
 | `observation_conditions` | string[] | 观望时列出的观察条件，只能使用合约数据面指标 |
 
 **字段选择规则：**
-- `action = open/add` + `entry_mode = "full"` → `direction`、`calc_position_input`、`stop_loss` 必填。`take_profit1` 为 null 时表示不设固定止盈（通常配合 `trailing_callback_ratio` 使用）
-- `action = open` + `entry_mode = "head"` → `direction`、`head_ratio`、`trailing_callback_ratio` 必填。实际开仓名义 = `nominal_base × head_ratio`。`calc_position_input`、`stop_loss`、`take_profit1` 均为 null。`take_profit2`、`tp1_ratio` 为 null
+- `action = open/add` → `direction`、`calc_position_input`、`stop_loss` 必填。`take_profit1` 为 null 时表示不设固定止盈（通常配合 `trailing_callback_ratio` 使用）
 - `action = reduce` → `reduce_ratio` 必填
 - `action = adjust` → `stop_loss`、`take_profit1` 填新价位
 - `action = close` → 只需 `action: "close"`
@@ -851,13 +759,12 @@ node scripts/calc-position.js \
 
 **止盈止损组合模式（仅 market 生效）：**
 
-| entry_mode | take_profit1 | stop_loss | trailing_callback_ratio | 阶段三行为 |
-|:----------:|:-----------:|:---------:|:-----------------------:|-----------|
-| full | 有值 | 有值 | null | **OCO**（固定止盈止损）— 默认模式 |
-| full | null | 有值 | 有值 | **仅追踪止损**（不设固定止盈）— 追入模式 |
-| full | 有值 | 有值 | 有值 | **双重保护**（OCO + 追踪止损并存）— 灵活性最大 |
-| full | null | 有值 | null | 自动设默认 ±5% OCO 兜底 |
-| **head** | **null** | **null** | **有值（必填）** | **头仓试探**（纯追踪止损、不设 OCO、名义=nominal_base×head_ratio） |
+| take_profit1 | stop_loss | trailing_callback_ratio | 阶段三行为 |
+|:-----------:|:---------:|:-----------------------:|-----------|
+| 有值 | 有值 | null | **OCO**（固定止盈止损）— 默认模式 |
+| null | 有值 | 有值 | **仅追踪止损**（不设固定止盈）— 追入模式 |
+| 有值 | 有值 | 有值 | **双重保护**（OCO + 追踪止损并存）— 灵活性最大 |
+| null | 有值 | null | 自动设默认 ±5% OCO 兜底 |
 
 **日志记录：**
 ```
@@ -894,7 +801,7 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 | 步 | 做什么 |
 |----|--------|
 | **① 标记失效** | 现有规则中，价位已不在你分析结论的关键位置中 / lifetime 已过期 / type 不再需要 → 记下文件名，后面写入 `archive_rules` |
-| **② 选价位** | 从你的分析中选出 ≤6 个最有价值的价位（SL/TP 必须包含；支撑侧至少 1 个 `notify`，阻力侧至少 1 个 `notify`） |
+| **② 选价位** | 从你的分析中选出 ≤6 个最有价值的价位（支撑侧至少 1 个 `notify`，阻力侧至少 1 个 `notify`） |
 | **③ 选非价格** | 选出 ≤2 个值得监控的指标（OI / Taker / 费率 / 成交量） |
 | **④ 定策略** | 每个价位分配确认策略：`sl`→instant / `tp`→touch / `entry_trigger`→hold / `key_*`→hold / `psychological`→deep_hold |
 | **⑤ 定响应等级** | 每个价位分配 `triggerLevel`：`notify`（立即拉起 LLM）或 `record`（仅缓存记录）— 详见下方说明 |
@@ -905,14 +812,13 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 
 | triggerLevel | 触发后做什么 | 适用场景 |
 |-------------|-------------|---------|
-| `notify` | 触发 → 立即拉起 LLM 做完整分析 → 整个规则归档 | **止损位、止盈位、入场触发位、关键结构位**——这些是关键决策点，必须 LLM 介入 |
+| `notify` | 触发 → 立即拉起 LLM 做完整分析 → 整个规则归档 | **入场触发位、关键结构位**——这些是关键决策点，必须 LLM 介入（SL/TP 仓位归零由 data-monitor 自动处理） |
 | `record` | 触发 → 仅缓存事件，规则继续运行，**不叫醒 LLM**。该价位从监控列表中删除 | **次要观测位、整数关口、心理价位**——这些价位触及值得记录，但单独触及不改变方向判断 |
 
 **record 的语义：** 触发后该价位从监控数组中被移除（不再被检测），但规则继续运行监控剩余价位。当最终某个 `notify` 价位触发时，引擎会将此期间所有 `record` 触发的事件缓存一并传给 LLM。如果所有价位都是 `record`，全部触发后规则自动归档（全部消费完毕）。
 
 **分配原则：**
-- SL（止损）→ 永远是 `notify`，因为止损触发=必须立即处理
-- TP（止盈）→ 永远是 `notify`
+- SL/TP 的仓位归零由 `data-monitor` 自动监控归档，无需设价位警报
 - 入场触发位 → `notify`
 - 关键结构位（key_support / key_resistance）→ `notify`
 - 次要观测位 / 整数关口 / 心理价位 → `record`
@@ -922,7 +828,6 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 
 **规则 A — 不重复触发价位：** 如果本次分析是即时分析（警报触发），你收到的 `alert_context` 中包含了 `triggeredLevels`——即刚刚触发的价位和元数据。**不要在 `create_rules` 中重新包含这个价位。**
 - 这个价位已被触发→归档，系统已经记录了该次触发。重新包含同一价位会导致无限触发循环（触发→归档→重建→再触发）。
-- 例外：如果该价位是 SL（止损位）且持仓仍在，则不受此限制。
 - 在 `archive_rules` 中加入旧规则文件名，明确归档。
 
 **规则 B — 结合波动率设远距：** 设置的价位应距当前价至少 **ATR(4H) × 1** 以上。避免因价格自然波动频繁触碰而触发警报。
@@ -931,31 +836,9 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
 
 **规则 C — 上下侧必须各有一个 notify：** 支撑侧（`type: "support"`）和阻力侧（`type: "resistance"`）**必须各自包含至少 1 个 `triggerLevel: "notify"` 的价位**。
 - 原因：如果某一侧全部是 `record`，该侧触发时引擎不会拉起 LLM 分析——你只会得到一批静默日志，可能错过趋势转折信号。
-- 对于有持仓的场景：SL 提供支撑侧 notify、TP 提供阻力侧 notify，天然满足。
-- 对于无持仓的场景：确保你选的观测价位在上下两侧都至少设了一个 notify，保证任一侧先触发时都能唤醒分析。
+- SL/TP 由 `data-monitor` 自动监控仓位变化，此处无需专门为其设立价位。
 
 > ⚠️ **已废弃：** 限价单和条件单开仓模式已不再使用。开仓统一使用市价单（market order）。规则 D 已移除。
-
-#### 9.2b 头仓试探专属规则
-
-当本次开仓决策的 `entry_mode = "head"`（头仓试探）时，除了常规规则外，`create_rules` 中**必须额外包含两个 notify 级价位**：
-
-| role | type | label | triggerLevel | confirmPolicy | 触发后 |
-|------|------|-------|-------------|---------------|--------|
-| `confirm_price` | 顺着开仓方向 | 证实位（加仓） | `notify` | `instant` | 拉起 LLM 做加仓分析。此时追踪止损仍在运行。 |
-| `falsify_price` | 逆着开仓方向 | 证伪位（归档） | `notify` | `instant` | 拉起 LLM 做归档判断。此价位之前追踪止损应已触发平仓。 |
-
-**注意：** 这两个价位**不计入**常规规则 C 的支撑/阻力侧 notify 覆盖要求——它们是头仓模式的额外强制项。
-
-做多示例：
-```json
-{ "price": 1.05,  "type": "resistance", "role": "confirm_price", "label": "证实位（加仓）",     "action": "加仓评估", "priority": "high",   "confirmPolicy": "instant", "triggerLevel": "notify" },
-{ "price": 0.88,  "type": "support",    "role": "falsify_price", "label": "证伪位（归档）",     "action": "归档评估", "priority": "critical","confirmPolicy": "instant", "triggerLevel": "notify" }
-```
-
-> 头仓模式**不需要**设置常规 SL/TP 价格规则（SL 由追踪止损替代、TP 不存在）。非价格规则（OI/费率/成交量监控）照常设置。
-
----
 
 #### 9.3 输出最终 JSON
 
@@ -981,9 +864,6 @@ ls skills/btc-alert/rules/{COIN}-*.js 2>/dev/null
       "filename": "SOL-price-levels.js",
       "max_retrace_pct": 0.3,
       "price_levels": [
-        { "price": 82,   "type": "support",   "role": "sl",            "label": "止损位",   "action": "止损全平", "priority": "critical", "confirmPolicy": "instant", "triggerLevel": "notify" },
-        { "price": 95,   "type": "resistance", "role": "tp1",           "label": "止盈1",    "action": "止盈50%", "priority": "high",     "confirmPolicy": "instant",   "triggerLevel": "notify" },
-        { "price": 105,  "type": "resistance", "role": "tp2",           "label": "止盈2",    "action": "止盈剩余", "priority": "high",     "confirmPolicy": "instant",   "triggerLevel": "notify" },
         { "price": 88.5, "type": "resistance", "role": "entry_trigger", "label": "入场触发位","action": "评估做多", "priority": "high",     "confirmPolicy": "hold",    "triggerLevel": "notify" },
         { "price": 85,   "type": "support",    "role": "key_support",   "label": "关键支撑",  "action": "跌破减仓", "priority": "medium",   "confirmPolicy": "hold",    "triggerLevel": "notify" }
       ]

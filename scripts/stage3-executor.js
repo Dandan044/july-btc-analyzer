@@ -1052,7 +1052,7 @@ if (adjustedAction === 'abort') {
     try { if (fs.existsSync(cooldownPath)) cd = JSON.parse(fs.readFileSync(cooldownPath, 'utf8')); } catch (_) {}
     if (!cd.entries) cd.entries = {};
     cd.entries[COIN] = {
-      cooldown_until: new Date(Date.now() + 72 * 3600000).toISOString(),
+      cooldown_until: new Date(Date.now() + 18 * 3600000).toISOString(),
       reason: reason,
       added_at: new Date().toISOString()
     };

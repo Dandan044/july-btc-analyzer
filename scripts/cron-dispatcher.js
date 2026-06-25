@@ -925,6 +925,81 @@ function handleClearQueue(req, res) {
   }
 }
 
+// ════════════════════════════════════════════
+// POST /admin/reset-all — 紧急重置：清空队列 + 终止运行中cron任务
+// ════════════════════════════════════════════
+function handleResetAll(req, res) {
+  const result = { queueCleared: 0, cronDeleted: 0, activeKilled: 0, errors: [] };
+
+  try {
+    // ── 1. 清空排队队列 ──
+    let queueCount = 0;
+    for (const prio of PRIORITY_ORDER) {
+      const arr = queue.get(prio) || [];
+      queueCount += arr.length;
+      queue.set(prio, []);
+    }
+    jobMeta.clear();
+    try { if (fs.existsSync(QUEUE_PERSIST_FILE)) fs.unlinkSync(QUEUE_PERSIST_FILE); } catch (_) {}
+    try { if (fs.existsSync(QUEUE_PERSIST_FILE + '.tmp')) fs.unlinkSync(QUEUE_PERSIST_FILE + '.tmp'); } catch (_) {}
+    result.queueCleared = queueCount;
+    log('INFO', `[reset-all] 清空队列: ${queueCount} 个任务`);
+
+    // ── 2. 终止运行中任务：仅删除一次性 cron（kind=at），保留循环任务 ──
+    // ⚠️ 不能直接删除 activeJobs 中所有 cron 条目，因为包含 morning/evening 等循环任务
+    try {
+      const listRaw = execSync('openclaw cron list --json 2>&1', { timeout: 15000, encoding: 'utf8' });
+      const data = JSON.parse(listRaw);
+      const allJobs = Array.isArray(data) ? data : (data.jobs || []);
+      
+      // 统计活跃的一次性任务
+      const activeOneShotIds = new Set();
+      for (const [key, val] of activeJobs) {
+        if (val.source === 'cron') {
+          const cronId = key.startsWith('cron:') ? key.slice(5) : key;
+          activeOneShotIds.add(cronId);
+        }
+      }
+
+      for (const job of allJobs) {
+        const isOneShot = job.schedule?.kind === 'at';
+        const isActive = activeOneShotIds.has(job.id);
+        
+        if (isOneShot) {
+          // 删除所有一次性 cron（无论是否活跃）
+          try {
+            execSync(`openclaw cron rm ${job.id}`, { timeout: 10000, encoding: 'utf8' });
+            result.cronDeleted++;
+            if (isActive) result.activeKilled++;
+            log('INFO', `[reset-all] 已删除一次性 cron: ${job.id} (${job.name || '未命名'})${isActive ? ' [运行中]' : ''}`);
+          } catch (e) {
+            result.errors.push(`删除 cron ${job.id} 失败: ${e.message}`);
+          }
+        }
+      }
+    } catch (e) {
+      result.errors.push(`获取 cron 列表失败: ${e.message}`);
+    }
+
+    // ── 3. 统计 dispatch-pending 被终止数 ──
+    for (const [key, val] of activeJobs) {
+      if (val.source === 'dispatch-pending') {
+        result.activeKilled++;
+      }
+    }
+
+    // ── 4. 清空 activeJobs（循环 cron 下次 importCronJobs 会自动恢复） ──
+    activeJobs.clear();
+
+    log('INFO', `[reset-all] 完成: 清空${result.queueCleared}队列 删除${result.cronDeleted}一次性cron 终止${result.activeKilled}活跃`);
+    jsonReply(res, 200, { status: 'ok', result });
+  } catch (e) {
+    result.errors.push(`系统异常: ${e.message}`);
+    log('ERROR', `[reset-all] 失败: ${e.message}`);
+    jsonReply(res, 500, { error: e.message, result });
+  }
+}
+
 function handleForecast(req, res) {
   const now = Date.now();
   const SLOT_MIN = 30;
@@ -979,6 +1054,9 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === 'POST' && req.url === '/admin/clear-queue') {
     return handleClearQueue(req, res);
+  }
+  if (req.method === 'POST' && req.url === '/admin/reset-all') {
+    return handleResetAll(req, res);
   }
   jsonReply(res, 404, { error: 'not found' });
 });

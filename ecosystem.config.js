@@ -4,6 +4,26 @@ const socksProxy = proxyUrl.replace(/^http/, 'socks5');
 
 module.exports = {
   apps: [{
+    name: '市场脉动',
+    script: './skills/market-watch/engine.js',
+    cwd: __dirname,
+    autorestart: true,
+    watch: false,
+    max_restarts: 10,
+    restart_delay: 3000,
+    max_memory_restart: '200M',
+    error_file: '/dev/null',
+    out_file: '/dev/null',
+    time: true,
+    env: {
+      NODE_ENV: 'production',
+      TZ: 'Asia/Shanghai',
+      PROXY_URL: proxyUrl,
+      http_proxy: proxyUrl,
+      https_proxy: proxyUrl,
+      all_proxy: socksProxy
+    }
+  }, {
     name: 'btc-alert',
     script: './skills/btc-alert/engine.js',
     cwd: __dirname,
@@ -37,16 +57,16 @@ module.exports = {
       all_proxy: socksProxy
     }
   }, {
-    name: 'cycle-auto-archiver',
-    script: './scripts/cycle-auto-archiver.js',
+    name: '静默巡检-周期清理',
+    script: './scripts/cycle-guardian.js',
     cwd: __dirname,
     autorestart: true,
     watch: false,
     max_restarts: 5,
     restart_delay: 5000,
-    max_memory_restart: '100M',
-    error_file: './logs/cycle-auto-archiver.log',
-    out_file: './logs/cycle-auto-archiver.log',
+    max_memory_restart: '200M',
+    error_file: './logs/cycle-guardian.log',
+    out_file: './logs/cycle-guardian.log',
     merge_logs: true,
     time: true,
     env: {
@@ -95,16 +115,16 @@ module.exports = {
       PATH: [process.env.HOME, '.npm-global', 'bin'].join('/') + ':/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
     }
   }, {
-    name: 'silence-monitor',
-    script: './scripts/silence-monitor.js',
+    name: '持仓审计',
+    script: './scripts/position-monitor.js',
     cwd: __dirname,
     autorestart: true,
     watch: false,
-    max_restarts: 10,
+    max_restarts: 5,
     restart_delay: 5000,
-    max_memory_restart: '200M',
-    error_file: './logs/silence-monitor.log',
-    out_file: './logs/silence-monitor.log',
+    max_memory_restart: '100M',
+    error_file: './logs/position-monitor.log',
+    out_file: './logs/position-monitor.log',
     merge_logs: true,
     time: true,
     env: {
@@ -116,16 +136,15 @@ module.exports = {
       all_proxy: socksProxy
     }
   }, {
-    name: 'position-monitor',
-    script: './scripts/position-monitor.js',
+    name: '仓位守护',
+    script: './scripts/data-monitor.js',
     cwd: __dirname,
     autorestart: true,
     watch: false,
-    max_restarts: 5,
-    restart_delay: 5000,
-    max_memory_restart: '100M',
-    error_file: './logs/position-monitor.log',
-    out_file: './logs/position-monitor.log',
+    max_restarts: 10,
+    restart_delay: 3000,
+    error_file: './logs/data-monitor.log',
+    out_file: './logs/data-monitor.log',
     merge_logs: true,
     time: true,
     env: {

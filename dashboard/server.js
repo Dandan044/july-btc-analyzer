@@ -24,13 +24,8 @@ const LOGS_DIR = path.join(BASE_DIR, 'logs');
 const DATA_DIR = path.join(BASE_DIR, 'data');
 const ALERTS_CACHE_FILE = path.join(DATA_DIR, 'recent-alerts-cache.json');
 
-// ── OKX 持仓数缓存（由 /api/live-pnl 写入，/api/dashboard 读取） ──
+// ── OKX 持仓数缓存（由 mirror-bot 每 5s 写入，Dashboard 各端点读取） ──
 const OKX_CACHE_FILE = path.join(DATA_DIR, 'okx-positions-cache.json');
-let okxPositionCountCache = { count: 0, ts: 0 }; // 内存缓存
-try {
-  const cached = readJSON(OKX_CACHE_FILE);
-  if (cached && Date.now() - cached.ts < 300000) okxPositionCountCache = cached;
-} catch {}
 
 const PORT = parseInt(process.argv.find(a => a.startsWith('--port='))?.split('=')[1] || '3100');
 
@@ -102,6 +97,11 @@ function classifyCycle(name) {
   if (name.startsWith('zhuang-')) {
     const coin = (name.match(/^zhuang-([A-Z0-9]+)-/) || [])[1] || 'UNKNOWN';
     return { type: 'zhuang', coin, isBTC: false, isZhuang: true };
+  }
+  // market-watch 触发周期（mw-{COIN}-{TS}）
+  if (name.startsWith('mw-')) {
+    const coin = (name.match(/^mw-([A-Z0-9]+)-/) || [])[1] || 'UNKNOWN';
+    return { type: 'altcoin', coin, isBTC: false, isZhuang: false };
   }
   const coin = (name.match(/^alt-([A-Z0-9]+)-/) || [])[1] || 'UNKNOWN';
   return { type: 'altcoin', coin, isBTC: false, isZhuang: false };
@@ -594,7 +594,16 @@ app.get('/api/market-brief/latest', (req, res) => {
     const files = fs.readdirSync(BRIEF_DIR).filter(f => f.endsWith('.json')).sort().reverse();
     if (!files.length) return res.json({ found: false });
 
-    const latest = JSON.parse(fs.readFileSync(path.join(BRIEF_DIR, files[0]), 'utf8'));
+    // 遍历文件直到成功解析（跳过损坏的 JSON）
+    let latest = null, bestFile = null;
+    for (const f of files) {
+      try {
+        latest = JSON.parse(fs.readFileSync(path.join(BRIEF_DIR, f), 'utf8'));
+        bestFile = f;
+        break;
+      } catch { continue; }
+    }
+    if (!latest) return res.json({ found: false });
 
     // 读取 processed.json 补充 summary + majors
     const PROC_PATH = '/tmp/market-brief/processed.json';
@@ -609,7 +618,7 @@ app.get('/api/market-brief/latest', (req, res) => {
 
     // 同时读取 Markdown 报告摘要
     const REPORT_DIR = path.join(BASE_DIR, 'market-brief', 'reports');
-    const mdFile = files[0].replace('.json', '.md');
+    const mdFile = bestFile.replace('.json', '.md');
     const mdPath = path.join(REPORT_DIR, mdFile);
     let briefText = '';
     if (fs.existsSync(mdPath)) {
@@ -877,8 +886,9 @@ app.get('/api/dashboard', (req, res) => {
     const altCycles = cycles.filter(c => c.type === 'altcoin');
     const zhuangCycles = cycles.filter(c => c.type === 'zhuang');
 
-    // 实盘持仓数（从 OKX 缓存读取，由 /api/live-pnl 每 5min 更新）
-    const livePositionCount = okxPositionCountCache.count || 0;
+    // 实盘持仓数（从 mirror-bot 共享缓存读取）
+    const posCache = readJSON(OKX_CACHE_FILE);
+    const livePositionCount = posCache?.count || 0;
 
     // 按状态分组（只用 active 规则判定，归档规则不算）
     const statusGroups = { alive: 0, dead: 0 };
@@ -1162,14 +1172,15 @@ app.get('/api/account-balance-history', (req, res) => {
 });
 
 // ── GET /api/live-pnl ──────────────────────────────────
-// 一次 OKX API 调用获取全账户持仓,汇总未实现盈亏
+// 从 mirror-bot 写入的共享缓存读取（mirror-bot 每 5s 更新，不再独立调 OKX）
 app.get('/api/live-pnl', (req, res) => {
   try {
-    const allPositions = okxCli('account positions');
-    if (!allPositions) {
-      return res.status(502).json({ error: 'OKX API 调用失败' });
+    const cache = readJSON(OKX_CACHE_FILE);
+    if (!cache || !Array.isArray(cache.positions) || Date.now() - cache.ts > 30000) {
+      return res.status(502).json({ error: '持仓缓存未就绪，请稍后刷新' });
     }
 
+    const allPositions = cache.positions;
     // 只取有持仓的(pos != "0" 且 posSide != "net" 或 pos != 0)
     const held = allPositions.filter(p => {
       const pos = parseFloat(p.pos);
@@ -1180,15 +1191,8 @@ app.get('/api/live-pnl', (req, res) => {
     const totalUplRatio = held.reduce((sum, p) => sum + (parseFloat(p.uplRatio) || 0), 0) / (held.length || 1);
     const totalRealizedPnl = held.reduce((sum, p) => sum + (parseFloat(p.realizedPnl) || 0), 0);
 
-    // 更新 OKX 持仓数缓存（供 /api/dashboard 使用，避免重复调 OKX）
-    okxPositionCountCache = { count: held.length, ts: Date.now() };
-    try {
-      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-      fs.writeFileSync(OKX_CACHE_FILE, JSON.stringify(okxPositionCountCache));
-    } catch {}
-
     res.json({
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(cache.ts).toISOString(),
       positionCount: held.length,
       totalUpl: Math.round(totalUpl * 100) / 100,
       totalUplRatio: Math.round(totalUplRatio * 10000) / 100, // percentage
@@ -1211,12 +1215,16 @@ app.get('/api/live-pnl', (req, res) => {
 });
 
 // ── GET /api/positions-detail ─────────────────────────────
-// 全账户持仓 + 挂单(OCO)，供前端实盘仓位卡片使用
+// 全账户持仓 + 算法订单(TP/SL)，从 mirror-bot 共享缓存读取（不再独立调 OKX）
 app.get('/api/positions-detail', (req, res) => {
   try {
-    const allPositions = okxCli('account positions');
-    const pendingOrders = okxCli('swap orders');
-    const algoOrders = okxCli('swap algo orders');
+    const cache = readJSON(OKX_CACHE_FILE);
+    if (!cache || !Array.isArray(cache.positions) || Date.now() - cache.ts > 30000) {
+      return res.status(502).json({ error: '持仓缓存未就绪，请稍后刷新' });
+    }
+
+    const allPositions = cache.positions;
+    const algoOrders = cache.algoOrders || [];
 
     // 只取持仓量非零
     const held = (allPositions || []).filter(p => {
@@ -1224,11 +1232,10 @@ app.get('/api/positions-detail', (req, res) => {
       return pos !== 0 && !isNaN(pos);
     });
 
-    // 处理挂单（合并普通订单 + 算法订单）
-    const allOrders = [...(pendingOrders || []), ...(algoOrders || [])];
-    const orders = allOrders.map(o => ({
+    // 处理算法订单（TP/SL，来源 mirror-bot）
+    const orders = (algoOrders || []).map(o => ({
       instId: o.instId,
-      ordId: o.ordId,
+      ordId: o.ordId || o.algoId || '',
       side: o.side,
       ordType: o.ordType,
       sz: o.sz,
@@ -1725,12 +1732,64 @@ app.get('/api/onchain-refresh-logs', (req, res) => {
   }
 });
 
+// ── GET /api/data-monitor-logs ──────────────────────────
+app.get('/api/data-monitor-logs', (req, res) => {
+  try {
+    const lines = parseInt(req.query.lines) || 300;
+    const search = (req.query.search || '').toUpperCase().trim();
+    const logFile = path.join(LOGS_DIR, 'data-monitor.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    const raw = safeExec(`tail -${lines} "${logFile}"`);
+    if (!raw) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    let allLines = raw.trim().split('\n').filter(Boolean).map(line => {
+      const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\]/);
+      return { time: tsMatch ? tsMatch[1].replace('T', ' ') : '', text: line };
+    });
+    allLines = allLines.filter((l, i, arr) => i === 0 || l.text !== arr[i - 1].text);
+    if (search) allLines = allLines.filter(l => l.text.toUpperCase().includes(search));
+    allLines.reverse();
+    res.json({ timestamp: new Date().toISOString(), totalLines: allLines.length, lines: allLines });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /api/mirror-bot-logs ──────────────────────────
 app.get('/api/mirror-bot-logs', (req, res) => {
   try {
     const lines = parseInt(req.query.lines) || 300;
     const search = (req.query.search || '').toUpperCase().trim();
     const logFile = path.join(LOGS_DIR, 'mirror-bot.log');
+    if (!fs.existsSync(logFile)) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    const raw = safeExec(`tail -${lines} "${logFile}"`);
+    if (!raw) {
+      return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
+    }
+    let allLines = raw.trim().split('\n').filter(Boolean).map(line => {
+      const tsMatch = line.match(/\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:[+-]\d{2}:\d{2})?\]/);
+      return { time: tsMatch ? tsMatch[1].replace('T', ' ') : '', text: line };
+    });
+    allLines = allLines.filter((l, i, arr) => i === 0 || l.text !== arr[i - 1].text);
+    if (search) allLines = allLines.filter(l => l.text.toUpperCase().includes(search));
+    allLines.reverse();
+    res.json({ timestamp: new Date().toISOString(), totalLines: allLines.length, lines: allLines });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/market-watch-logs ──────────────────────
+app.get('/api/market-watch-logs', (req, res) => {
+  try {
+    const lines = parseInt(req.query.lines) || 300;
+    const search = (req.query.search || '').toUpperCase().trim();
+    const logFile = path.join(LOGS_DIR, 'market-watch.log');
     if (!fs.existsSync(logFile)) {
       return res.json({ timestamp: new Date().toISOString(), totalLines: 0, lines: [] });
     }
@@ -4092,6 +4151,175 @@ app.delete('/api/dev-cards/:id', (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/emergency-reset ────────────────────────
+// 一键清仓归档：清空调度器 + 终止运行中cron + 平仓 + 归档周期和规则 + 清理一次性cron
+app.post('/api/emergency-reset', async (req, res) => {
+  const results = { dispatcher: null, positions: [], cycles: [], rules: [], cronJobs: [], errors: [] };
+  const startTime = Date.now();
+
+  try {
+    // ── 0. 清空调度器队列 + 终止运行中 cron 任务 ──
+    console.log('[emergency-reset] 步骤 0/5: 清空调度器队列并终止运行中 cron 任务...');
+    try {
+      const http = require('http');
+      const resetDispatcher = () => new Promise((resolve) => {
+        const postData = '';
+        const opts = {
+          hostname: '127.0.0.1', port: 3102, path: '/admin/reset-all',
+          method: 'POST', timeout: 30000,
+          headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(postData) },
+        };
+        const dReq = http.request(opts, (dRes) => {
+          let data = '';
+          dRes.on('data', c => data += c);
+          dRes.on('end', () => {
+            try { resolve(JSON.parse(data)); } catch (e) { resolve({ error: 'parse error', raw: data }); }
+          });
+        });
+        dReq.on('error', (e) => resolve({ error: `调度器未运行: ${e.message}` }));
+        dReq.on('timeout', () => { dReq.destroy(); resolve({ error: '调度器超时' }); });
+        dReq.write(postData);
+        dReq.end();
+      });
+      results.dispatcher = await resetDispatcher();
+      console.log('[emergency-reset] 调度器清理结果:', JSON.stringify(results.dispatcher));
+    } catch (e) {
+      results.errors.push(`调度器清理失败: ${e.message}`);
+    }
+
+    // ── 1. 平仓所有实盘仓位 ──
+    console.log('[emergency-reset] 步骤 1/5: 获取并关闭所有实盘仓位...');
+    const allPositions = okxCli('account positions');
+    if (allPositions && Array.isArray(allPositions)) {
+      for (const pos of allPositions) {
+        const instId = pos.instId;
+        const instType = pos.instType; // SWAP, FUTURES, SPOT
+        try {
+          if (instType === 'SWAP') {
+            const mgnMode = pos.mgnMode || 'cross';
+            const posSide = pos.posSide || 'net';
+            okxCli(`swap close --instId ${instId} --mgnMode ${mgnMode} --posSide ${posSide}`);
+            results.positions.push({ instId, type: 'SWAP', action: 'closed' });
+            console.log(`[emergency-reset] 已平仓: ${instId} (SWAP)`);
+          } else if (instType === 'FUTURES') {
+            const mgnMode = pos.mgnMode || 'cross';
+            const posSide = pos.posSide || 'net';
+            okxCli(`futures close --instId ${instId} --mgnMode ${mgnMode} --posSide ${posSide}`);
+            results.positions.push({ instId, type: 'FUTURES', action: 'closed' });
+            console.log(`[emergency-reset] 已平仓: ${instId} (FUTURES)`);
+          } else if (instType === 'SPOT') {
+            // Spot 持仓用市价卖出
+            const sz = pos.availBal || pos.cashBal || '0';
+            if (parseFloat(sz) > 0) {
+              okxCli(`spot place --instId ${instId} --side sell --ordType market --sz ${sz} --tgtCcy quote_ccy`);
+              results.positions.push({ instId, type: 'SPOT', action: 'market-sell' });
+              console.log(`[emergency-reset] 已市价卖出: ${instId} (SPOT)`);
+            }
+          }
+        } catch (e) {
+          results.positions.push({ instId, type: instType, action: 'failed', error: e.message });
+          results.errors.push(`平仓失败 ${instId}: ${e.message}`);
+        }
+      }
+    } else {
+      results.positions.push({ note: '无持仓或获取失败' });
+    }
+
+    // ── 2. 归档所有活跃周期 ──
+    console.log('[emergency-reset] 步骤 2/5: 归档所有活跃周期...');
+    const activeCycles = listDirs(ACTIVE_DIR);
+    for (const cycleId of activeCycles) {
+      try {
+        const archiveScript = path.join(SCRIPTS_DIR, 'archive-cycle.js');
+        const cmd = `node "${archiveScript}" --cycle "${cycleId}" --by manual --reason "紧急重置-一键清仓归档"`;
+        const output = safeExec(cmd);
+        if (output !== null) {
+          results.cycles.push({ cycleId, success: true });
+          console.log(`[emergency-reset] 已归档周期: ${cycleId}`);
+        } else {
+          results.cycles.push({ cycleId, success: false, error: '脚本执行失败' });
+          results.errors.push(`归档周期失败 ${cycleId}`);
+        }
+      } catch (e) {
+        results.cycles.push({ cycleId, success: false, error: e.message });
+        results.errors.push(`归档周期异常 ${cycleId}: ${e.message}`);
+      }
+    }
+
+    // ── 3. 归档所有剩余活跃规则 ──
+    console.log('[emergency-reset] 步骤 3/5: 归档所有剩余活跃规则...');
+    try {
+      const ruleFiles = listFiles(RULES_DIR).filter(f => f.endsWith('.js'));
+      for (const file of ruleFiles) {
+        try {
+          const srcPath = path.join(RULES_DIR, file);
+          let destPath = path.join(RULES_ARCHIVE_DIR, file);
+          // 如果归档目录已有同名文件，加时间戳后缀
+          if (fs.existsSync(destPath)) {
+            const ts = Date.now();
+            const baseName = file.replace(/\.js$/, '');
+            destPath = path.join(RULES_ARCHIVE_DIR, `${baseName}-${ts}.js`);
+          }
+          fs.renameSync(srcPath, destPath);
+          results.rules.push({ file, success: true });
+        } catch (e) {
+          results.rules.push({ file, success: false, error: e.message });
+          results.errors.push(`规则归档失败 ${file}: ${e.message}`);
+        }
+      }
+      console.log(`[emergency-reset] 已归档 ${results.rules.filter(r => r.success).length} 条规则`);
+    } catch (e) {
+      results.errors.push(`规则归档异常: ${e.message}`);
+    }
+
+    // ── 4. 删除所有一次性（非周期定时）cron 任务 ──
+    console.log('[emergency-reset] 步骤 4/5: 清理一次性 cron 任务...');
+    try {
+      const cronRaw = safeExec('openclaw cron list --json 2>&1', { timeout: 15000 });
+      if (cronRaw) {
+        const data = JSON.parse(cronRaw);
+        const list = Array.isArray(data) ? data : (data.jobs || []);
+        for (const job of list) {
+          // 只删除一次性任务（schedule.kind === 'at'），保留循环任务
+          if (job.schedule?.kind === 'at') {
+            try {
+              safeExec(`openclaw cron rm ${job.id}`);
+              results.cronJobs.push({ id: job.id, name: job.name || '(未命名)', action: 'deleted' });
+              console.log(`[emergency-reset] 已删除 cron: ${job.id} (${job.name || '未命名'})`);
+            } catch (e) {
+              results.cronJobs.push({ id: job.id, name: job.name || '(未命名)', action: 'failed', error: e.message });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      results.errors.push(`Cron 清理异常: ${e.message}`);
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[emergency-reset] 完成 (${elapsed}s): 调度器清理+${results.positions.filter(p=>p.action==='closed').length}平仓 ${results.cycles.filter(c=>c.success).length}周期 ${results.rules.filter(r=>r.success).length}规则 ${results.cronJobs.filter(j=>j.action==='deleted').length}cron`);
+
+    res.json({
+      success: results.errors.length === 0,
+      elapsed: `${elapsed}s`,
+      summary: {
+        dispatcherCleared: results.dispatcher?.result?.queueCleared || 0,
+        cronTasksKilled: results.dispatcher?.result?.activeKilled || 0,
+        positionsClosed: results.positions.filter(p => p.action === 'closed' || p.action === 'market-sell').length,
+        cyclesArchived: results.cycles.filter(c => c.success).length,
+        rulesArchived: results.rules.filter(r => r.success).length,
+        cronJobsDeleted: results.cronJobs.filter(j => j.action === 'deleted').length,
+        errors: results.errors.length,
+      },
+      results,
+    });
+  } catch (e) {
+    results.errors.push(`系统异常: ${e.message}`);
+    console.error(`[emergency-reset] 异常: ${e.message}`);
+    res.status(500).json({ success: false, results, error: e.message });
   }
 });
 

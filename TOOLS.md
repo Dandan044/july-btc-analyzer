@@ -209,6 +209,32 @@ execSync(`curl -s --max-time 15 --proxy "${PROXY_URL}" "${url}"`, { encoding: 'u
 > 触发条件：开仓/加仓（由 `monitoredActions` 控制）+ 全周期持仓总数 > `minPositionsForTrigger`（默认 5，Dashboard 设置页可调）。持仓 ≤ 阈值时跳过监督者，避免小仓位过度拦截。
 > 模型由调度器 `high-2` 优先级池决定，与七月模型不同以保证独立视角。
 
+### 市场观测器（market-watch）
+
+WebSocket 驱动的实时市场监控引擎，与旧 `btc-alert` 并行运行。
+
+| 文件 | 用途 |
+|------|------|
+| `skills/market-watch/engine.js` | PM2 常驻进程，主循环（周期扫描 + WS 整合） |
+| `skills/market-watch/ws-client.js` | WebSocket 连接管理（OKX 公共频道，通过代理） |
+| `skills/market-watch/data-store.js` | 内存数据存储（baseline + current 快照） |
+| `skills/market-watch/triggers.js` | 阈值触发检测（价格/OI/费率变动 ≥ 阈值） |
+| `skills/market-watch/dispatcher.js` | 触发后异步调用 stage1-instant.js → 调度器派发 LLM |
+| `skills/market-watch/config.json` | 阈值 + 订阅配置 |
+
+**工作原理：** WebSocket 实时订阅 ticker/OI/费率 → 内存对比基线 → 超阈值 → stage1-instant → 调度器 → LLM 即时分析。
+
+**策略：** 仅监控有持仓的币种 + `alwaysWatch`（BTC）。持仓变化时自动订阅/退订。
+
+**与 btc-alert 的关系：** 互补运行。market-watch 做「什么时候该关注」的宏观异动检测；btc-alert 做「关注后具体监控什么价位」的精准价位监控。
+
+```bash
+pm2 logs market-watch      # 查看日志
+pm2 restart market-watch   # 重启
+```
+
+日志：`logs/market-watch.log`。Dashboard → 📡 扫描日志 → 📡 市场观测 可实时查看。
+
 ### 持仓全面审视（position-monitor）
 
 | 文件 | 用途 |
@@ -247,9 +273,13 @@ CLI：`onchainos`（v2.5.0，`~/.local/bin/onchainos`）。完整参考：`okx-d
 # 查看所有服务
 pm2 list
 
-# 警报器引擎
+# 警报器引擎（旧）
 pm2 logs btc-alert
 pm2 restart btc-alert
+
+# 市场观测器（新）
+pm2 logs market-watch
+pm2 restart market-watch
 
 # 持仓审计
 pm2 logs position-monitor

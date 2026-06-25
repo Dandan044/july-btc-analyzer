@@ -1,0 +1,38 @@
+{
+  "ws": {
+    "url": "wss://ws.okx.com:8443/ws/v5/public",
+    "proxy": "http://127.0.0.1:7890",
+    "reconnectMs": 5000,
+    "pingIntervalMs": 30000
+  },
+
+  "thresholds": {
+    "default": {
+      "priceDeltaPct": 3,
+      "oiDeltaPct": 3,
+      "fundingRateDelta": 0.005,
+      "cooldownMs": 1800000
+    },
+    "perCoin": {
+      "BTC": { "priceDeltaPct": 1.5, "oiDeltaPct": 2 },
+      "PEPE": { "priceDeltaPct": 8, "oiDeltaPct": 10, "fundingRateDelta": 0.015 },
+      "BABY": { "priceDeltaPct": 6, "oiDeltaPct": 8 }
+    }
+  },
+
+  "scan": {
+    "intervalMs": 60000,
+    "alwaysWatch": ["BTC"]
+  },
+
+  "dispatch": {
+    "script": "../../scripts/stage1-instant.js",
+    "dispatcher": "../../scripts/dispatch.js",
+    "defaultPriority": "high-1",
+    "timeoutMs": 35000
+  },
+
+  "log": {
+    "file": "../../logs/market-watch.log"
+  }
+}

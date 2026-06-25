@@ -47,7 +47,7 @@ case "$PROFILE" in
   alt)
     LAST_RUN_FILE="$WORKSPACE/data/last-scanner-run.txt"
     INTERVAL_KEY="scannerIntervalMin"
-    DEFAULT_INTERVAL=15
+    DEFAULT_INTERVAL=5
     PREP_MODE="alt"
     JOB_PREFIX="alt-sentiment"
     TASK_FILE="tasks/pipeline/stage1.md"
@@ -81,8 +81,9 @@ if [ -f "$LAST_RUN_FILE" ]; then
   LAST_EPOCH=$(date -d "$LAST_RUN" +%s 2>/dev/null || echo 0)
   NOW_EPOCH=$(date +%s)
   ELAPSED_MIN=$(( (NOW_EPOCH - LAST_EPOCH) / 60 ))
-  if [ "$ELAPSED_MIN" -lt "$((INTERVAL_MIN - 1))" ]; then
-    echo "[$NOW] 距上次扫描 ${ELAPSED_MIN}min < ${INTERVAL_MIN}min，跳过本轮"
+  COOLDOWN_MIN=3
+  if [ "$ELAPSED_MIN" -lt "$COOLDOWN_MIN" ]; then
+    echo "[$NOW] 距上次扫描 ${ELAPSED_MIN}min < 冷却 ${COOLDOWN_MIN}min，跳过本轮"
     echo "[$NOW] ========== scanner-runner 结束（间隔跳过）=========="
     exit 0
   fi

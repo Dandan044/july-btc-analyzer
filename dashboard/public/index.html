@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>七月-V0.1.3 Agent量化平台</title>
+<title>七月-V0.1.4 Agent量化平台</title>
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -3479,7 +3479,7 @@ select:focus { border-color:var(--accent); }
   <div class="header-inner">
     <div class="logo">
       <span class="dot" id="engine-dot"></span>
-      <span class="title-text">七月-V0.1.3 Agent量化平台</span>
+      <span class="title-text">七月-V0.1.4 Agent量化平台</span>
     </div>
     <div class="refresh-info" id="refresh-info">
       <div class="refresh-left">
@@ -3710,6 +3710,8 @@ select:focus { border-color:var(--accent); }
         <button class="scanlog-mode-pill" data-mode="onchain" onclick="setScanLogMode('onchain')">🔗 链上刷新</button>
         <button class="scanlog-mode-pill" data-mode="archiver" onclick="setScanLogMode('archiver')">🗄️ 周期归档</button>
         <button class="scanlog-mode-pill" data-mode="mirror" onclick="setScanLogMode('mirror')">🪞 镜像日志</button>
+        <button class="scanlog-mode-pill" data-mode="marketwatch" onclick="setScanLogMode('marketwatch')">📡 市场观测</button>
+        <button class="scanlog-mode-pill" data-mode="datamonitor" onclick="setScanLogMode('datamonitor')">📡 数据监控</button>
         <input type="text" class="scanlog-search" id="scanlog-search" placeholder="搜索币种..." oninput="onScanLogSearch()" autocomplete="off" spellcheck="false">
       </div>
       <!-- 结构化命中列表 -->
@@ -3734,6 +3736,14 @@ select:focus { border-color:var(--accent); }
       </div>
       <!-- 镜像日志视图 -->
       <div class="scanlog-raw-list" id="mirror-raw-list" style="display:none;">
+        <div class="scanlog-empty">加载中...</div>
+      </div>
+      <!-- 市场观测日志视图 -->
+      <div class="scanlog-raw-list" id="marketwatch-raw-list" style="display:none;">
+        <div class="scanlog-empty">加载中...</div>
+      </div>
+      <!-- 数据监控日志视图 -->
+      <div class="scanlog-raw-list" id="datamonitor-raw-list" style="display:none;">
         <div class="scanlog-empty">加载中...</div>
       </div>
     </div>
@@ -3808,6 +3818,7 @@ select:focus { border-color:var(--accent); }
     <span class="label">活跃周期</span>
     <div class="line"></div>
     <button class="btn btn-ghost btn-sm" onclick="spinRefresh(this, refreshOverview)">🔄</button>
+    <button class="btn btn-danger btn-sm" id="emergency-reset-btn" onclick="emergencyReset()" title="归档所有活跃周期和规则、平仓所有实盘仓位、清理一次性cron任务">⚠️ 一键清仓归档</button>
   </div>
 
   <!-- Cycle Toolbar -->
@@ -4238,6 +4249,7 @@ select:focus { border-color:var(--accent); }
       <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
         <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">扫描频率</label>
         <select id="setting-scanner-interval" onchange="saveSettingScannerInterval()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
+          <option value="5">每 5 分钟</option>
           <option value="15">每 15 分钟</option>
           <option value="30">每 30 分钟</option>
           <option value="60">每 1 小时</option>
@@ -4248,7 +4260,7 @@ select:focus { border-color:var(--accent); }
         <span style="font-size:0.75rem;color:var(--text-muted);" id="setting-interval-current">—</span>
         <span style="font-size:0.75rem;" id="setting-interval-saved"></span>
       </div>
-      <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">系统 crontab 每 15 分钟触发 runner，runner 根据此频率判断是否实际执行扫描</div>
+      <div style="font-size:0.7rem;color:var(--text-muted);margin-top:8px;">系统 crontab 每 5 分钟触发 runner，runner 根据此频率 + 3 分钟冷却判断是否实际执行扫描</div>
     </div>
   </div>
 
@@ -4266,6 +4278,7 @@ select:focus { border-color:var(--accent); }
       <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
         <label style="color:var(--text-secondary);font-size:0.8rem;white-space:nowrap;">扫描频率</label>
         <select id="setting-zhuang-scanner-interval" onchange="saveSettingZhuangScannerInterval()" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-card);color:var(--text-primary);font-size:0.85rem;outline:none;">
+          <option value="5">每 5 分钟</option>
           <option value="15">每 15 分钟</option>
           <option value="30">每 30 分钟</option>
           <option value="60">每 1 小时</option>
@@ -4723,6 +4736,51 @@ async function spinRefresh(btn, fn) {
   btn.disabled = true;
   try { await fn(); }
   finally { btn.classList.remove('spinning'); btn.disabled = false; }
+}
+
+// ── 一键清仓归档 ────────────────────────────────────
+async function emergencyReset() {
+  const btn = document.getElementById('emergency-reset-btn');
+
+  // 第一步: 确认
+  if (!confirm('⚠️ 确定要执行一键清仓归档吗？\n\n此操作将:\n• 平仓所有实盘仓位（市价）\n• 归档所有活跃周期\n• 归档所有活跃规则\n• 删除所有一次性 cron 任务\n\n此操作不可逆！')) return;
+
+  // 第二步: 二次确认
+  if (!confirm('⚠️⚠️ 最后确认: 真的要清仓归档全部内容吗？\n\n请确认你没有误触。')) return;
+
+  // 禁用按钮，显示进度
+  btn.disabled = true;
+  btn.textContent = '⏳ 执行中...';
+  btn.style.opacity = '0.7';
+
+  try {
+    const res = await fetch('/api/emergency-reset', { method: 'POST' });
+    const data = await res.json();
+
+    const s = data.summary;
+    let msg = `✅ 一键清仓归档完成 (${data.elapsed})\n\n`;
+    msg += `🔀 调度器: 清空${s.dispatcherCleared}队列, 终止${s.cronTasksKilled}运行中任务\n`;
+    msg += `💰 平仓: ${s.positionsClosed} 个仓位\n`;
+    msg += `📦 归档周期: ${s.cyclesArchived} 个\n`;
+    msg += `🔔 归档规则: ${s.rulesArchived} 条\n`;
+    msg += `⏱ 删除 cron: ${s.cronJobsDeleted} 个\n`;
+    if (s.errors > 0) {
+      msg += `\n⚠️ 错误: ${s.errors} 个`;
+      if (data.results?.errors?.length) {
+        msg += '\n' + data.results.errors.slice(0, 5).join('\n');
+      }
+    }
+
+    alert(msg);
+
+    // 刷新页面
+    location.reload();
+  } catch (e) {
+    alert('❌ 执行失败: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '⚠️ 一键清仓归档';
+    btn.style.opacity = '1';
+  }
 }
 
 const API = {
@@ -7656,9 +7714,12 @@ function _renderPm2Filtered() {
     'cron-dispatcher': '📋 Cron 调度器 — 优先级队列 + 模型负载感知派发',
     'cron-name-cache': '🗂️ Cron 名称缓存 — cron job 名称本地缓存服务',
     'cycle-auto-archiver': '🗄️ 周期自动归档 — 每 15min 扫描僵尸周期并归档',
+    'data-monitor': '📡 实盘数据层 — 5s 轮询仓位+algo → 写共享缓存 + 检测仓位变动',
     'july-dashboard': '📊 监控面板 — Web 状态面板 + 配置管理',
     'july-report-monitor': '📝 报告监控 — 报告生成状态追踪',
-    'position-monitor': '🔍 持仓审计 — 每 3h 检查实盘持仓 + 派发审计任务',
+    'market-watch': '👁️ 市场观测器 — WebSocket 实时异动检测 (OI/费率/价格)',
+    'mirror-bot': '🪞 反向镜像引擎 — 读共享缓存 → 镜像账户反向跟单',
+    'position-monitor': '🔍 持仓审计 — 每 3h 检查实盘持仓 + 派发审计任务 (已暂停)',
     'silence-monitor': '🔇 静默监控 — 检测调度器/警报器静默异常',
   };
   grid.innerHTML = procs.map(p => {
@@ -8126,11 +8187,13 @@ async function loadSystem() {
       'cron-dispatcher': '📋 Cron 调度器 — 优先级队列 + 模型负载感知派发',
       'cron-name-cache': '🗂️ Cron 名称缓存 — cron job 名称本地缓存服务',
       'cycle-auto-archiver': '🗄️ 周期自动归档 — 每 15min 扫描僵尸周期并归档',
+      'data-monitor': '📡 实盘数据层 — 5s 轮询仓位+algo → 写共享缓存 + 检测仓位变动',
       'july-dashboard': '📊 监控面板 — Web 状态面板 + 配置管理',
       'july-report-monitor': '📝 报告监控 — 报告生成状态追踪',
+      'market-watch': '👁️ 市场观测器 — WebSocket 实时异动检测 (OI/费率/价格)',
+      'mirror-bot': '🪞 反向镜像引擎 — 读共享缓存 → 镜像账户反向跟单',
       'position-monitor': '🔍 持仓审计 — 每 3h 检查实盘持仓 + 派发审计任务',
       'silence-monitor': '🔇 静默监控 — 检测调度器/警报器静默异常',
-      'mirror-bot': '🪞 反向镜像引擎 — 全币种镜像七月实盘，方向/TP/SL 反转',
     };
     document.getElementById('pm2-grid').innerHTML = d.pm2.map(p => {
       const isCron = !!p.cronRestart;
@@ -9036,12 +9099,12 @@ function startPositionsTimer() {
   if (positionsTimer) clearInterval(positionsTimer);
   refreshPositionsCard();
   positionsTimer = setInterval(() => {
-    // 只在当前可见视图刷新
-    if (poslogMode === 'positions') refreshPositionsCard();
+    // 只在当前可见视图刷新（5s 对齐 mirror-bot 写缓存频率）
+    if (poslogMode === 'positions') { refreshPositionsCard(); loadLivePnl(); }
     else if (poslogMode === 'reports') refreshAuditReports(false);
     else if (poslogMode === 'log') refreshAuditLog(false);
     // 镜像模式下隐藏暴露度面板已在 toggleMirrorMode 处理
-  }, 30000);
+  }, 5000);
 }
 
 // ── 实盘仓位卡片：审计报告 / 日志 模式切换 ─────────
@@ -9417,6 +9480,8 @@ let scanLogData = null;
 let silenceLogData = null;
 let onchainLogData = null;
 let archiverLogData = null;
+let marketWatchLogData = null;
+let dataMonitorLogData = null;
 let scanLogSearchTimer = null;
 
 function setScanLogMode(mode) {
@@ -9427,16 +9492,21 @@ function setScanLogMode(mode) {
   const isOnchain = (mode === 'onchain');
   const isArchiver = (mode === 'archiver');
   const isMirror = (mode === 'mirror');
+  const isMW = (mode === 'marketwatch');
   document.getElementById('scanlog-hits-list').style.display = isScanner && mode === 'hits' ? '' : 'none';
   document.getElementById('scanlog-raw-list').style.display = isScanner && mode === 'raw' ? '' : 'none';
   document.getElementById('silence-raw-list').style.display = isSilence ? '' : 'none';
   document.getElementById('onchain-raw-list').style.display = isOnchain ? '' : 'none';
   document.getElementById('archiver-raw-list').style.display = isArchiver ? '' : 'none';
   document.getElementById('mirror-raw-list').style.display = isMirror ? '' : 'none';
+  document.getElementById('marketwatch-raw-list').style.display = isMW ? '' : 'none';
+  document.getElementById('datamonitor-raw-list').style.display = (mode === 'datamonitor') ? '' : 'none';
   if (isSilence) { renderSilenceLog(); }
   else if (isOnchain) { renderOnchainLog(); }
   else if (isArchiver) { renderArchiverLog(); }
   else if (isMirror) { refreshMirrorLog(); }
+  else if (isMW) { refreshMarketWatchLog(); }
+  else if (mode === 'datamonitor') { refreshDataMonitorLog(); }
   else { renderScanLog(); }
 }
 
@@ -9447,6 +9517,8 @@ function onScanLogSearch() {
     else if (scanLogMode === 'onchain') refreshOnchainLog();
     else if (scanLogMode === 'archiver') refreshArchiverLog();
     else if (scanLogMode === 'mirror') refreshMirrorLog();
+    else if (scanLogMode === 'marketwatch') refreshMarketWatchLog();
+    else if (scanLogMode === 'datamonitor') refreshDataMonitorLog();
     else refreshScanLog();
   }, 300);
 }
@@ -9579,6 +9651,77 @@ function renderMirrorLog() {
     else if (t.includes('🟢') || t.includes('📌')) cls = 'style="color:var(--green);"';
     else if (t.includes('🔄') || t.includes('📐')) cls = 'style="color:var(--accent);"';
     else if (t.includes('🗑️') || t.includes('🧹')) cls = 'style="color:var(--orange);"';
+    return `<div class="scanlog-raw-line" ${cls}>${escapeHtml(l.text)}</div>`;
+  }).join('');
+}
+
+async function refreshMarketWatchLog() {
+  const timeEl = document.getElementById('scanlog-refresh-time');
+  const countEl = document.getElementById('scanlog-count-info');
+  try {
+    const data = await API.get('/api/market-watch-logs?lines=300');
+    marketWatchLogData = data;
+    if (countEl) countEl.textContent = data.totalLines ? `(${data.totalLines} 条)` : '';
+    if (timeEl) timeEl.textContent = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    renderMarketWatchLog();
+  } catch (e) {
+    const el = document.getElementById('marketwatch-raw-list');
+    if (el) el.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+  }
+}
+
+function renderMarketWatchLog() {
+  const data = marketWatchLogData;
+  const el = document.getElementById('marketwatch-raw-list');
+  if (!el || !data) return;
+  if (!data.lines || data.lines.length === 0) {
+    el.innerHTML = '<div class="scanlog-empty">暂无市场观测日志</div>';
+    return;
+  }
+  el.innerHTML = data.lines.map(l => {
+    let cls = '';
+    const t = l.text || '';
+    if (t.includes('❌') || t.includes('ERROR') || t.includes('失败')) cls = 'style="color:var(--red);"';
+    else if (t.includes('⚠️') || t.includes('WARN')) cls = 'style="color:var(--orange);"';
+    else if (t.includes('基线') || t.includes('已注册')) cls = 'style="color:var(--green);"';
+    else if (t.includes('订阅') || t.includes('WS') || t.includes('已连接')) cls = 'style="color:var(--accent);"';
+    else if (t.includes('触发') || t.includes('dispatch') || t.includes('DISP')) cls = 'style="color:var(--yellow); font-weight:600;"';
+    return `<div class="scanlog-raw-line" ${cls}>${escapeHtml(l.text)}</div>`;
+  }).join('');
+}
+
+async function refreshDataMonitorLog() {
+  const timeEl = document.getElementById('scanlog-refresh-time');
+  const countEl = document.getElementById('scanlog-count-info');
+  try {
+    const data = await API.get('/api/data-monitor-logs?lines=300');
+    dataMonitorLogData = data;
+    if (countEl) countEl.textContent = data.totalLines ? `(${data.totalLines} 条)` : '';
+    if (timeEl) timeEl.textContent = new Date(data.timestamp).toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    renderDataMonitorLog();
+  } catch (e) {
+    const el = document.getElementById('datamonitor-raw-list');
+    if (el) el.innerHTML = '<div class="scanlog-empty">获取失败: ' + (e.message || '网络错误') + '</div>';
+  }
+}
+
+function renderDataMonitorLog() {
+  const data = dataMonitorLogData;
+  const el = document.getElementById('datamonitor-raw-list');
+  if (!el || !data) return;
+  if (!data.lines || data.lines.length === 0) {
+    el.innerHTML = '<div class="scanlog-empty">暂无数据监控日志</div>';
+    return;
+  }
+  el.innerHTML = data.lines.map(l => {
+    let cls = '';
+    const t = l.text || '';
+    if (t.includes('❌') || t.includes('ERROR') || t.includes('失败')) cls = 'style="color:var(--red);"';
+    else if (t.includes('⚠️') || t.includes('WARN')) cls = 'style="color:var(--orange);"';
+    else if (t.includes('🆕') || t.includes('就绪') || t.includes('启动')) cls = 'style="color:var(--green);"';
+    else if (t.includes('⏭') || t.includes('SKIP')) cls = 'style="color:var(--text-muted);"';
+    else if (t.includes('🔥') || t.includes('TRIGGER') || t.includes('归档') || t.includes('archive')) cls = 'style="color:var(--yellow); font-weight:600;"';
+    else if (t.includes('📉') || t.includes('仓位') || t.includes('→')) cls = 'style="color:var(--accent);"';
     return `<div class="scanlog-raw-line" ${cls}>${escapeHtml(l.text)}</div>`;
   }).join('');
 }

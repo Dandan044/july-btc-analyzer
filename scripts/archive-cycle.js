@@ -164,6 +164,7 @@ function log(msg, level) {
 function detectCycleType(cycleId) {
   if (cycleId.startsWith('cycle-')) return 'btc';
   if (cycleId.startsWith('zhuang-')) return 'zhuang';
+  if (cycleId.startsWith('mw-')) return 'altcoin';
   if (cycleId.startsWith('alt-')) return 'altcoin';
   return 'unknown';
 }

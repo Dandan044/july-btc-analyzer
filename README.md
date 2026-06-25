@@ -2,7 +2,10 @@
 
 > 专注于加密货币技术分析的智能体，每天定时提供市场报告，并可根据分析结果动态创建市场警报。
 > 
-> **v16 更新**：庄币流程统一重构 + 分析质量三道防线 + BTC 宏观环境感知 + 监督者升级 + 挂单开仓 + 方向承诺机制 + 异动检测引擎 + 阶段三逐仓改造 + 组合暴露度筛选器 + 头仓试探模式。
+> **v0.1.4 更新**：市场观测器上线（WebSocket 实时异动检测）+ 镜像机器人共享缓存架构 + Dashboard 紧急清仓归档 + 数据层独立监控 + 持仓全面审视系统 + 周期守护者重构 + 网格压测工具 + 10+ 篇交易复盘。
+> 详见 `changelog/` 目录下 2026-06-15 至 2026-06-25 各篇日志。
+>
+> **v0.1.3**：庄币流程统一重构 + 分析质量三道防线 + BTC 宏观环境感知 + 监督者升级 + 挂单开仓 + 方向承诺机制 + 异动检测引擎 + 阶段三逐仓改造 + 组合暴露度筛选器 + 头仓试探模式。
 > 详见 `changelog/` 目录下 2026-05-29 至 2026-06-15 各篇日志。
 
 ## 🚀 快速开启
@@ -331,8 +334,68 @@ env: {
 
 ## 更新日志
 
-### 2026-06-15
-> 🚀 v16 — 庄币流程统一重构 + 分析质量三道防线 + BTC 宏观感知 + 监督者升级 + 挂单开仓 + 方向承诺 + 异动检测 + 逐仓改造 + 头仓试探
+### 2026-06-25
+> 🚀 v0.1.4 — 市场观测器 + 共享缓存架构 + Dashboard 紧急重置 + 数据层独立监控 + 持仓全面审视 + 周期守护者重构
+
+**① 📡 市场观测器上线（`skills/market-watch/`）：**
+- WebSocket 驱动的实时市场监控引擎，与旧 `btc-alert` 并行运行
+- 主循环（周期扫描 + WS 整合）+ WebSocket 连接管理 + 内存数据存储 + 阈值触发检测 + 异步派发
+- 仅监控有持仓的币种 + `alwaysWatch`（BTC），持仓变化时自动订阅/退订
+- 与 btc-alert 互补：market-watch 做宏观异动检测，btc-alert 做精准价位监控
+- PM2 托管为 `市场脉动` 进程
+
+**② 🪞 镜像机器人共享缓存架构（`scripts/mirror-bot.js`）：**
+- 新增 `buildSourceSnapshotFromCache()`：从共享缓存构建源持仓快照，替代独立 OKX API 调用
+- 共享缓存写入 `data/okx-positions-cache.json`，Dashboard 和 mirror-bot 共用
+- 减少冗余 API 调用，降低 OKX 限流风险
+- 持仓同步日志统一到 `logs/mirror-bot.log`
+
+**③ 🔴 Dashboard 紧急清仓归档（`dashboard/public/index.html` + `scripts/cron-dispatcher.js`）：**
+- 新增「⚠️ 一键清仓归档」按钮：市价平仓所有实盘仓位 + 归档所有活跃周期 + 归档所有活跃规则 + 删除一次性 cron
+- 双重确认机制防止误触
+- 调度器新增 `POST /admin/reset-all` 端点：清空队列 + 终止运行中一次性 cron 任务
+- market-watch 周期（`mw-{COIN}-{TS}`）分类支持
+- 市场简报 JSON 解析容错（跳过损坏文件，遍历直到成功）
+
+**④ 📊 数据层独立监控（`scripts/data-monitor.js`）：**
+- 新增数据监控脚本，Dashboard 扫描日志可查看
+- 独立于交易流程的数据完整性检查
+
+**⑤ 📋 持仓全面审视系统（`scripts/position-monitor.js` + `tasks/position-monitor.md`）：**
+- PM2 常驻进程，每 3h 检查实盘持仓
+- 自动派发审计任务：逐仓位盈亏复查 + 市场环境复核 + 决策执行
+- 仅当 OKX 实盘持仓 > 0 时触发
+- PM2 托管为 `持仓审计` 进程
+
+**⑥ 🛡️ 周期守护者重构（`scripts/cycle-guardian.js`）：**
+- 替代旧 `cycle-auto-archiver.js`，更名为「静默巡检-周期清理」
+- 增强空周期清理逻辑与日志记录
+
+**⑦ ⚡ 网格压测工具（`scripts/grid-screener.sh` / `grid-screener-v2.sh`）：**
+- 自动化网格策略回测与压力测试
+- 支持 v2 增强版筛选
+
+**⑧ 📡 Dashboard 扫描日志扩展：**
+- 新增「📡 市场观测」和「📡 数据监控」两个日志标签
+- 扫描频率新增 5 分钟选项（原仅 15/30/60 分钟）
+- 系统 crontab 从每 15 分钟改为每 5 分钟触发 runner
+
+**⑨ 📝 任务文件与流程优化：**
+- `tasks/pipeline/modules/` 模块更新：止损仓位计算、交易决策 JSON、警报决策
+- `tasks/pipeline/profiles/analysis-alt.md` 精简
+- `tasks/pipeline/stage2-alt.md` 大幅精简（-146 行）
+- `tasks/alt-intel-stage4.md` 优化警报管理逻辑
+- `scripts/stage3-executor.js` / `scripts/calc-portfolio-exposure.js` 微调
+
+**⑩ 📚 交易复盘与教训积累：**
+- 新增 12 篇复盘报告：ALLO、BICO、ETH、FIL、LIT、LITE、MU、PIPPIN、PUMP、SOXL、SPX×2、TSLA
+- `learnings/PENDING_TRADE_LESSONS.json` 持续积累并精简
+- `TOOLS.md` 新增市场观测器、持仓审计、网格压测等速查
+
+**⑪ ⚙️ PM2 进程更新（`ecosystem.config.js`）：**
+- 新增：`市场脉动`（market-watch）、`持仓审计`（position-monitor）、`网格压测`（grid-screener）
+- 重构：`静默巡检-周期清理`（cycle-guardian 替代 cycle-auto-archiver）
+- 移除：`silence-monitor`
 
 **① 🎯 山寨币/庄币流程统一重构（2026-05-30）：**
 - 双画像（alt + zhuang）合并为统一 `tasks/pipeline/` 目录，共享模块化阶段二（9 个模块 + JSON 清单组装）
